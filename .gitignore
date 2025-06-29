@@ -1,0 +1,60 @@
+# Компилированный код Java
+*.class
+target/
+bin/
+
+# Файлы IntelliJ IDEA
+.idea/
+.gigaide/
+*.iml
+*.iws
+*.ipr
+.DS_Store
+
+# Файлы сборки Maven
+mvnw
+mvnw.cmd
+.mvn/wrapper/maven-wrapper.jar
+.mvn/wrapper/maven-wrapper.properties
+
+# Файлы сборки Gradle (если используется Gradle)
+.gradle/
+build/
+settings.gradle.kts
+gradle.properties
+gradlew
+gradlew.bat
+
+# Лог-файлы
+*.log
+
+# Файлы виртуальной среды (если используются)
+.venv/
+venv/
+
+# Файлы конфигурации, специфичные для локальной разработки (могут содержать пароли!)
+application-local.properties
+application-dev.properties
+*.swp # Файлы подкачки Vim
+*.swo # Файлы подкачки Vim
+
+# Секретные ключи и файлы конфигурации (будьте осторожны!)
+# *.key
+# *.p12
+# config/feature.properties # Если вы хотите игнорировать всю основную конфигурацию
+
+# Файлы Docker (если не коммитите образы)
+# Dockerfile.local
+# docker-compose.override.yml
+
+# Прочие временные файлы и директории
+tmp/
+temp/
+out/
+.cache/
+
+# Файлы отладки
+hs_err_pid*
+
+# Файлы профилирования
+java_pid*
