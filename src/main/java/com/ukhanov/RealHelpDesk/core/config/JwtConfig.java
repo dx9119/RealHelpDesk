@@ -1,9 +1,7 @@
 package com.ukhanov.RealHelpDesk.core.config;
 
 import io.jsonwebtoken.security.Keys;
-import jakarta.annotation.PostConstruct;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
@@ -13,45 +11,58 @@ import java.util.Set;
 @Component
 public class JwtConfig {
 
-    private static final Logger logger = LoggerFactory.getLogger(JwtConfig.class);
+    private final Key jwtKey;
+    private final String issuer;
+    private final Set<String> audience;
+    private final Integer accessTokenExp;
+    private final Integer refreshExp;
 
-    private Key jwtSecret;
-    private String issuer;
-    private Set<String> audience;
-    private Integer accessTokenExp;
-    private Integer refreshExp;
+    public JwtConfig(
+            @Value("${jwt.secret-for-gen-jwt}") String secretForGenJwt,
+            @Value("${jwt.issuer}") String issuer,
+            @Value("${jwt.audience}") Set<String> audience,
+            @Value("${jwt.access-token-expiration}") Integer accessTokenExp,
+            @Value("${jwt.refresh-token-expiration}") Integer refreshExp
+    ) {
+        if (secretForGenJwt == null || secretForGenJwt.isBlank()) {
+            throw new IllegalArgumentException("jwt.secret-for-gen-jwt must not be null or blank");
+        }
 
-    public JwtConfig() {
-        this.issuer = "your-issuer";
-        this.audience = Set.of("audience", "audience2");
-        this.accessTokenExp = 30;
-        this.refreshExp = 1440;
-    }
+        if (issuer == null || issuer.isBlank()) {
+            throw new IllegalArgumentException("jwt.issuer must not be null or blank");
+        }
 
-    @PostConstruct
-    private void init() {
-        reloadSecret();
-    }
+        if (audience == null || audience.isEmpty()) {
+            throw new IllegalArgumentException("jwt.audience must not be null or empty");
+        }
 
-    public void reloadSecret() {
-        String secretEnv = System.getenv("JWT_SECRET");
+        if (accessTokenExp == null || accessTokenExp <= 0) {
+            throw new IllegalArgumentException("jwt.access-token-expiration must be a positive number");
+        }
 
-        if (secretEnv == null || secretEnv.isEmpty()) {
-            logger.error("JWT_SECRET environment variable is not set. Application startup aborted.");
-            throw new IllegalStateException("JWT_SECRET environment variable is missing.");
+        if (refreshExp == null || refreshExp <= 0) {
+            throw new IllegalArgumentException("jwt.refresh-token-expiration must be a positive number");
         }
 
         try {
-            this.jwtSecret = Keys.hmacShaKeyFor(Base64.getDecoder().decode(secretEnv));
-            logger.info("JWT secret successfully loaded.");
+            this.jwtKey = Keys.hmacShaKeyFor(Base64.getDecoder().decode(secretForGenJwt));
         } catch (IllegalArgumentException e) {
-            logger.error("Invalid JWT_SECRET format. Ensure it's correctly Base64 encoded.", e);
-            throw new IllegalStateException("Invalid JWT_SECRET format.");
+            throw new IllegalStateException(
+                    "Failed to decode JWT secret: must be a valid Base64-encoded string of sufficient length for HMAC key generation (e.g. HS256 requires 256-bit key). Hint: use `openssl rand -base64 32` to generate one.",
+                    e
+            );
         }
+
+
+        this.issuer = issuer;
+        this.audience = audience;
+        this.accessTokenExp = accessTokenExp;
+        this.refreshExp = refreshExp;
     }
 
-    public Key getJwtSecret() {
-        return jwtSecret;
+
+    public Key getJwtKey() {
+        return jwtKey;
     }
 
     public String getIssuer() {

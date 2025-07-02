@@ -40,7 +40,7 @@ public class GenTokenService {
                 .issuedAt(Date.from(dateNow))
                 .claim("role", securityUser.getRule())
                 .claim("aud", jwtConfig.getAudience()) //вместо audience().add
-                .signWith((SecretKey) jwtConfig.getJwtSecret())
+                .signWith((SecretKey) jwtConfig.getJwtKey())
                 .compact();
 
 
@@ -63,7 +63,7 @@ public class GenTokenService {
                 .audience().add(jwtConfig.getAudience()).and()
                 .expiration(Date.from(expiry))
                 .issuedAt(Date.from(now))
-                .signWith((SecretKey) jwtConfig.getJwtSecret())
+                .signWith((SecretKey) jwtConfig.getJwtKey())
                 .compact();
 
         RefreshTokenModel jwtRefreshTokenModel = new RefreshTokenModel();

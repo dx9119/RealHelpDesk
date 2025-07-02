@@ -29,7 +29,7 @@ public class DecodeTokenService {
 
         // Распарсиваем для логирования всех claim'ов
         Claims claims = Jwts.parser()
-                .verifyWith((SecretKey) jwtConfig.getJwtSecret())
+                .verifyWith((SecretKey) jwtConfig.getJwtKey())
                 .build()
                 .parseSignedClaims(token.getToken())
                 .getPayload();

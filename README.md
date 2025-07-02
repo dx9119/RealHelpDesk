@@ -17,7 +17,7 @@
 - Извлекает access-токен из заголовка `Authorization: Bearer <token>`.
 - Расшифровывает и проверяет access-токен с помощью `ValidTokenService`
 - Устанавливает аутентификацию в `SecurityContextHolder`.
-- Помечает ошибки токена (истёкший токен, некорректный формат и т.д.) через доп. заголовоки.
+- Помечает ошибки токена (истёкший токен, некорректный формат и т.д.) через доп. заголовки.
 
 ## Структура проекта
 - Core - конфигурация, глобальные исключения, фильтры, токены, пользователи.
@@ -25,10 +25,7 @@
 - Feature - управление порталами, заявками, сообщениями, авторизацией и т.д.
 
 ## Запуск проекта
-1. Задать Environment variables с JWT_SECRET, например:
-`JWT_SECRET=NzAzNGVjODMtODAwZS00MWVkLWIyMTAtMWU3NDQyNzBjNjBm`
-- В IntelliJ IDEA:  
-`Settings → Build, Execution, Deployment → Build Tools → Maven → Runner`
+1. Задать значение для `jwt.secret-for-gen-jwt` в `application.properties`. Это должен быть `HMAC-ключ` длиной не менее 256 бит, закодированный в `Base64`. Получить его можно так: `openssl rand -base64 32`
 2. Поднять postgres с помощью `docker-compose.yaml` в корне проекта:
 3. Запустить через Maven [spring-boot:run]
 
