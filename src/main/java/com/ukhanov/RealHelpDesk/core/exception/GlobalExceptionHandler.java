@@ -8,9 +8,13 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.context.request.WebRequest;
 
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -26,6 +30,7 @@ public class GlobalExceptionHandler {
         logger.debug("Global handler caught ConstraintViolationException: {}", ex.getClass().getName());
 
             Map<String, String> errors = new HashMap<>();
+            errors.put("Source:", "Global handler");
             for (ConstraintViolation<?> violation : ex.getConstraintViolations()) {
                 errors.put(violation.getPropertyPath().toString(), violation.getMessage());
             }
@@ -38,7 +43,8 @@ public class GlobalExceptionHandler {
         logger.debug("Unhandled exception caught: {}", ex.getMessage(), ex);
 
         Map<String, String> response = Map.of(
-                "error", "Operation failed."
+                "Source","Global handler",
+                "Error", "Operation failed."
         );
 
         return ResponseEntity

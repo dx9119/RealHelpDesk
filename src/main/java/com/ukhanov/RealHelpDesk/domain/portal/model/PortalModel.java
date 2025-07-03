@@ -11,15 +11,13 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Table(name = "portals") // Рекомендуется явно указывать имя таблицы
+@Table(name = "portals")
 public class PortalModel {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank(message = "Название портала не может быть пустым")
-    @Size(max = 255, message = "Название портала не может превышать 255 символов")
     @Column(nullable = false, unique = true)
     private String name;
 

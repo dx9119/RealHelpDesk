@@ -35,7 +35,7 @@ public class TicketController {
 
 
     @GetMapping
-    public ResponseEntity<List<TicketResponse>> readTicket (@PathVariable Long portalId) throws TicketException {
+    public ResponseEntity<List<TicketResponse>> readTicket (@Valid @PathVariable Long portalId) throws TicketException {
         List<TicketResponse> response = ticketManageService.getAllTickets(portalId);
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }

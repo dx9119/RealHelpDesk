@@ -1,10 +1,16 @@
 package com.ukhanov.RealHelpDesk.feature.ticketmanager.dto;
 
 import com.ukhanov.RealHelpDesk.domain.ticket.model.TicketPriority;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 public class CreateTicketRequest {
 
+    @NotBlank(message = "Тема заявки не может быть пустой")
+    @Size(max = 255, message = "Тема заявки не может превышать 255 символов")
     private String title;
+
+    @Size(max = 8000, message = "Сообщение не может быть больше 8000 символов")
     private String body;
     private TicketPriority ticketPriority;
 

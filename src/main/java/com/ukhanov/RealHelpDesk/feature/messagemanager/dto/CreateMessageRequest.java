@@ -1,13 +1,14 @@
 package com.ukhanov.RealHelpDesk.feature.messagemanager.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 public class CreateMessageRequest {
 
     @NotBlank(message = "Текст сообщения не может быть пустым")
+    @Size(max = 8000, message = "Сообщение не может быть больше 8000 символов")
     private String messageText;
 
-    // Геттеры и сеттеры
     public String getMessageText() {
         return messageText;
     }
