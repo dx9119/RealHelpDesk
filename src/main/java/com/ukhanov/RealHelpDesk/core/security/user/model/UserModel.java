@@ -2,9 +2,6 @@ package com.ukhanov.RealHelpDesk.core.security.user.model;
 
 import com.ukhanov.RealHelpDesk.core.security.auth.tokens.model.RefreshTokenModel;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 
 import java.time.Instant;
 import java.util.HashSet;
@@ -28,10 +25,6 @@ public class UserModel {
     @Column(nullable = true)
     private String middleName; // Отчество пользователя
 
-    @NotBlank(message = "Email не может быть пустым")
-    @Email(message = "Некорректный формат email")
-    @Pattern(regexp = "^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
-            message = "Email должен содержать только английские буквы, цифры и символы . _ - @")
     @Column(unique = true, nullable = false)
     private String email;
 
