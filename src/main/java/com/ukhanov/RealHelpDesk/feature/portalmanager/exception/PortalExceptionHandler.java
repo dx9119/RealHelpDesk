@@ -22,12 +22,11 @@ public class PortalExceptionHandler {
         HttpStatus status = HttpStatus.CONFLICT;
 
         Map<String, String> error = new HashMap<>();
-        error.put("error", "Logout error");
         error.put("message", ex.getMessage());
         error.put("path", request.getDescription(false));
         error.put("cause", ex.getCause() != null ? ex.getCause().getMessage() : "none");
 
-        logger.debug("Logout handler caught: {}", ex.getClass().getName());
+        logger.debug("Portal handler caught: {}", ex.getClass().getName());
 
         return new ResponseEntity<>(error, status);
     }

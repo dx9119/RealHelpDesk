@@ -22,7 +22,6 @@ public class TicketExceptionHandler {
         HttpStatus status = HttpStatus.CONFLICT;
 
         Map<String, String> error = new HashMap<>();
-        error.put("error", "Logout error");
         error.put("message", ex.getMessage());
         error.put("path", request.getDescription(false));
         error.put("cause", ex.getCause() != null ? ex.getCause().getMessage() : "none");

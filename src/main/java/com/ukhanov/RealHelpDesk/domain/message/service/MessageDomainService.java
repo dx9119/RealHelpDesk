@@ -29,7 +29,7 @@ public class MessageDomainService {
     public List<MessageModel> getMessagesByTicketId(Long ticketId) {
         Objects.requireNonNull(ticketId, "ticketId must not be null");
         logger.debug("Fetching all messages for ticket ID: {}", ticketId);
-        return messageRepository.findByTicket_Id(ticketId);
+        return messageRepository.findByTicketId(ticketId);
     }
 
 }

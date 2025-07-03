@@ -51,7 +51,7 @@ public class TicketDomainService {
     public List<TicketModel> getTicketsByPortalId(Long portalId) {
         Objects.requireNonNull(portalId, "portalId must not be null");
         logger.debug("Fetching all tickets for portal ID: {}", portalId);
-        return ticketRepository.findAllWithPortalByPortalId(portalId);
+        return ticketRepository.findAllByPortalId(portalId);
     }
 
 

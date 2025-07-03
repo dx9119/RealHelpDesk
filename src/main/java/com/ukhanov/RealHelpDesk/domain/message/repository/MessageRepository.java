@@ -11,5 +11,5 @@ import java.util.List;
 public interface MessageRepository extends JpaRepository<MessageModel, Long> {
 
     // Найти все обсуждения по ID заявки
-    List<MessageModel> findByTicket_Id(Long ticketId);
+    List<MessageModel> findByTicketId(Long ticketId);
 }
