@@ -46,7 +46,7 @@ public class UserModel {
 
     // Связь с JWT Refresh-токенами
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
-    private Set<RefreshTokenModel> jwtTokenRefresh = new HashSet<>(); // Инициализация опциональна, но хорошая практика
+    private Set<RefreshTokenModel> jwtTokenRefresh = new HashSet<>();
 
     @Column(nullable = false, updatable = false)
     private Instant createdAt;

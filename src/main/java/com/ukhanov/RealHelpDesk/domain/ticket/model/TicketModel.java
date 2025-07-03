@@ -19,11 +19,11 @@ public class TicketModel {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String body; //Описание
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assigned_user_id")
     private UserModel assignedUser;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "author_id", nullable = false)
     private UserModel author; // создатель заявки
 

@@ -11,7 +11,7 @@ import java.util.List;
 @Repository
 public interface TicketRepository extends JpaRepository<TicketModel, Long> {
 
-    @EntityGraph(attributePaths = {"portal", "assignedUser", "author"})
+    @EntityGraph(attributePaths = {"assignedUser","author","portal"})
     List<TicketModel> findAllByPortalId(@Param("portalId") Long portalId);
 
 
