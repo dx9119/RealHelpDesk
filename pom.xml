@@ -9,19 +9,21 @@
         <relativePath/>
     </parent>
     <groupId>com.ukhanov</groupId>
-    <artifactId>RealHelpDesk</artifactId>
+    <artifactId>realhelpdesk</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>RealHelpDesk</name>
-    <description>Real HelpDesk project</description>
+    <description>A REST API for building an application management system or an internal request processing system.</description>
     <url>https://realhelpdesk.ru/realhelpdesk</url>
     <scm>
         <connection>scm:git:https://github.com/dx9119/RealHelpDesk.git</connection>
         <developerConnection>scm:git:ssh://github.com/dx9119/RealHelpDesk.git</developerConnection>
         <tag>HEAD</tag>
-        <url>https://github.com/your/repository</url>
+        <url>https://github.com/dx9119/RealHelpDesk</url>
     </scm>
     <properties>
         <java.version>21</java.version>
+        <jjwt.version>0.12.6</jjwt.version>
+        <hibernate.validator.version>9.0.0.CR1</hibernate.validator.version>
     </properties>
     <dependencies>
         <!-- Spring Boot Starter для работы с JPA -->
@@ -80,18 +82,18 @@
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
-            <version>0.12.6</version>
+            <version>${jjwt.version}</version>
         </dependency>
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-impl</artifactId>
-            <version>0.12.6</version>
+            <version>${jjwt.version}</version>
             <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-jackson</artifactId>
-            <version>0.12.6</version>
+            <version>${jjwt.version}</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -99,7 +101,7 @@
         <dependency>
             <groupId>org.hibernate.validator</groupId>
             <artifactId>hibernate-validator</artifactId>
-            <version>9.0.0.CR1</version>
+            <version>${hibernate.validator.version}</version>
         </dependency>
 
         <!-- OAuth2 Resource Server -->
@@ -124,7 +126,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <mainClass>com.ukhanov.RealHelpDesk.RealHelpDeskApplication</mainClass>
+                    <mainClass>com.ukhanov.realhelpdesk.RealHelpDeskApplication</mainClass>
                 </configuration>
             </plugin>
         </plugins>

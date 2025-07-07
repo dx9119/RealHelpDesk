@@ -29,12 +29,12 @@
         </encoder>
     </appender>
 
-    <!-- Настройка общего логгера пакета RealHelpDesk -->
-    <logger name="com.ukhanov.RealHelpDesk" level="DEBUG" additivity="false">
+    <!-- Настройка общего логгера пакета realhelpdesk -->
+    <logger name="com.ukhanov.realhelpdesk" level="DEBUG" additivity="false">
         <appender-ref ref="REAL_HELP_DESK"/>
     </logger>
 
-    <!-- Определение appender для RealHelpDesk -->
+    <!-- Определение appender для realhelpdesk -->
     <appender name="REAL_HELP_DESK" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <!-- Формат имени файлов логов с датой и индексом -->
