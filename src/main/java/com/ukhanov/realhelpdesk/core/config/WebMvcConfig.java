@@ -9,11 +9,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/**") // Разрешить CORS для всех путей
-                .allowedOrigins("*") // Разрешить запросы со всех доменов
-                .allowedMethods("*") // Разрешить все HTTP методы
-                .allowedHeaders("*") // Разрешить все заголовки
-                .allowCredentials(false) // Отключить передачу учетных данных (куки, заголовки авторизации)
-                .maxAge(3600); // Продолжительность кэширования предварительного запроса (в секундах)
+        registry.addMapping("/**")
+                .allowedOrigins("*")
+                .allowedMethods("*")
+                .allowedHeaders("*")
+                .allowCredentials(false)
+                .maxAge(3600);
     }
 }

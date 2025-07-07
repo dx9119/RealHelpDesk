@@ -33,11 +33,12 @@ public class WebSecurityConfiguration {
     public SecurityFilterChain filterChain(HttpSecurity http,
                                            LoggingFilter loggingFilter,
                                            JwtAuthFilter jwtAuthFilter) throws Exception {
-        //Фильтры
-        http.addFilterBefore(jwtAuthFilter, BasicAuthenticationFilter.class); //Сначала авторизация по токену
-        http.addFilterBefore(loggingFilter, JwtAuthFilter.class); // Потом логирование SecurityContextHolder
+        // Фильтры
+        // Важно: порядок фильтров нужен для корректного логирования аутентификации через JWT
+        http.addFilterBefore(jwtAuthFilter, BasicAuthenticationFilter.class);
+        http.addFilterBefore(loggingFilter, JwtAuthFilter.class);
 
-        //Доступ
+        // Доступ
         http.authorizeHttpRequests(authorizeHttpRequests -> authorizeHttpRequests
                 .requestMatchers(WhiteUrlConfig.WHITE_LIST_URLS.toArray(String[]::new)).permitAll() // Доступ к whiteLi, как лучше сделать?
                 .anyRequest().authenticated());
