@@ -24,13 +24,13 @@ public class PortalController {
 
     @PostMapping
     public ResponseEntity<CreatePortalResponse> create(@Valid @RequestBody CreatePortalRequest createPortalRequest) throws PortalException {
-        CreatePortalResponse createPortalResponse = portalManageService.createPortal(createPortalRequest);
-        return ResponseEntity.status(HttpStatus.OK).body(createPortalResponse);
+        CreatePortalResponse response = portalManageService.createPortal(createPortalRequest);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping
     public ResponseEntity<List<PortalResponse>> getAll() throws PortalException {
-        List<PortalResponse> allPortals = portalManageService.getAllPortals();
-        return ResponseEntity.status(HttpStatus.OK).body(allPortals);
+        List<PortalResponse> response = portalManageService.getAllPortals();
+        return ResponseEntity.ok(response);
     }
 }

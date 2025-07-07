@@ -28,13 +28,13 @@ public class MessageController {
                                                        @RequestBody CreateMessageRequest request,
                                                        @PathVariable Long ticketId) throws MessageException {
         CreateMessageResponse response = messageManageService.createMessage(request, ticketId);
-        return ResponseEntity.status(HttpStatus.OK).body(response);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping
     public ResponseEntity<List<MessageResponse>> getAllMessages(@PathVariable Long ticketId) throws MessageException {
-        List<MessageResponse> responses = messageManageService.getAllMessage(ticketId);
-        return ResponseEntity.status(HttpStatus.OK).body(responses);
+        List<MessageResponse> response = messageManageService.getAllMessage(ticketId);
+        return ResponseEntity.ok(response);
     }
 
 

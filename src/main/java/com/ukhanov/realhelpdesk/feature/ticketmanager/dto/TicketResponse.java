@@ -16,7 +16,6 @@ public class TicketResponse {
     private TicketStatus ticketStatus;
     private Instant createdAt;
 
-    // Приватный конструктор
     private TicketResponse(Builder builder) {
         this.id = builder.id;
         this.title = builder.title;
@@ -29,7 +28,6 @@ public class TicketResponse {
         this.createdAt = builder.createdAt;
     }
 
-    // Геттеры
     public Long getId() { return id; }
     public String getTitle() { return title; }
     public String getBody() { return body; }
@@ -40,7 +38,7 @@ public class TicketResponse {
     public TicketStatus getTicketStatus() { return ticketStatus; }
     public Instant getCreatedAt() { return createdAt; }
 
-    // Билдер
+
     public static class Builder {
         private Long id;
         private String title;

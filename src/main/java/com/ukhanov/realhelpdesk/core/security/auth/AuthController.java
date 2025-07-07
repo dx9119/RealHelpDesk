@@ -14,7 +14,6 @@ import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokensResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.GetTokenService;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -41,28 +40,28 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<TokensResponse> registration(@Valid @RequestBody RegisterRequest registerRequest)
             throws RegistrationException {
-        TokensResponse tokensResponse = registrationService.processRegistration(registerRequest);
-        return ResponseEntity.status(HttpStatus.CREATED).body(tokensResponse);
+        TokensResponse response = registrationService.processRegistration(registerRequest);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/login")
     public ResponseEntity<TokensResponse> login(@Valid @RequestBody LoginRequest loginRequest) throws TokenException {
-        TokensResponse tokensResponse = loginService.processLogin(loginRequest);
-        return ResponseEntity.status(HttpStatus.OK).body(tokensResponse);
+        TokensResponse response = loginService.processLogin(loginRequest);
+        return ResponseEntity.ok(response);
     }
 
     // Проверка статуса refresh-токена и его срока действия
     @GetMapping("/token")
     public ResponseEntity<TokenStatusResponse> statusToken(@RequestBody TokenBearerRequest token) throws TokenException {
-        return ResponseEntity.status(HttpStatus.OK)
-                .body(getTokenService.getStatusRefreshToken(token));
+        TokenStatusResponse response = getTokenService.getStatusRefreshToken(token);
+        return ResponseEntity.ok(response);
     }
 
     // Отзыв токена
     @DeleteMapping("/token")
     public ResponseEntity<LogoutResponse> revokeToken(@RequestBody TokenBearerRequest token) throws LogoutException, TokenException {
-        return ResponseEntity.status(HttpStatus.OK)
-                .body(logoutService.processLogout(token));
+        LogoutResponse response = logoutService.processLogout(token);
+        return ResponseEntity.ok(response);
     }
 
 }

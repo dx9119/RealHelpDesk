@@ -30,14 +30,14 @@ public class TicketController {
                                                        @RequestBody CreateTicketRequest request,
                                                        @PathVariable Long portalId) throws TicketException {
         CreateTicketResponse response = ticketManageService.createTicket(request, portalId);
-        return ResponseEntity.status(HttpStatus.OK).body(response);
+        return ResponseEntity.ok(response);
     }
 
 
     @GetMapping
     public ResponseEntity<List<TicketResponse>> getTicketsByPortalId (@Valid @PathVariable Long portalId) throws TicketException {
         List<TicketResponse> response = ticketManageService.getAllTickets(portalId);
-        return ResponseEntity.status(HttpStatus.OK).body(response);
+        return ResponseEntity.ok(response);
     }
 
 }
