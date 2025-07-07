@@ -26,7 +26,7 @@ public class TicketController {
     }
 
     @PostMapping
-    public ResponseEntity<CreateTicketResponse> create(@Valid
+    public ResponseEntity<CreateTicketResponse> createTicketForPortal(@Valid
                                                        @RequestBody CreateTicketRequest request,
                                                        @PathVariable Long portalId) throws TicketException {
         CreateTicketResponse response = ticketManageService.createTicket(request, portalId);
@@ -35,14 +35,9 @@ public class TicketController {
 
 
     @GetMapping
-    public ResponseEntity<List<TicketResponse>> readTicket (@Valid @PathVariable Long portalId) throws TicketException {
+    public ResponseEntity<List<TicketResponse>> getTicketsByPortalId (@Valid @PathVariable Long portalId) throws TicketException {
         List<TicketResponse> response = ticketManageService.getAllTickets(portalId);
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
 }
-
-
-
-
-
