@@ -7,6 +7,7 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 
 @Entity
 @Table(name = "portals")
@@ -26,6 +27,11 @@ public class PortalModel {
     @JoinColumn(name = "owner_id", nullable = false)
     private UserModel owner;
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "portal_access", joinColumns = @JoinColumn(name = "portal_id"))
+    @Column(name = "allowed_user_id")
+    private Set<UUID> allowedUserIds;
+
     @OneToMany(mappedBy = "portal", cascade = CascadeType.ALL, orphanRemoval = false, fetch = FetchType.LAZY)
     private Set<TicketModel> tickets = new HashSet<>();
 
@@ -35,6 +41,10 @@ public class PortalModel {
     @PrePersist
     public void setCreatedAt() {
         this.createdAt = Instant.now();
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
     }
 
     public Long getId() {
@@ -63,6 +73,14 @@ public class PortalModel {
 
     public UserModel getOwner() {
         return owner;
+    }
+
+    public Set<UUID> getAllowedUserIds() {
+        return allowedUserIds;
+    }
+
+    public void setAllowedUserIds(Set<UUID> allowedUserIds) {
+        this.allowedUserIds = allowedUserIds;
     }
 
     public void setOwner(UserModel owner) {

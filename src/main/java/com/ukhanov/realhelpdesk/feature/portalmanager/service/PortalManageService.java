@@ -11,6 +11,7 @@ import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.portalmanager.mapper.PortalMapper;
 import com.ukhanov.realhelpdesk.feature.pagination.dto.PageResponse;
 import com.ukhanov.realhelpdesk.feature.pagination.service.PaginationService;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -65,7 +66,7 @@ public class PortalManageService {
                 .toList();
     }
 
-    public PageResponse<PortalResponse> getPagePortals(int page, int size, String sortBy, String order) {
+    public PageResponse<PortalResponse> getPagePortalsByOwner(int page, int size, String sortBy, String order) {
         logger.debug("Received request for paged portals — page: {}, size: {}, sortBy: {}, order: {}", page, size, sortBy, order);
 
         UserModel userModel = currentUserProvider.getCurrentUserModel();
@@ -76,5 +77,51 @@ public class PortalManageService {
 
         return paginationService.mapToResponse(mappedPage, sortBy, order);
     }
+
+    public PageResponse<PortalResponse> getPagePortalsByAccess(int page, int size, String sortBy, String order) {
+        logger.debug("Received request for accessible portals — page: {}, size: {}, sortBy: {}, order: {}", page, size, sortBy, order);
+
+        UserModel userModel = currentUserProvider.getCurrentUserModel();
+        PageRequest pageRequest = paginationService.buildPageRequest(page, size, sortBy, order);
+
+        Page<PortalModel> portalPage = portalDomainService.getPortalPageAccessByUser(userModel.getId(), pageRequest);
+        Page<PortalResponse> mappedPage = portalPage.map(PortalMapper::toResponse);
+
+        return paginationService.mapToResponse(mappedPage, sortBy, order);
+    }
+
+    public void grantUserAccessToPortal(Long portalId, UUID newAccessUserId) throws PortalException {
+        Objects.requireNonNull(portalId, "portalId must not be null");
+        Objects.requireNonNull(newAccessUserId, "userId must not be null");
+
+        PortalModel portal = portalDomainService.getPortalById(portalId);
+        UUID currentUserId = currentUserProvider.getCurrentUserModel().getId();
+        if(!validateAccessPortal(portal, currentUserId)){
+            throw new PortalException("Только создатель портала имеет право на изменения списка пользователей");
+        }
+
+        if (portal.getAllowedUserIds().contains(currentUserId)) {
+            logger.debug("User {} already has access to portal {}", newAccessUserId, portalId);
+            throw new PortalException("Пользователь уже имеет доступ к порталу");
+        }
+
+        if (!portal.getAllowedUserIds().add(newAccessUserId)) {
+            logger.debug("Failed to add user {} to portal {}", newAccessUserId, portalId);
+            throw new PortalException("Не удалось предоставить пользователю доступ к порталу");
+        }
+
+        logger.info("Granting user {} access to portal {}", newAccessUserId, portalId);
+        portalDomainService.savePortal(portal);
+    }
+
+    public boolean validateAccessPortal(PortalModel portal, UUID userId) {
+        if (!portal.getOwner().getId().equals(userId)) {
+            logger.debug("User {} is not the owner of portal {}", userId, portal.getId());
+            return false;
+        }
+        return true;
+    }
+
+
 }
 

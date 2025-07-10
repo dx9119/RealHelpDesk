@@ -8,10 +8,14 @@ import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 import com.ukhanov.realhelpdesk.domain.ticket.service.TicketDomainService;
 import com.ukhanov.realhelpdesk.feature.pagination.dto.PageResponse;
 import com.ukhanov.realhelpdesk.feature.pagination.service.PaginationService;
+import com.ukhanov.realhelpdesk.feature.portalmanager.service.PortalManageService;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketRequest;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketResponse;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponse;
+import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.mapper.TicketMapper;
+import java.util.Set;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -33,11 +37,13 @@ public class TicketManageService {
     public TicketManageService(TicketDomainService ticketDomainService,
                                CurrentUserProvider currentUserProvider,
                                PortalDomainService portalDomainService,
-        PaginationService paginationService) {
+        PaginationService paginationService,
+        PortalManageService portalManageService) {
         this.ticketDomainService = ticketDomainService;
         this.currentUserProvider = currentUserProvider;
         this.portalDomainService = portalDomainService;
       this.paginationService = paginationService;
+
     }
 
     public CreateTicketResponse createTicket(CreateTicketRequest request, Long portalId) {
@@ -71,8 +77,13 @@ public class TicketManageService {
                 .toList();
     }
 
-    public PageResponse<TicketResponse> getPageTickets(Long portalId, int page, int size, String sortBy, String order) {
+    public PageResponse<TicketResponse> getPageTickets(Long portalId, int page, int size, String sortBy, String order)
+        throws TicketException {
         logger.debug("Received request for paged tickets — portalId: {}, page: {}, size: {}, sortBy: {}, order: {}", portalId, page, size, sortBy, order);
+
+        if(!validateAccessTicket(portalId)){
+            throw new TicketException("Вам не разрешен доступ к данному порталу");
+        }
 
         PageRequest pageRequest = paginationService.buildPageRequest(page, size, sortBy, order);
         Page<TicketModel> ticketPage = ticketDomainService.getTicketsPageByPortalId(portalId, pageRequest);
@@ -80,6 +91,18 @@ public class TicketManageService {
 
         return paginationService.mapToResponse(mappedPage, sortBy, order);
     }
+
+    private boolean validateAccessTicket(Long portalId) {
+        PortalModel portal = portalDomainService.getPortalById(portalId);
+        Set<UUID> UserOfPortal = portal.getAllowedUserIds();
+        UUID currentUserId = currentUserProvider.getCurrentUserModel().getId();
+
+        if (!UserOfPortal.contains(currentUserId)) {
+           return false;
+        }
+        return true;
+    }
+
 
 }
 

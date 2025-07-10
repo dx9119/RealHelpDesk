@@ -255,6 +255,64 @@
 						"description": "Аннулирует refresh-токен. Требует access-токен в заголовке."
 					},
 					"response": []
+				},
+				{
+					"name": "Share portal with user",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/portals/shared/{{portalid}}}?newAccessUserId=32884df8-19e1-474c-84e6-12d5d4251816",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"portals",
+								"shared",
+								"{{portalid}}}"
+							],
+							"query": [
+								{
+									"key": "newAccessUserId",
+									"value": "32884df8-19e1-474c-84e6-12d5d4251816"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get shared portals",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/portals/shared/{{portalid}}}?newAccessUserId=32884df8-19e1-474c-84e6-12d5d4251816",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"portals",
+								"shared",
+								"{{portalid}}}"
+							],
+							"query": [
+								{
+									"key": "newAccessUserId",
+									"value": "32884df8-19e1-474c-84e6-12d5d4251816"
+								}
+							]
+						}
+					},
+					"response": []
 				}
 			]
 		},

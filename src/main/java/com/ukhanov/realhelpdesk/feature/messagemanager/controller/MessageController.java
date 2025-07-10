@@ -14,7 +14,7 @@ import java.util.List;
 
 
 @RestController
-@RequestMapping("/api/v1/message/{ticketId}")
+@RequestMapping("/api/v1/message/{portalId}/{ticketId}")
 public class MessageController {
 
     private final MessageManageService messageManageService;
@@ -25,15 +25,16 @@ public class MessageController {
 
     @PostMapping
     public ResponseEntity<CreateMessageResponse> createMessage(@Valid
-                                                       @RequestBody CreateMessageRequest request,
-                                                       @PathVariable Long ticketId) throws MessageException {
+                                                               @RequestBody CreateMessageRequest request,
+                                                               @PathVariable Long ticketId) throws MessageException {
         CreateMessageResponse response = messageManageService.createMessage(request, ticketId);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping
-    public ResponseEntity<List<MessageResponse>> getAllMessages(@PathVariable Long ticketId) throws MessageException {
-        List<MessageResponse> response = messageManageService.getAllMessage(ticketId);
+    public ResponseEntity<List<MessageResponse>> getAllMessages(@PathVariable Long ticketId,
+                                                                @PathVariable Long portalId) throws MessageException {
+        List<MessageResponse> response = messageManageService.getAllMessage(ticketId,portalId);
         return ResponseEntity.ok(response);
     }
 

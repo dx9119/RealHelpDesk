@@ -9,6 +9,8 @@ import com.ukhanov.realhelpdesk.feature.pagination.dto.PageResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
+import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -41,7 +43,26 @@ public class PortalController {
         @RequestParam(defaultValue = "createdAt") String sortBy,
         @RequestParam(defaultValue = "desc") String order
     ) {
-        return portalManageService.getPagePortals(page, size, sortBy, order);
+        return portalManageService.getPagePortalsByOwner(page, size, sortBy, order);
+    }
+
+    @GetMapping("/shared")
+    public PageResponse<PortalResponse> getPagePortalsByAccess(
+        @RequestParam(defaultValue = "0") @Min(0) int page,
+        @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size,
+        @RequestParam(defaultValue = "createdAt") String sortBy,
+        @RequestParam(defaultValue = "desc") String order
+    ) {
+        return portalManageService.getPagePortalsByAccess(page, size, sortBy, order);
+    }
+
+    @PostMapping("/shared/{portalId}")
+    public ResponseEntity<Void> grantAccess(
+        @PathVariable @NotNull Long portalId,
+        @RequestParam @NotNull UUID newAccessUserId
+    ) throws PortalException {
+        portalManageService.grantUserAccessToPortal(portalId, newAccessUserId);
+        return ResponseEntity.ok().build();
     }
 
 }

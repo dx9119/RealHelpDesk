@@ -44,7 +44,7 @@ public class TicketController {
         @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size,
         @RequestParam(defaultValue = "createdAt") String sortBy,
         @RequestParam(defaultValue = "desc") String order
-    ) {
+    ) throws TicketException {
         return ticketManageService.getPageTickets(portalId, page, size, sortBy, order);
     }
 

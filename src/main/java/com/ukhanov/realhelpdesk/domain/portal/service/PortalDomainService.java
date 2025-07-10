@@ -36,21 +36,28 @@ public class PortalDomainService {
         return portalRepository.findAllByOwnerIdOrderByCreatedAtDesc(ownerId, pageable);
     }
 
+    public PortalModel getPortalById(Long portalId) {
+        Objects.requireNonNull(portalId, "portalId must not be null");
+        logger.debug("Fetching portal by ID: {}", portalId);
+        return portalRepository.findById(portalId)
+            .orElseThrow(() -> new IllegalArgumentException("Портал с ID " + portalId + " не найден"));
+    }
+
     public PortalModel savePortal(PortalModel portal) {
         Objects.requireNonNull(portal, "portal must not be null");
         logger.info("Saving portal: {}", portal);
         return portalRepository.save(portal);
     }
 
-    public PortalModel getPortalById(Long portalId) {
-        Objects.requireNonNull(portalId, "portalId must not be null");
-        logger.debug("Fetching portal by ID: {}", portalId);
-        return portalRepository.findById(portalId)
-                .orElseThrow(() -> new IllegalArgumentException("Портал с ID " + portalId + " не найден"));
-    }
-
     public boolean isPortalExistByName (String portalName) {
         Objects.requireNonNull(portalName, "portalName must not be null");
         return portalRepository.existsByName(portalName);
     }
+
+    public Page<PortalModel> getPortalPageAccessByUser(UUID userId, Pageable pageable) {
+        Objects.requireNonNull(userId, "userId must not be null");
+        logger.debug("Fetching paged accessible portals for userId: {}", userId);
+        return portalRepository.findAccessibleByUserId(userId, pageable);
+    }
+
 }
