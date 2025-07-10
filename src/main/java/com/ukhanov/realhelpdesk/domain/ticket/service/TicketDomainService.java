@@ -5,6 +5,8 @@ import com.ukhanov.realhelpdesk.domain.ticket.repository.TicketRepository;
 import jakarta.persistence.PersistenceException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -54,5 +56,10 @@ public class TicketDomainService {
         return ticketRepository.findAllByPortalId(portalId);
     }
 
+    public Page<TicketModel> getTicketsPageByPortalId(Long portalId, Pageable pageable) {
+        Objects.requireNonNull(portalId, "portalId must not be null");
+        logger.debug("Fetching paged tickets by portalId: {}", portalId);
+        return ticketRepository.findAllByPortalId(portalId, pageable);
+    }
 
 }

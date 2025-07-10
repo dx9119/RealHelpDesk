@@ -11,7 +11,7 @@ import java.util.Objects;
 @Component
 public class PortalMapper {
 
-    public PortalModel toEntity(CreatePortalRequest request, UserModel owner) {
+    public static PortalModel toEntity(CreatePortalRequest request, UserModel owner) {
         Objects.requireNonNull(request, "request must not be null");
         Objects.requireNonNull(owner, "owner must not be null");
 
@@ -22,7 +22,7 @@ public class PortalMapper {
         return portal;
     }
 
-    public PortalResponse toResponse(PortalModel model) {
+    public static PortalResponse toResponse(PortalModel model) {
         return PortalResponse.builder()
                 .id(model.getId())
                 .name(model.getName())

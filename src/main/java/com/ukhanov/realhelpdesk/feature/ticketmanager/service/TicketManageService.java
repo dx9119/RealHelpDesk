@@ -6,12 +6,16 @@ import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import com.ukhanov.realhelpdesk.domain.portal.service.PortalDomainService;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 import com.ukhanov.realhelpdesk.domain.ticket.service.TicketDomainService;
+import com.ukhanov.realhelpdesk.feature.pagination.dto.PageResponse;
+import com.ukhanov.realhelpdesk.feature.pagination.service.PaginationService;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketRequest;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketResponse;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponse;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.mapper.TicketMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -24,13 +28,16 @@ public class TicketManageService {
     private final TicketDomainService ticketDomainService;
     private final CurrentUserProvider currentUserProvider;
     private final PortalDomainService portalDomainService;
+    private final PaginationService paginationService;
 
     public TicketManageService(TicketDomainService ticketDomainService,
                                CurrentUserProvider currentUserProvider,
-                               PortalDomainService portalDomainService) {
+                               PortalDomainService portalDomainService,
+        PaginationService paginationService) {
         this.ticketDomainService = ticketDomainService;
         this.currentUserProvider = currentUserProvider;
         this.portalDomainService = portalDomainService;
+      this.paginationService = paginationService;
     }
 
     public CreateTicketResponse createTicket(CreateTicketRequest request, Long portalId) {
@@ -64,6 +71,15 @@ public class TicketManageService {
                 .toList();
     }
 
+    public PageResponse<TicketResponse> getPageTickets(Long portalId, int page, int size, String sortBy, String order) {
+        logger.debug("Received request for paged tickets — portalId: {}, page: {}, size: {}, sortBy: {}, order: {}", portalId, page, size, sortBy, order);
+
+        PageRequest pageRequest = paginationService.buildPageRequest(page, size, sortBy, order);
+        Page<TicketModel> ticketPage = ticketDomainService.getTicketsPageByPortalId(portalId, pageRequest);
+        Page<TicketResponse> mappedPage = ticketPage.map(TicketMapper::toResponse);
+
+        return paginationService.mapToResponse(mappedPage, sortBy, order);
+    }
 
 }
 

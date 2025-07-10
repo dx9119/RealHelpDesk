@@ -2,8 +2,11 @@ package com.ukhanov.realhelpdesk.domain.portal.service;
 
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import com.ukhanov.realhelpdesk.domain.portal.repository.PortalRepository;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -25,6 +28,12 @@ public class PortalDomainService {
         Objects.requireNonNull(ownerId, "ownerId must not be null");
         logger.debug("Fetching all portals by ownerId: {}", ownerId);
         return portalRepository.findAllByOwnerIdOrderByCreatedAtDesc(ownerId);
+    }
+
+    public Page<PortalModel> getPortalsPageByOwnerId(UUID ownerId, Pageable pageable) {
+        Objects.requireNonNull(ownerId, "ownerId must not be null");
+        logger.debug("Fetching paged portals by ownerId: {}", ownerId);
+        return portalRepository.findAllByOwnerIdOrderByCreatedAtDesc(ownerId, pageable);
     }
 
     public PortalModel savePortal(PortalModel portal) {
