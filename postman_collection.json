@@ -222,7 +222,7 @@
 							"raw": ""
 						},
 						"url": {
-							"raw": "http://localhost:8080/api/v1/portals",
+							"raw": "http://localhost:8080/api/v1/portals?page=0&size=10&sortBy=createdAt&order=desc",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -232,6 +232,24 @@
 								"api",
 								"v1",
 								"portals"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								},
+								{
+									"key": "sortBy",
+									"value": "createdAt"
+								},
+								{
+									"key": "order",
+									"value": "desc"
+								}
 							]
 						},
 						"description": "Аннулирует refresh-токен. Требует access-токен в заголовке."
@@ -302,7 +320,7 @@
 							"raw": ""
 						},
 						"url": {
-							"raw": "http://localhost:8080/api/v1/portals/{{portalid}}/ticket",
+							"raw": "http://localhost:8080/api/v1/portals/{{portalid}}/ticket?page=0&size=10&sortBy=createdAt&order=desc",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -314,6 +332,24 @@
 								"portals",
 								"{{portalid}}",
 								"ticket"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								},
+								{
+									"key": "sortBy",
+									"value": "createdAt"
+								},
+								{
+									"key": "order",
+									"value": "desc"
+								}
 							]
 						},
 						"description": "Аннулирует refresh-токен. Требует access-токен в заголовке."
@@ -440,12 +476,12 @@
 	"variable": [
 		{
 			"key": "accessToken",
-			"value": "eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJ5b3VyLWlzc3VlciIsInN1YiI6IjJmN2ZjOTk0LTg5MWEtNGRhNi1hYTlkLWY1ZjEwMjc3MzcxNyIsImV4cCI6MTc1MTAxNTgwNSwiaWF0IjoxNzUxMDE0MDA1LCJyb2xlIjoiUk9MRV9OT05FIiwiYXVkIjpbImF1ZGllbmNlIiwiYXVkaWVuY2UyIl19.PB68d2ij3sUHo0ojZIy4l-t9Jr0FOECn7zRZXVGpvUE",
+			"value": "",
 			"type": "string"
 		},
 		{
 			"key": "refreshToken",
-			"value": "eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJ5b3VyLWlzc3VlciIsInN1YiI6IjJmN2ZjOTk0LTg5MWEtNGRhNi1hYTlkLWY1ZjEwMjc3MzcxNyIsImF1ZCI6WyJhdWRpZW5jZSIsImF1ZGllbmNlMiJdLCJleHAiOjE3NTExMDAxMzYsImlhdCI6MTc1MTAxMzczNn0.X5rYPRE300v7yCgg_Cyn-EeK1g33yHfer57jkS7ODow",
+			"value": "",
 			"type": "string"
 		},
 		{
