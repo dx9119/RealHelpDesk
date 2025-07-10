@@ -59,7 +59,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"email\": \"ivan.ivanov@example.com\",\n    \"password\": \"mySecurePassword123\"\n}"
+							"raw": "{\n    \"email\": \"1ivan.ivanov@example.com\",\n    \"password\": \"mySecurePassword123\"\n}"
 						},
 						"url": {
 							"raw": "http://localhost:8080/api/v1/auth/login",
@@ -181,7 +181,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"name\": \"test\",\n    \"description\":\"description test 2 description \"\n}"
+							"raw": "{\n    \"name\": \"test 3\",\n    \"description\":\"description test 2 description \"\n}"
 						},
 						"url": {
 							"raw": "http://localhost:8080/api/v1/portals",
@@ -260,9 +260,29 @@
 					"name": "Share portal with user",
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "[\n  \"c973e2f5-df89-4ddf-bdc0-1f5d5a16fe34\",\n  \"7f21a770-1c39-4eb2-9878-54a647a539ce\",\n  \"c7356e42-497c-4f35-91c5-f4cdf801e277\"\n]\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
 						"url": {
-							"raw": "http://localhost:8080/api/v1/portals/shared/{{portalid}}}?newAccessUserId=32884df8-19e1-474c-84e6-12d5d4251816",
+							"raw": "http://localhost:8080/api/v1/portals/shared/{{portalid}}",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -273,13 +293,7 @@
 								"v1",
 								"portals",
 								"shared",
-								"{{portalid}}}"
-							],
-							"query": [
-								{
-									"key": "newAccessUserId",
-									"value": "32884df8-19e1-474c-84e6-12d5d4251816"
-								}
+								"{{portalid}}"
 							]
 						}
 					},
@@ -288,10 +302,21 @@
 				{
 					"name": "Get shared portals",
 					"request": {
-						"method": "POST",
-						"header": [],
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}",
+								"type": "text"
+							}
+						],
 						"url": {
-							"raw": "http://localhost:8080/api/v1/portals/shared/{{portalid}}}?newAccessUserId=32884df8-19e1-474c-84e6-12d5d4251816",
+							"raw": "http://localhost:8080/api/v1/portals/shared?page=0&size=10&sortBy=createdAt&order=desc",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -301,13 +326,24 @@
 								"api",
 								"v1",
 								"portals",
-								"shared",
-								"{{portalid}}}"
+								"shared"
 							],
 							"query": [
 								{
-									"key": "newAccessUserId",
-									"value": "32884df8-19e1-474c-84e6-12d5d4251816"
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								},
+								{
+									"key": "sortBy",
+									"value": "createdAt"
+								},
+								{
+									"key": "order",
+									"value": "desc"
 								}
 							]
 						}
@@ -445,7 +481,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:8080/api/v1/message/{{ticketId}}",
+							"raw": "http://localhost:8080/api/v1/message/{{portalid}}}/{{ticketId}}",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -455,6 +491,7 @@
 								"api",
 								"v1",
 								"message",
+								"{{portalid}}}",
 								"{{ticketId}}"
 							]
 						}
@@ -490,7 +527,7 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:8080/api/v1/message/{{ticketId}}",
+							"raw": "http://localhost:8080/api/v1/message/{{portalid}}/{{ticketId}}",
 							"protocol": "http",
 							"host": [
 								"localhost"
@@ -500,6 +537,7 @@
 								"api",
 								"v1",
 								"message",
+								"{{portalid}}",
 								"{{ticketId}}"
 							]
 						}
