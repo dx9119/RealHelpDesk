@@ -5,6 +5,7 @@ import com.ukhanov.realhelpdesk.feature.messagemanager.dto.CreateMessageResponse
 import com.ukhanov.realhelpdesk.feature.messagemanager.dto.MessageResponse;
 import com.ukhanov.realhelpdesk.feature.messagemanager.exception.MessageException;
 import com.ukhanov.realhelpdesk.feature.messagemanager.service.MessageManageService;
+import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -33,7 +34,8 @@ public class MessageController {
 
     @GetMapping
     public ResponseEntity<List<MessageResponse>> getAllMessages(@PathVariable Long ticketId,
-                                                                @PathVariable Long portalId) throws MessageException {
+                                                                @PathVariable Long portalId)
+        throws MessageException, PortalException {
         List<MessageResponse> response = messageManageService.getAllMessage(ticketId,portalId);
         return ResponseEntity.ok(response);
     }

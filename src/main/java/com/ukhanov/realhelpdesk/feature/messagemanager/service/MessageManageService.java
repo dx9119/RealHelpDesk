@@ -1,11 +1,10 @@
 package com.ukhanov.realhelpdesk.feature.messagemanager.service;
 
+import com.ukhanov.realhelpdesk.core.security.accesscontrol.AccessValidationService;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.message.model.MessageModel;
 import com.ukhanov.realhelpdesk.domain.message.service.MessageDomainService;
-import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
-import com.ukhanov.realhelpdesk.domain.portal.service.PortalDomainService;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 import com.ukhanov.realhelpdesk.domain.ticket.service.TicketDomainService;
 import com.ukhanov.realhelpdesk.feature.messagemanager.dto.CreateMessageRequest;
@@ -13,8 +12,7 @@ import com.ukhanov.realhelpdesk.feature.messagemanager.dto.CreateMessageResponse
 import com.ukhanov.realhelpdesk.feature.messagemanager.dto.MessageResponse;
 import com.ukhanov.realhelpdesk.feature.messagemanager.exception.MessageException;
 import com.ukhanov.realhelpdesk.feature.messagemanager.mapper.MessageMapper;
-import com.ukhanov.realhelpdesk.feature.portalmanager.service.PortalManageService;
-import java.util.UUID;
+import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -30,15 +28,15 @@ public class MessageManageService {
     private final CurrentUserProvider currentUserProvider;
     private final TicketDomainService ticketDomainService;
     private final MessageDomainService messageDomainService;
-    private final PortalDomainService portalDomainService;
+    private final AccessValidationService accessValidationService;
 
     public MessageManageService(MessageMapper messageMapper, CurrentUserProvider currentUserProvider, TicketDomainService ticketDomainService, MessageDomainService messageDomainService,
-        PortalDomainService portalDomainService) {
+        AccessValidationService accessValidationService) {
         this.messageMapper = messageMapper;
         this.currentUserProvider = currentUserProvider;
         this.ticketDomainService = ticketDomainService;
         this.messageDomainService = messageDomainService;
-      this.portalDomainService = portalDomainService;
+        this.accessValidationService = accessValidationService;
     }
 
     public CreateMessageResponse createMessage(CreateMessageRequest request, Long ticketId) {
@@ -55,10 +53,10 @@ public class MessageManageService {
     }
 
     public List<MessageResponse> getAllMessage(Long ticketId, Long portalId)
-        throws MessageException {
+        throws MessageException, PortalException {
         Objects.requireNonNull(ticketId, "ticketId must not be null");
 
-        if(!validateAccessMessage(portalId)){
+        if(!accessValidationService.hasPortalAccess(portalId)){
             throw new MessageException("Вам не разрешен доступ к порталу за которым закреплена данная заявка");
         }
 
@@ -70,14 +68,4 @@ public class MessageManageService {
                 .toList();
     }
 
-    public boolean validateAccessMessage (Long portalId){
-        PortalModel portal = portalDomainService.getPortalById(portalId);
-        UUID currentUserId = currentUserProvider.getCurrentUserModel().getId();
-
-        if (!portal.getOwner().getId().equals(currentUserId)) {
-            return false;
-        }
-
-        return true;
-    }
 }

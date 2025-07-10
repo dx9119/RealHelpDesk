@@ -10,6 +10,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -59,7 +61,7 @@ public class PortalController {
     @PostMapping("/shared/{portalId}")
     public ResponseEntity<Void> grantAccess(
         @PathVariable @NotNull Long portalId,
-        @RequestParam @NotNull UUID newAccessUserId
+        @RequestBody @NotNull List<UUID> newAccessUserId
     ) throws PortalException {
         portalManageService.grantUserAccessToPortal(portalId, newAccessUserId);
         return ResponseEntity.ok().build();
