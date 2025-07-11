@@ -5,6 +5,7 @@ import com.ukhanov.realhelpdesk.core.security.auth.register.dto.RegisterRequest;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 
 import java.util.Objects;
+import java.util.UUID;
 
 public class AuthMapper {
 
@@ -16,6 +17,7 @@ public class AuthMapper {
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
         user.setEmail(request.getEmail());
+        user.setVerifyEmailToken(UUID.randomUUID());
         user.setPasswordHash(passwordHash);
         return user;
     }

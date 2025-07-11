@@ -545,6 +545,50 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "Mail",
+			"item": [
+				{
+					"name": "Email verified",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}",
+								"type": "text"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8080/api/v1/email/confirm?token=3b402073-e2e9-4003-a7f9-f5b3f40224c5",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"api",
+								"v1",
+								"email",
+								"confirm"
+							],
+							"query": [
+								{
+									"key": "token",
+									"value": "3b402073-e2e9-4003-a7f9-f5b3f40224c5"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"event": [

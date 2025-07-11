@@ -1,5 +1,6 @@
 package com.ukhanov.realhelpdesk.core.security.auth.register.service;
 
+import com.ukhanov.realhelpdesk.core.mail.dto.EmailConfirmationDto;
 import com.ukhanov.realhelpdesk.core.mail.service.MailService;
 import com.ukhanov.realhelpdesk.core.security.auth.mapper.AuthMapper;
 import com.ukhanov.realhelpdesk.core.security.auth.register.dto.RegisterRequest;
@@ -8,6 +9,7 @@ import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokensResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.GetTokenService;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
+import jakarta.mail.MessagingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,10 +33,11 @@ public class RegistrationService {
         this.passwordEncoder = passwordEncoder;
         this.userDomainService = userDomainService;
         this.getTokenService = getTokenService;
-      this.mailService = mailService;
+        this.mailService = mailService;
     }
 
-    public UserModel addUser(RegisterRequest registerRequest) throws RegistrationException {
+    public UserModel addUser(RegisterRequest registerRequest)
+        throws RegistrationException, MessagingException {
         Objects.requireNonNull(registerRequest, "getTokensRequest cannot be null");
         logger.info("Registration start for email: {}", registerRequest.getEmail());
 
@@ -58,11 +61,26 @@ public class RegistrationService {
         // Сохраняем пользователя
         userDomainService.saveUser(newUser);
         logger.info("User registered successfully, email: {}", registerRequest.getEmail());
-        mailService.sendMail("New registration:"+newUser.getEmail(),"info:"+newUser.toString());
+
+        // Оповещаем админа о регистрации
+        mailService.sendAdminNotification("New registration:"+newUser.getEmail(),"info:"+newUser.toString());
+
+        // Отправляем письмо с подтверждением
+        EmailConfirmationDto dto = EmailConfirmationDto.builder()
+            .token(newUser.getVerifyEmailToken()) // Вставляет ссылку подтверждения
+            .build();
+
+        mailService.sendUserNotification(
+            newUser.getEmail(),
+            dto.getSubject(),
+            dto.getMessage()
+        );
+
         return newUser;
     }
 
-    public TokensResponse processRegistration(RegisterRequest registerRequest) throws RegistrationException {
+    public TokensResponse processRegistration(RegisterRequest registerRequest)
+        throws RegistrationException, MessagingException {
         UserModel user = addUser(registerRequest);
         return getTokenService.getNewTokens(user);
     }

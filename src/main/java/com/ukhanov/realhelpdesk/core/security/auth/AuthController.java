@@ -13,6 +13,7 @@ import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenStatusRespons
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokensResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.GetTokenService;
+import jakarta.mail.MessagingException;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -39,7 +40,7 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<TokensResponse> registration(@Valid @RequestBody RegisterRequest registerRequest)
-            throws RegistrationException {
+        throws RegistrationException, MessagingException {
         TokensResponse response = registrationService.processRegistration(registerRequest);
         return ResponseEntity.ok(response);
     }

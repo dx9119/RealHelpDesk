@@ -28,6 +28,10 @@ public class UserModel {
     @Column(unique = true, nullable = false)
     private String email;
 
+    private UUID verifyEmailToken;
+
+    private boolean isEmailVerified = false;
+
     @Column(nullable = false)
     private String passwordHash;
 
@@ -65,6 +69,22 @@ public class UserModel {
 
     public UUID getId() {
         return id;
+    }
+
+    public boolean isEmailVerified() {
+        return isEmailVerified;
+    }
+
+    public void setEmailVerified(boolean emailVerified) {
+        isEmailVerified = emailVerified;
+    }
+
+    public UUID getVerifyEmailToken() {
+        return verifyEmailToken;
+    }
+
+    public void setVerifyEmailToken(UUID verifyEmailToken) {
+        this.verifyEmailToken = verifyEmailToken;
     }
 
     public void setId(UUID id) {
