@@ -1,5 +1,6 @@
 package com.ukhanov.realhelpdesk.core.security.auth.register.service;
 
+import com.ukhanov.realhelpdesk.core.mail.service.MailService;
 import com.ukhanov.realhelpdesk.core.security.auth.mapper.AuthMapper;
 import com.ukhanov.realhelpdesk.core.security.auth.register.dto.RegisterRequest;
 import com.ukhanov.realhelpdesk.core.security.auth.register.exception.RegistrationException;
@@ -21,14 +22,16 @@ public class RegistrationService {
     private final PasswordEncoder passwordEncoder;
     private final UserDomainService userDomainService;
     private final GetTokenService getTokenService;
+    private final MailService mailService;
 
 
     public RegistrationService(PasswordEncoder passwordEncoder,
                                UserDomainService userDomainService,
-                               GetTokenService getTokenService) {
+                               GetTokenService getTokenService, MailService mailService) {
         this.passwordEncoder = passwordEncoder;
         this.userDomainService = userDomainService;
         this.getTokenService = getTokenService;
+      this.mailService = mailService;
     }
 
     public UserModel addUser(RegisterRequest registerRequest) throws RegistrationException {
@@ -55,7 +58,7 @@ public class RegistrationService {
         // Сохраняем пользователя
         userDomainService.saveUser(newUser);
         logger.info("User registered successfully, email: {}", registerRequest.getEmail());
-
+        mailService.sendMail("New registration:"+newUser.getEmail(),"info:"+newUser.toString());
         return newUser;
     }
 

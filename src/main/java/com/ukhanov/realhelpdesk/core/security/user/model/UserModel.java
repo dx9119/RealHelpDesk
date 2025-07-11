@@ -49,6 +49,20 @@ public class UserModel {
         this.createdAt = Instant.now();
     }
 
+    @Override
+    public String toString() {
+        return "UserModel{" +
+            "createdAt=" + createdAt +
+            ", userRole=" + userRole +
+            ", id=" + id +
+            ", firstName='" + firstName + '\'' +
+            ", lastName='" + lastName + '\'' +
+            ", middleName='" + middleName + '\'' +
+            ", email='" + email + '\'' +
+            ", userStatus=" + userStatus +
+            '}';
+    }
+
     public UUID getId() {
         return id;
     }
