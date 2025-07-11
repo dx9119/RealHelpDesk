@@ -11,5 +11,12 @@ services:
       - postgres_data:/var/lib/postgresql/data
     restart: always
 
+  smtp:
+    image: rnwood/smtp4dev
+    ports:
+      - "25:25"      # SMTP порт
+      - "3000:80"    # Web-интерфейс
+    restart: always
+
 volumes:
   postgres_data:
