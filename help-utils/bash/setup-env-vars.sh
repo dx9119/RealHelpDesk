@@ -1,12 +1,14 @@
 #!/bin/bash
 
 # APP
-export APP_NAME="my-spring-application"
+export APP_NAME="Real help desk"
+export APP_DOMAIN_NAME="example.com"
 
 # SERVER
 export SERVER_PORT="8080"
 export KEY_STORE="keystore.p12"
-export KEY_STORE_PASS="changeit"
+export KEY_STORE_PASS="$(openssl rand -base64 24 | tr -d '=+/[:space:]' | cut -c1-20)"
+echo "Keystore pass: $KEY_STORE_PASS"
 export KEY_STORE_ALIAS="tomcat"
 
 # Logs
@@ -22,15 +24,16 @@ export DB_USER="user"
 export DB_PASS="pass"
 
 # JPA / Hibernate
-export JPA_DDL_AUTO="none"
+export JPA_DDL_AUTO="create-drop"
 export JPA_SHOW_SQL="false"
 export JPA_OSIV="false"
 
 # JWT
 SECRET=$(openssl rand -base64 32)
+echo "JWT_SECRET: $SECRET"
 export JWT_SECRET="$SECRET"
-export JWT_ISSUER="your-app-issuer"
-export JWT_AUDIENCE="your-app-audience"
+export JWT_ISSUER="https://$APP_DOMAIN_NAME"
+export JWT_AUDIENCE="https://$APP_DOMAIN_NAME"
 
 # MAIL - SMTP
 export MAIL_HOST="localhost"
@@ -41,7 +44,8 @@ export SMTP_AUTH="false"
 export SMTP_STARTTLS="false"
 
 # MAIL - Emails
-export MAIL_FROM="noreply@example.com"
-export MAIL_NOTIFY="admin@example.com"
+export EMAIL_DOMAIN="example.com"
+export MAIL_FROM="noreply@${EMAIL_DOMAIN}"
+export MAIL_NOTIFY="admin@${EMAIL_DOMAIN}"
 
 echo "Done!"

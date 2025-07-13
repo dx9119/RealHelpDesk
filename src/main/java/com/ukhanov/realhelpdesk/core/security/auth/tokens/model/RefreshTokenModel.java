@@ -14,7 +14,7 @@ public class RefreshTokenModel implements TokenBearer {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID uuid;
 
-    @Column(unique = false, nullable = false)
+    @Column(unique = false, nullable = false, length = 1000)
     private String tokenRefresh;
 
     @Enumerated(EnumType.STRING)

@@ -36,6 +36,12 @@ public class MailService {
   }
 
   public void sendEmail(String recipient, String subject, String text) throws MessagingException {
+    logger.info("Attempting to send email to recipient: '{}'", recipient);
+    logger.info("Recipient string length: {}", recipient != null ? recipient.length() : "null");
+    if (recipient != null) {
+      logger.info("Recipient string bytes (UTF-8): {}", java.util.Arrays.toString(recipient.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+    }
+
     MimeMessage mimeMessage = mailSender.createMimeMessage();
     MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
 
