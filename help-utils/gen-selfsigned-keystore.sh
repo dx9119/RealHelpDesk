@@ -1,7 +1,19 @@
 #!/bin/bash
 
 # Указываем каталог для SSL-файлов
-SSL_DIR="./ssl"
+TARGET_DIR="./target"
+SSL_DIR="$TARGET_DIR/ssl"
+
+# Проверяем наличие каталога target
+if [ ! -d "$TARGET_DIR" ]; then
+  echo "Ошибка: каталог $TARGET_DIR не существует. Сначала нужно собрать проект."
+  return 1
+fi
+
+# Создаём ssl-подкаталог, если он отсутствует
+if [ ! -d "$SSL_DIR" ]; then
+  mkdir -p "$SSL_DIR" || { echo "Ошибка: не удалось создать каталог $SSL_DIR"; return 1; }
+fi
 
 # Получаем CN (Common Name) из переменной окружения
 CERT_CN="${APP_DOMAIN_NAME:-example.com}"
@@ -22,11 +34,6 @@ for var in "${REQUIRED_VARS[@]}"; do
     return 1
   fi
 done
-
-# Создаём SSL-директорию, если она не существует
-if [ ! -d "$SSL_DIR" ]; then
-  mkdir -p "$SSL_DIR" || { echo "Ошибка: не удалось создать директорию $SSL_DIR"; return 1; }
-fi
 
 # Формируем полный путь к Keystore файлу
 FULL_KEY_STORE_PATH="$SSL_DIR/$KEY_STORE"
