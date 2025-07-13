@@ -27,9 +27,11 @@
 
 ## Запуск проекта
 
-1. Задать значение для `jwt.secret-for-gen-jwt` в `application.properties`. Это должен быть `HMAC-ключ` длиной не менее 256 бит, закодированный в `Base64`. Получить его можно так: `openssl rand -base64 32`
-2. Поднять postgres и smtp4dev с помощью `docker-compose.yaml` в корне проекта:
-3. Запустить через Maven [spring-boot:run]
+1. Поднять postgres: `help-utils/docker/docker-compose.postgres15.yml`
+2. Поднять smtp4dev: `docker-compose.smtp4dev.yml`
+3. `git clone https://github.com/dx9119/RealHelpDesk.git`
+4. `source init.sh `
+5. `init.sh` собирает проект (Maven), генерирует самоподписанный сертификат (`gen-selfsigned-keystore.sh`) и устанавливает переменные окружения (`setup-env-vars.sh`), используемые для конфигурации проекта.
 
 ## Логгирование (logback-spring.xml)
 
