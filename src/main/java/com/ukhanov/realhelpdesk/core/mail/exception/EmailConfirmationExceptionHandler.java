@@ -24,7 +24,7 @@ public class EmailConfirmationExceptionHandler {
         error.put("message", ex.getMessage());
         error.put("path", request.getDescription(false));
 
-        logger.debug("Logout handler caught: {}", ex.getClass().getName());
+        logger.debug("Email confirmation caught: {}", ex.getClass().getName());
 
         return new ResponseEntity<>(error, status);
     }

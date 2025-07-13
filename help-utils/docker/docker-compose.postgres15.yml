@@ -6,16 +6,9 @@ services:
       POSTGRES_PASSWORD: pass
       POSTGRES_DB: desk
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    restart: always
-
-  smtp:
-    image: rnwood/smtp4dev
-    ports:
-      - "25:25"      # SMTP порт
-      - "3000:80"    # Web-интерфейс
     restart: always
 
 volumes:

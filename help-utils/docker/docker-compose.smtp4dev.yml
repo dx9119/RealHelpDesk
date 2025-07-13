@@ -1,0 +1,7 @@
+services:
+  smtp:
+    image: rnwood/smtp4dev
+    ports:
+      - "127.0.0.1:25:25"      # SMTP порт
+      - "127.0.0.1:3000:80"    # Web-интерфейс
+    restart: always

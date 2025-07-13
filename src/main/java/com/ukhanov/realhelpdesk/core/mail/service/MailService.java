@@ -1,7 +1,7 @@
 package com.ukhanov.realhelpdesk.core.mail.service;
 
+import com.ukhanov.realhelpdesk.core.mail.config.EmailProperties;
 import com.ukhanov.realhelpdesk.core.mail.exception.EmailConfirmationException;
-import com.ukhanov.realhelpdesk.core.mail.model.Recipients;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
@@ -23,23 +23,22 @@ public class MailService {
   private final JavaMailSender mailSender;
   private final UserDomainService userDomainService;
   private final CurrentUserProvider currentUserProvider;
+  private final EmailProperties emailProperties;
 
-  @Value("${spring.mail.from}")
-  private String fromAddress;
-
-  public MailService(JavaMailSender mailSender, UserDomainService userDomainService,
-      CurrentUserProvider currentUserProvider) {
+  public MailService(JavaMailSender mailSender,
+      UserDomainService userDomainService,
+      CurrentUserProvider currentUserProvider,
+      EmailProperties emailProperties) {
     this.mailSender = mailSender;
     this.userDomainService = userDomainService;
     this.currentUserProvider = currentUserProvider;
+    this.emailProperties = emailProperties;
   }
 
   public void sendEmail(String recipient, String subject, String text) throws MessagingException {
     MimeMessage mimeMessage = mailSender.createMimeMessage();
-
     MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
 
-    helper.setFrom(fromAddress);
     helper.setTo(recipient);
     helper.setSubject(subject);
     helper.setText(text, false); // false = plain text
@@ -49,12 +48,10 @@ public class MailService {
     mimeMessage.setHeader("Content-Transfer-Encoding", "7bit");
 
     mailSender.send(mimeMessage);
-    logger.info("Email sent to '{}' with subject '{}'", Recipients.ADMIN.getEmail(), subject);
-
   }
 
   public void sendAdminNotification(String subject, String text) throws MessagingException {
-    sendEmail(Recipients.ADMIN.getEmail(), subject, text);
+    sendEmail(emailProperties.getNotify(), subject, text);
   }
 
   public void sendUserNotification(String userEmail, String subject, String text) throws MessagingException {
