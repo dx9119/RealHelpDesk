@@ -29,9 +29,8 @@
 
 1. Поднять postgres: `help-utils/docker/docker-compose.postgres15.yml`
 2. Поднять smtp4dev: `docker-compose.smtp4dev.yml`
-3. `git clone https://github.com/dx9119/RealHelpDesk.git`
-4. `source init.sh `
-5. `init.sh` собирает проект (Maven), генерирует самоподписанный сертификат (`gen-selfsigned-keystore.sh`) и устанавливает переменные окружения (`setup-env-vars.sh`), используемые для конфигурации проекта.
+3. `source init.sh `
+4. `init.sh` собирает проект (Maven), генерирует самоподписанный сертификат (`gen-selfsigned-keystore.sh`) и устанавливает переменные окружения (`setup-env-vars.sh`), используемые для конфигурации проекта.
 
 ## Логгирование (logback-spring.xml)
 
