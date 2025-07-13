@@ -39,9 +39,10 @@ application-dev.properties
 *.swo # Файлы подкачки Vim
 
 # Секретные ключи и файлы конфигурации (будьте осторожны!)
-# *.key
-# *.p12
-# config/feature.properties # Если вы хотите игнорировать всю основную конфигурацию
+*.key
+*.p12
+*.pem
+ssl/
 
 # Файлы Docker (если не коммитите образы)
 # Dockerfile.local

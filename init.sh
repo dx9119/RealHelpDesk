@@ -12,22 +12,37 @@ git pull || { echo "Ошибка при получении обновлений.
 
 # Проверка, нужно ли выполнять mvn clean
 if [ -d "target" ]; then
-  echo "Папка 'target' уже существует."
-  read -p "Выполнить 'mvn clean'? (y/n): " answer
-  if [[ "$answer" =~ ^[Yy]$ ]]; then
-    echo "Выполняется очистка проекта..."
-    mvn clean || { echo "Ошибка при очистке проекта."; return 1; }
-  else
-    echo "Остановка по запросу пользователя."
-    return 0
-  fi
+  echo "Папка 'target' обнаружена. Выполняется 'mvn clean'..."
+  mvn clean || { echo "Ошибка при очистке проекта."; return 1; }
 fi
 
 # Сборка проекта
-echo "Запускается компиляция проекта..."
+echo "Компиляция проекта..."
 mvn compile || { echo "Ошибка при компиляции проекта."; return 1; }
 
 echo "Упаковка проекта..."
 mvn package || { echo "Ошибка при упаковке проекта."; return 1; }
 
-echo "Проект успешно упакован"
+echo "Проект успешно упакован."
+
+cd target || { echo "Не удалось перейти в папку target."; return 1; }
+
+source ../help-utils/setup-env-vars.sh || { echo "Ошибка при загрузке переменных окружения."; return 1; }
+
+source ../help-utils/gen-selfsigned-keystore.sh || { echo "Ошибка при генерации Keystore."; return 1; }
+
+echo "Рабочая директория JVM: $(pwd)"
+
+JAR_FILE=$(ls realhelpdesk-*.jar | head -n 1)
+
+if [ -z "$JAR_FILE" ]; then
+  echo "JAR-файл 'realhelpdesk-*.jar' не найден в каталоге $(pwd)"
+  return 1
+fi
+
+echo "Запускается JAR: $JAR_FILE"
+java -jar "$JAR_FILE" || { echo "Ошибка при запуске приложения."; return 1; }
+echo "========================"
+echo "========================"
+echo "========================"
+

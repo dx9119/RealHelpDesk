@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Указываем каталог для SSL-файлов
-TARGET_DIR="./target"
+TARGET_DIR="../target"
 SSL_DIR="$TARGET_DIR/ssl"
 
 # Проверяем наличие каталога target
@@ -45,41 +45,46 @@ if [ -f "$FULL_KEY_STORE_PATH" ]; then
   case "$choice" in
     1)
       echo "Выбрана перезапись файла."
-      # Продолжаем выполнение скрипта, старый файл будет перезаписан в дальнейшем
       ;;
     2)
       echo "Генерация отменена."
-      return 0 # Останавливаем выполнение скрипта
+      return 0
       ;;
     *)
       echo "Неверный выбор. Генерация отменена."
-      return 1 # Останавливаем выполнение с ошибкой
+      return 1
       ;;
   esac
 fi
 
 echo "Генерация Keystore для CN: $CERT_CN в $FULL_KEY_STORE_PATH..."
 
-# Определяем имена временных файлов для ключа и сертификата
 TMP_KEY="key.tmp.pem"
 TMP_CERT="cert.tmp.pem"
 
-# Функция для очистки временных файлов
-cleanup_tmp_files() {
+# Генерируем RSA ключ
+openssl genrsa -out "$TMP_KEY" 2048 || { echo "Ошибка при генерации RSA ключа."; rm -f "$TMP_KEY" "$TMP_CERT"; return 1; }
+
+# Создаём сертификат
+openssl req -new -x509 -key "$TMP_KEY" -out "$TMP_CERT" -days "365" -subj "/CN=$CERT_CN" || {
+  echo "Ошибка при создании сертификата."
   rm -f "$TMP_KEY" "$TMP_CERT"
+  return 1
 }
 
-# Устанавливаем ловушку для вызова cleanup_tmp_files при завершении скрипта
-trap cleanup_tmp_files EXIT
-
-# Генерируем RSA ключ (2048 бит)
-openssl genrsa -out "$TMP_KEY" 2048 || { echo "Ошибка при генерации RSA ключа."; return 1; }
-# Создаём самоподписанный X.509 сертификат на 365 дней
-openssl req -new -x509 -key "$TMP_KEY" -out "$TMP_CERT" -days "365" -subj "/CN=$CERT_CN" || { echo "Ошибка при создании сертификата."; return 1; }
-# Экспортируем ключ и сертификат в формат PKCS12 (Keystore)
-openssl pkcs12 -export -in "$TMP_CERT" -inkey "$TMP_KEY" -out "$FULL_KEY_STORE_PATH" -name "$KEY_STORE_ALIAS" -password pass:"$KEY_STORE_PASS" || { echo "Ошибка при экспорте в PKCS12."; return 1; }
+# Экспортируем ключ и сертификат
+openssl pkcs12 -export -in "$TMP_CERT" -inkey "$TMP_KEY" -out "$FULL_KEY_STORE_PATH" \
+  -name "$KEY_STORE_ALIAS" -password pass:"$KEY_STORE_PASS" || {
+  echo "Ошибка при экспорте в PKCS12."
+  rm -f "$TMP_KEY" "$TMP_CERT"
+  return 1
+}
 
 echo "Keystore успешно создан: $FULL_KEY_STORE_PATH"
 
-# Возвращаем успешный код завершения
+# Явная очистка временных файлов
+rm -f "$TMP_KEY" "$TMP_CERT"
+echo "========================"
+echo "========================"
+echo "========================"
 return 0
