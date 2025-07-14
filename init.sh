@@ -27,9 +27,23 @@ echo "Проект успешно упакован."
 
 cd target || { echo "Не удалось перейти в папку target."; return 1; }
 
-source ../help-utils/setup-env-vars.sh || { echo "Ошибка при загрузке переменных окружения."; return 1; }
+# Переменные окружения
+echo "Задать переменные окружения? (y/n): "
+read SETUP_ENV
+if [[ "$SETUP_ENV" == "y" || "$SETUP_ENV" == "Y" ]]; then
+  source ../help-utils/setup-env-vars.sh || { echo "Ошибка при загрузке переменных окружения."; return 1; }
+else
+  echo "Пропускаем загрузку переменных окружения."
+fi
 
-source ../help-utils/gen-selfsigned-keystore.sh || { echo "Ошибка при генерации Keystore."; return 1; }
+# Самоподписанный сертификат
+echo "Создать самоподписанный сертификат? (y/n): "
+read CREATE_CERT
+if [[ "$CREATE_CERT" == "y" || "$CREATE_CERT" == "Y" ]]; then
+  source ../help-utils/gen-selfsigned-keystore.sh || { echo "Ошибка при генерации Keystore."; return 1; }
+else
+  echo "Пропускаем создание самоподписанного сертификата."
+fi
 
 echo "Рабочая директория JVM: $(pwd)"
 
@@ -40,8 +54,15 @@ if [ -z "$JAR_FILE" ]; then
   return 1
 fi
 
-echo "Запускается JAR: $JAR_FILE"
-java -jar "$JAR_FILE" || { echo "Ошибка при запуске приложения."; return 1; }
+echo "Запустить $JAR_FILE? (y/n): "
+read RUN_JAR
+if [[ "$RUN_JAR" == "y" || "$RUN_JAR" == "Y" ]]; then
+  echo "Запускается JAR: $JAR_FILE"
+  java -jar "$JAR_FILE" || { echo "Ошибка при запуске приложения."; return 1; }
+else
+  echo "Запуск JAR-файла отменён пользователем."
+fi
+
 echo "========================"
 echo "========================"
 echo "========================"
