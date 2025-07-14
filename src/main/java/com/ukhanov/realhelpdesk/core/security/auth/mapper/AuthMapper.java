@@ -19,6 +19,9 @@ public class AuthMapper {
         user.setEmail(request.getEmail());
         user.setVerifyEmailToken(UUID.randomUUID());
         user.setPasswordHash(passwordHash);
+        user.setExternalId(request.getExternalId());
+        user.setUserExternalSource(request.getUserPlatformSource());
+
         return user;
     }
 

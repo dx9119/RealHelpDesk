@@ -1,7 +1,11 @@
 package com.ukhanov.realhelpdesk.core.security.auth.register.dto;
 
+import com.ukhanov.realhelpdesk.core.security.user.model.UserPlatformSource;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public class RegisterRequest {
@@ -19,6 +23,9 @@ public class RegisterRequest {
     @NotBlank(message = "Поле Пароль обязательно для заполнения")
     @Size(min = 8, message = "Пароль должен быть не менее 8 символов")
     private String password;
+
+    private Long externalId;
+    private UserPlatformSource userPlatformSource;
 
     public RegisterRequest(String firstName, String lastName, String email, String passwordHash) {
         this.firstName = firstName;
@@ -47,20 +54,16 @@ public class RegisterRequest {
         return password;
     }
 
-    public void setFirstName(String firstName) {
-        this.firstName = firstName;
-    }
-
-    public void setLastName(String lastName) {
-        this.lastName = lastName;
-    }
-
     public void setEmail(String email) {
         this.email = email;
     }
 
-    public void setPassword(String password) {
-        this.password = password;
+    public Long getExternalId() {
+        return externalId;
+    }
+
+    public UserPlatformSource getUserPlatformSource() {
+        return userPlatformSource;
     }
 
 }

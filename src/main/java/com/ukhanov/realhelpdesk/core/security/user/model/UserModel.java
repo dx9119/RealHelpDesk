@@ -15,6 +15,7 @@ public class UserModel {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
+    private Long externalId = 0L; //ID пользователя от внешних интеграций (телеграмм бот, например).
 
     @Column(nullable = false)
     private String firstName;
@@ -40,6 +41,9 @@ public class UserModel {
 
     @Enumerated(EnumType.STRING)
     private UserStatus userStatus = UserStatus.ACTIVE;
+
+    @Enumerated(EnumType.STRING)
+    private UserPlatformSource userPlatformSource = UserPlatformSource.LOCAL;
 
     // Связь с JWT Refresh-токенами
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
@@ -85,6 +89,15 @@ public class UserModel {
 
     public void setVerifyEmailToken(UUID verifyEmailToken) {
         this.verifyEmailToken = verifyEmailToken;
+    }
+
+    public UserPlatformSource getUserExternalSource() {
+        return userPlatformSource;
+    }
+
+    public void setUserExternalSource(
+        UserPlatformSource userPlatformSource) {
+        this.userPlatformSource = userPlatformSource;
     }
 
     public void setId(UUID id) {
@@ -159,4 +172,11 @@ public class UserModel {
         this.userStatus = userStatus;
     }
 
+    public Long getExternalId() {
+        return externalId;
+    }
+
+    public void setExternalId(Long externalId) {
+        this.externalId = externalId;
+    }
 }
