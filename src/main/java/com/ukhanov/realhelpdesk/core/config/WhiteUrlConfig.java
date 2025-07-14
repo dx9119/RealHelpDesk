@@ -9,6 +9,7 @@ import java.util.List;
 public class WhiteUrlConfig {
     public static final List<String> WHITE_LIST_URLS = Arrays.asList(
             "/api/v1/auth/login",
-            "/api/v1/auth/register"
+            "/api/v1/auth/register",
+            "/api/v1/health-check"
     );
 }
