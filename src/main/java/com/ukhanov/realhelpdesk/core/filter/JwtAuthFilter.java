@@ -18,6 +18,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -30,10 +31,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private static final Logger logger = LoggerFactory.getLogger(JwtAuthFilter.class);
     private final ValidTokenService validTokenService;
     private final DecodeTokenService decodeTokenService;
+    private final AntPathMatcher antPathMatcher;
 
-    public JwtAuthFilter(ValidTokenService tokenProcessingService, DecodeTokenService decodeTokenService) {
+    public JwtAuthFilter(ValidTokenService tokenProcessingService, DecodeTokenService decodeTokenService,
+        AntPathMatcher antPathMatcher) {
         this.validTokenService = tokenProcessingService;
         this.decodeTokenService = decodeTokenService;
+      this.antPathMatcher = antPathMatcher;
     }
 
     @Override
@@ -46,8 +50,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         // Пропускаем фильтр для URL из БС
         if (WhiteUrlConfig.WHITE_LIST_URLS
-                .stream()
-                .anyMatch(path::startsWith)) {
+            .stream()
+            .anyMatch(whiteListedPath -> antPathMatcher.match(whiteListedPath, path))) { // <-- Изменение здесь!
             logger.debug("Skip jwt filter: {}", path);
 
             filterChain.doFilter(request, response);

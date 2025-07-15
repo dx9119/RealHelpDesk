@@ -5,7 +5,7 @@ export APP_NAME="Real help desk"
 export APP_DOMAIN_NAME="example.com"
 
 # SERVER
-export SERVER_PORT="8080"
+export SERVER_PORT="8443"
 export KEY_STORE="keystore.p12"
 export KEY_STORE_PASS="$(openssl rand -base64 24 | tr -d '=+/[:space:]' | cut -c1-20)"
 export KEY_STORE_ALIAS="tomcat"
