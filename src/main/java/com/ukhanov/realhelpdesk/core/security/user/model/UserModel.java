@@ -10,7 +10,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "users")
-public class UserModel implements IUserModel{
+public class UserModel {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -25,6 +25,9 @@ public class UserModel implements IUserModel{
 
     @Column(nullable = true)
     private String middleName; // Отчество пользователя
+
+    @Column(nullable = true, length = 5000)
+    String AdditionalInfo;
 
     @Column(unique = true, nullable = false)
     private String email;
@@ -134,6 +137,14 @@ public class UserModel implements IUserModel{
 
     public String getEmail() {
         return email;
+    }
+
+    public String getAdditionalInfo() {
+        return AdditionalInfo;
+    }
+
+    public UserPlatformSource getUserPlatformSource() {
+        return userPlatformSource;
     }
 
     public void setEmail(String email) {
