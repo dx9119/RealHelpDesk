@@ -84,7 +84,7 @@ public class PortalManageService {
 
     public PageResponse<PortalResponse> getPagePortalsByAccess(int page, int size, String sortBy, String order) {
         logger.debug("Received request for accessible portals — page: {}, size: {}, sortBy: {}, order: {}", page, size, sortBy, order);
-
+        
         UserModel userModel = currentUserProvider.getCurrentUserModel();
         PageRequest pageRequest = paginationService.buildPageRequest(page, size, sortBy, order);
 
@@ -94,37 +94,37 @@ public class PortalManageService {
         return paginationService.mapToResponse(mappedPage, sortBy, order);
     }
 
-    public void grantUserAccessToPortal(Long portalId, List<UUID> newAccessUserId) throws PortalException {
+
+    public void grantUserAccessToPortal(Long portalId, List<UUID> newAccessUserId, boolean isPublic) throws PortalException {
         Objects.requireNonNull(portalId, "portalId must not be null");
         Objects.requireNonNull(newAccessUserId, "userId must not be null");
-
-
-        if(!accessValidationService.hasPortalAccess(portalId)){
-            throw new PortalException("Только создатель портала имеет право на изменения списка пользователей");
-        }
 
         PortalModel portal = portalDomainService.getPortalById(portalId);
         for(UUID userId : newAccessUserId){
             if (portal.getAllowedUserIds().contains(userId)) {
                 logger.debug("User {} already has access to portal {}", newAccessUserId, portalId);
-                throw new PortalException("Пользователь уже имеет доступ к порталу");
+                throw new PortalException("Пользователь c ID:"+newAccessUserId+" уже имеет доступ к порталу");
             }
 
             if (!portal.getAllowedUserIds().add(userId)) {
                 logger.debug("Failed to add user {} to portal {}", newAccessUserId, portalId);
-                throw new PortalException("Не удалось предоставить пользователю доступ к порталу");
+                throw new PortalException("Не удалось предоставить пользователю с ID:"+newAccessUserId+" доступ к порталу");
             }
         }
+        portal.setPublic(isPublic);
+        logger.info("Portal {} is now public: {}", portalId, isPublic);
 
         logger.info("Granting user {} access to portal {}", newAccessUserId, portalId);
         portalDomainService.savePortal(portal);
     }
 
-    public Set<UUID> getPortalUsers(Long portalId) {
+    public Set<UUID> getPortalUsers(Long portalId) throws PortalException {
         Objects.requireNonNull(portalId, "portalId must not be null");
         PortalModel portal = portalDomainService.getPortalById(portalId);
         return portal.getAllowedUserIds();
     }
+
+
 
 }
 

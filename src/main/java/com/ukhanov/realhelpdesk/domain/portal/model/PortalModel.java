@@ -38,6 +38,8 @@ public class PortalModel {
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
+    private boolean isPublic = false;
+
     @PrePersist
     public void setCreatedAt() {
         this.createdAt = Instant.now();
@@ -49,6 +51,14 @@ public class PortalModel {
 
     public Long getId() {
         return id;
+    }
+
+    public boolean isPublic() {
+        return isPublic;
+    }
+
+    public void setPublic(boolean aPublic) {
+        isPublic = aPublic;
     }
 
     public void setId(Long id) {

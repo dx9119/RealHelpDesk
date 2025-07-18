@@ -2,6 +2,7 @@ package com.ukhanov.realhelpdesk.feature.portalmanager.controller;
 
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.CreatePortalRequest;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.CreatePortalResponse;
+import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalAccessRequest;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalResponse;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.portalmanager.service.PortalManageService;
@@ -10,10 +11,10 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 
@@ -23,7 +24,6 @@ import org.springframework.web.bind.annotation.*;
 public class PortalController {
 
     private final PortalManageService portalManageService;
-
 
     public PortalController(PortalManageService portalManageService) {
         this.portalManageService = portalManageService;
@@ -58,13 +58,20 @@ public class PortalController {
         return portalManageService.getPagePortalsByAccess(page, size, sortBy, order);
     }
 
+    @PreAuthorize("@accessValidationService.hasPortalOwner(#portalId)")
     @PostMapping("/shared/{portalId}")
-    public ResponseEntity<Void> grantAccess(
+    public ResponseEntity<Void> setGrantAccess(
         @PathVariable @NotNull Long portalId,
-        @RequestBody @NotNull List<UUID> newAccessUserId
+        @RequestBody @NotNull PortalAccessRequest request
     ) throws PortalException {
-        portalManageService.grantUserAccessToPortal(portalId, newAccessUserId);
+        portalManageService.grantUserAccessToPortal(portalId, request.getNewAccessUserId(), request.isPublic());
         return ResponseEntity.ok().build();
+    }
+
+    @PreAuthorize("@accessValidationService.hasPortalAccess(#portalId)")
+    @GetMapping("/shared/{portalId}")
+    public ResponseEntity<Set<UUID>> getGrantAccess(@PathVariable @NotNull Long portalId) throws PortalException {
+        return ResponseEntity.ok(portalManageService.getPortalUsers(portalId));
     }
 
 }

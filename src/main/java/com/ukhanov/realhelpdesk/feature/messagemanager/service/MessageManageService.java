@@ -52,13 +52,9 @@ public class MessageManageService {
         return new CreateMessageResponse("Message created, id: " + message.getId());
     }
 
-    public List<MessageResponse> getAllMessage(Long ticketId, Long portalId)
+    public List<MessageResponse> getAllMessage(Long ticketId)
         throws MessageException, PortalException {
         Objects.requireNonNull(ticketId, "ticketId must not be null");
-
-        if(!accessValidationService.hasPortalAccess(portalId)){
-            throw new MessageException("Вам не разрешен доступ к порталу за которым закреплена данная заявка");
-        }
 
         List<MessageModel> messages = messageDomainService.getMessagesByTicketId(ticketId);
         logger.info("Found {} messages for ticket ID: {}", messages.size(), ticketId);

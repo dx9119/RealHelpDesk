@@ -1,5 +1,6 @@
 package com.ukhanov.realhelpdesk.feature.ticketmanager.service;
 
+import com.ukhanov.realhelpdesk.core.security.accesscontrol.AccessValidationService;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
@@ -8,6 +9,7 @@ import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 import com.ukhanov.realhelpdesk.domain.ticket.service.TicketDomainService;
 import com.ukhanov.realhelpdesk.feature.pagination.dto.PageResponse;
 import com.ukhanov.realhelpdesk.feature.pagination.service.PaginationService;
+import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.portalmanager.service.PortalManageService;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketRequest;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketResponse;
@@ -33,20 +35,28 @@ public class TicketManageService {
     private final CurrentUserProvider currentUserProvider;
     private final PortalDomainService portalDomainService;
     private final PaginationService paginationService;
+    private final AccessValidationService accessValidationService;
 
     public TicketManageService(TicketDomainService ticketDomainService,
                                CurrentUserProvider currentUserProvider,
                                PortalDomainService portalDomainService,
         PaginationService paginationService,
-        PortalManageService portalManageService) {
+        PortalManageService portalManageService, AccessValidationService accessValidationService) {
         this.ticketDomainService = ticketDomainService;
         this.currentUserProvider = currentUserProvider;
         this.portalDomainService = portalDomainService;
       this.paginationService = paginationService;
-
+      this.accessValidationService = accessValidationService;
     }
 
-    public CreateTicketResponse createTicket(CreateTicketRequest request, Long portalId) {
+    public TicketResponse getTicketById(Long ticketId) {
+        Objects.requireNonNull(ticketId, "ticketId must not be null");
+        TicketModel ticket = ticketDomainService.findTicketById(ticketId);
+        return TicketMapper.toResponse(ticket);
+    }
+
+    public CreateTicketResponse createTicket(CreateTicketRequest request, Long portalId)
+        throws PortalException {
         Objects.requireNonNull(request, "CreateTicketRequest must not be null");
         Objects.requireNonNull(portalId, "portalId must not be null");
 
@@ -78,12 +88,8 @@ public class TicketManageService {
     }
 
     public PageResponse<TicketResponse> getPageTickets(Long portalId, int page, int size, String sortBy, String order)
-        throws TicketException {
+        throws TicketException, PortalException {
         logger.debug("Received request for paged tickets — portalId: {}, page: {}, size: {}, sortBy: {}, order: {}", portalId, page, size, sortBy, order);
-
-        if(!validateAccessTicket(portalId)){
-            throw new TicketException("Вам не разрешен доступ к данному порталу");
-        }
 
         PageRequest pageRequest = paginationService.buildPageRequest(page, size, sortBy, order);
         Page<TicketModel> ticketPage = ticketDomainService.getTicketsPageByPortalId(portalId, pageRequest);
@@ -92,16 +98,7 @@ public class TicketManageService {
         return paginationService.mapToResponse(mappedPage, sortBy, order);
     }
 
-    private boolean validateAccessTicket(Long portalId) {
-        PortalModel portal = portalDomainService.getPortalById(portalId);
-        Set<UUID> UserOfPortal = portal.getAllowedUserIds();
-        UUID currentUserId = currentUserProvider.getCurrentUserModel().getId();
 
-        if (!UserOfPortal.contains(currentUserId)) {
-           return false;
-        }
-        return true;
-    }
 
 
 }

@@ -28,9 +28,24 @@ public class AccessValidationService {
 
     boolean isOwner = portal.getOwner().getId().equals(currentUserId);
     boolean isAllowedUser = portal.getAllowedUserIds().contains(currentUserId);
+    boolean isPublic = portal.isPublic();
 
-    if (!isOwner && !isAllowedUser) {
+    if (!isOwner && !isAllowedUser && !isPublic) {
       logger.info("User {} does not have access to portal {}", currentUserId, portalId);
+      return false;
+    }
+
+    return true;
+  }
+
+  public boolean hasPortalOwner(Long portalId) throws PortalException {
+    PortalModel portal = portalDomainService.getPortalById(portalId);
+    UUID currentUserId = currentUserProvider.getCurrentUserModel().getId();
+
+    boolean isOwner = portal.getOwner().getId().equals(currentUserId);
+
+    if (!isOwner) {
+      logger.info("User is not owner of portal {}", portalId);
       return false;
     }
 

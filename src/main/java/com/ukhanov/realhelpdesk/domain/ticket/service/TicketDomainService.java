@@ -62,4 +62,5 @@ public class TicketDomainService {
         return ticketRepository.findAllByPortalId(portalId, pageable);
     }
 
+
 }

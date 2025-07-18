@@ -94,6 +94,10 @@ public class UserModel {
         this.verifyEmailToken = verifyEmailToken;
     }
 
+    public void setAdditionalInfo(String additionalInfo) {
+        AdditionalInfo = additionalInfo;
+    }
+
     public UserPlatformSource getUserExternalSource() {
         return userPlatformSource;
     }
