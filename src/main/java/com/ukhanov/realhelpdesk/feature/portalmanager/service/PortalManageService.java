@@ -7,13 +7,18 @@ import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import com.ukhanov.realhelpdesk.domain.portal.service.PortalDomainService;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.CreatePortalRequest;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.CreatePortalResponse;
+import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalInfoResponse;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalResponse;
+import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalSettingsResponse;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.portalmanager.mapper.PortalMapper;
 import com.ukhanov.realhelpdesk.feature.pagination.dto.PageResponse;
 import com.ukhanov.realhelpdesk.feature.pagination.service.PaginationService;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -31,17 +36,20 @@ public class PortalManageService {
     private final CurrentUserProvider currentUserProvider;
     private final PortalDomainService portalDomainService;
     private final PaginationService paginationService;
+    private final PortalUtilsService portalUtilsService;
     private final AccessValidationService accessValidationService;
 
     public PortalManageService(
         CurrentUserProvider currentUserProvider,
         PortalDomainService portalDomainService,
-        PaginationService paginationService, AccessValidationService accessValidationService)
+        PaginationService paginationService, PortalUtilsService portalUtilsService,
+        AccessValidationService accessValidationService)
     {
         this.currentUserProvider = currentUserProvider;
         this.portalDomainService = portalDomainService;
         this.paginationService = paginationService;
-      this.accessValidationService = accessValidationService;
+        this.portalUtilsService = portalUtilsService;
+        this.accessValidationService = accessValidationService;
     }
 
     public CreatePortalResponse createPortal(CreatePortalRequest request) throws PortalException {
@@ -94,34 +102,67 @@ public class PortalManageService {
         return paginationService.mapToResponse(mappedPage, sortBy, order);
     }
 
-
-    public void grantUserAccessToPortal(Long portalId, List<UUID> newAccessUserId, boolean isPublic) throws PortalException {
+    public void setPortalStatus(Long portalId, boolean isPublic) throws PortalException {
         Objects.requireNonNull(portalId, "portalId must not be null");
-        Objects.requireNonNull(newAccessUserId, "userId must not be null");
-
-        PortalModel portal = portalDomainService.getPortalById(portalId);
-        for(UUID userId : newAccessUserId){
-            if (portal.getAllowedUserIds().contains(userId)) {
-                logger.debug("User {} already has access to portal {}", newAccessUserId, portalId);
-                throw new PortalException("Пользователь c ID:"+newAccessUserId+" уже имеет доступ к порталу");
-            }
-
-            if (!portal.getAllowedUserIds().add(userId)) {
-                logger.debug("Failed to add user {} to portal {}", newAccessUserId, portalId);
-                throw new PortalException("Не удалось предоставить пользователю с ID:"+newAccessUserId+" доступ к порталу");
-            }
+        logger.debug("Received request to set portal {} status to {}", portalId, isPublic);
+        PortalModel portal;
+        try {
+            portal = portalDomainService.getPortalById(portalId);
+        } catch (IllegalArgumentException e) {
+            throw new PortalException("Portal not found with ID: " + portalId, e);
         }
         portal.setPublic(isPublic);
         logger.info("Portal {} is now public: {}", portalId, isPublic);
-
-        logger.info("Granting user {} access to portal {}", newAccessUserId, portalId);
         portalDomainService.savePortal(portal);
     }
 
-    public Set<UUID> getPortalUsers(Long portalId) throws PortalException {
+    public void addUserForPortal(Long portalId, Set<UUID> newAccessUserId) throws PortalException {
+        Objects.requireNonNull(portalId, "portalId must not be null");
+        Objects.requireNonNull(newAccessUserId, "newAccessUserId must not be null");
+        portalUtilsService.validateUUIDList(newAccessUserId);
+
+        PortalModel portal = portalDomainService.getPortalById(portalId);
+        portal.setAllowedUserIds(new HashSet<>(newAccessUserId));
+        portalDomainService.savePortal(portal);
+        logger.info("Successfully set users {} for portal {}", newAccessUserId, portalId);
+    }
+
+    public PortalSettingsResponse getPortalSettings(Long portalId) throws PortalException {
         Objects.requireNonNull(portalId, "portalId must not be null");
         PortalModel portal = portalDomainService.getPortalById(portalId);
-        return portal.getAllowedUserIds();
+        PortalSettingsResponse response = new PortalSettingsResponse();
+        response.setPublic(portal.isPublic());
+        response.setUsers(portal.getAllowedUserIds());
+        return response;
+    }
+
+    public void deletePortals(Set<Long> portalIdSet) throws PortalException {
+        Objects.requireNonNull(portalIdSet, "portalIdSet must not be null");
+
+        for (Long id : portalIdSet) {
+            if(accessValidationService.hasPortalOwner(id)){
+                portalDomainService.deletePortalById(id);
+            }
+        }
+
+    }
+
+    public List<PortalInfoResponse> getAccessiblePortals() {
+        UUID userId = currentUserProvider.getCurrentUserModel().getId();
+        return Stream.concat(
+                portalDomainService.getPortalsByOwnerId(userId).stream(),
+                portalDomainService.getAllSharedPortals(userId).stream()
+            )
+            .map(p -> new PortalInfoResponse(p.getId(), p.getName()))
+            .toList();
+    }
+
+    public PortalInfoResponse getPortalInfo(Long portalId) throws PortalException {
+        Objects.requireNonNull(portalId, "portalId must not be null");
+
+        UUID userId = currentUserProvider.getCurrentUserModel().getId();
+        PortalModel portal = portalDomainService.getPortalById(portalId);
+        return new PortalInfoResponse(portal.getId(),portal.getName(),portal.getDescription());
     }
 
 

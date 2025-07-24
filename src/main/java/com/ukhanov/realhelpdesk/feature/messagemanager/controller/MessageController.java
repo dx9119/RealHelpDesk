@@ -6,6 +6,7 @@ import com.ukhanov.realhelpdesk.feature.messagemanager.dto.MessageResponse;
 import com.ukhanov.realhelpdesk.feature.messagemanager.exception.MessageException;
 import com.ukhanov.realhelpdesk.feature.messagemanager.service.MessageManageService;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
+import jakarta.mail.MessagingException;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -30,7 +31,8 @@ public class MessageController {
     public ResponseEntity<CreateMessageResponse> createMessage(@Valid
                                                                @RequestBody CreateMessageRequest request,
                                                                @PathVariable Long ticketId,
-                                                               @PathVariable Long portalId) throws MessageException {
+                                                               @PathVariable Long portalId)
+        throws MessageException, MessagingException {
         CreateMessageResponse response = messageManageService.createMessage(request, ticketId);
         return ResponseEntity.ok(response);
     }

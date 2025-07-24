@@ -13,11 +13,12 @@ import org.springframework.web.context.request.WebRequest;
 
 @ControllerAdvice
 @Order(1)
-public class EmailConfirmationExceptionHandler {
-    private static final Logger logger = LoggerFactory.getLogger(EmailConfirmationExceptionHandler.class);
+public class EmailAccessDeniedExceptionHandler {
+    private static final Logger logger = LoggerFactory.getLogger(EmailAccessDeniedExceptionHandler.class);
 
-    @ExceptionHandler(EmailConfirmationException.class)
-    public ResponseEntity<Map<String, String>> handleConfirmationException(EmailConfirmationException ex, WebRequest request) {
+    @ExceptionHandler(EmailAccessDeniedException.class)
+    public ResponseEntity<Map<String, String>> handleEmailAccessDenied(
+        EmailAccessDeniedException ex, WebRequest request) {
         HttpStatus status = HttpStatus.CONFLICT;
 
         Map<String, String> error = new HashMap<>();

@@ -1,5 +1,6 @@
 package com.ukhanov.realhelpdesk.core.security.auth;
 
+import com.ukhanov.realhelpdesk.core.mail.exception.EmailAccessDeniedException;
 import com.ukhanov.realhelpdesk.core.security.auth.login.dto.LoginRequest;
 import com.ukhanov.realhelpdesk.core.security.auth.login.service.LoginService;
 import com.ukhanov.realhelpdesk.core.security.auth.logout.dto.LogoutResponse;
@@ -40,7 +41,7 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<TokensResponse> registration(@Valid @RequestBody RegisterRequest registerRequest)
-        throws RegistrationException, MessagingException {
+        throws RegistrationException, MessagingException, EmailAccessDeniedException {
         TokensResponse response = registrationService.processRegistration(registerRequest);
         return ResponseEntity.ok(response);
     }
@@ -52,7 +53,7 @@ public class AuthController {
     }
 
     // Проверка статуса refresh-токена и его срока действия
-    @GetMapping("/token")
+    @PostMapping("/token")
     public ResponseEntity<TokenStatusResponse> statusToken(@RequestBody TokenBearerRequest token) throws TokenException {
         TokenStatusResponse response = getTokenService.getStatusRefreshToken(token);
         return ResponseEntity.ok(response);

@@ -15,6 +15,7 @@ public class TicketResponse {
     private TicketPriority ticketPriority;
     private TicketStatus ticketStatus;
     private Instant createdAt;
+    private Long portalId;
 
     private TicketResponse(Builder builder) {
         this.id = builder.id;
@@ -26,6 +27,7 @@ public class TicketResponse {
         this.ticketPriority = builder.ticketPriority;
         this.ticketStatus = builder.ticketStatus;
         this.createdAt = builder.createdAt;
+        this.portalId = builder.portalId;
     }
 
     public Long getId() { return id; }
@@ -37,7 +39,12 @@ public class TicketResponse {
     public TicketPriority getTicketPriority() { return ticketPriority; }
     public TicketStatus getTicketStatus() { return ticketStatus; }
     public Instant getCreatedAt() { return createdAt; }
-
+    public Long getPortalId() {
+        return portalId;
+    }
+    public void setPortalId(Long portalId) {
+        this.portalId = portalId;
+    }
 
     public static class Builder {
         private Long id;
@@ -49,6 +56,7 @@ public class TicketResponse {
         private TicketPriority ticketPriority;
         private TicketStatus ticketStatus;
         private Instant createdAt;
+        private Long portalId;
 
         public Builder id(Long id) {
             this.id = id;
@@ -95,8 +103,14 @@ public class TicketResponse {
             return this;
         }
 
+        public Builder portalId(Long portalId) {
+            this.portalId = portalId;
+            return this;
+        }
+
         public TicketResponse build() {
             return new TicketResponse(this);
         }
     }
+
 }

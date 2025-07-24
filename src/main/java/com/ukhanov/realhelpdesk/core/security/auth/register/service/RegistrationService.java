@@ -1,7 +1,9 @@
 package com.ukhanov.realhelpdesk.core.security.auth.register.service;
 
 import com.ukhanov.realhelpdesk.core.mail.dto.EmailConfirmationDto;
-import com.ukhanov.realhelpdesk.core.mail.service.MailService;
+import com.ukhanov.realhelpdesk.core.mail.exception.EmailAccessDeniedException;
+import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
+import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
 import com.ukhanov.realhelpdesk.core.security.auth.mapper.AuthMapper;
 import com.ukhanov.realhelpdesk.core.security.auth.register.dto.RegisterRequest;
 import com.ukhanov.realhelpdesk.core.security.auth.register.exception.RegistrationException;
@@ -24,20 +26,20 @@ public class RegistrationService {
     private final PasswordEncoder passwordEncoder;
     private final UserDomainService userDomainService;
     private final GetTokenService getTokenService;
-    private final MailService mailService;
+    private final EmailDeliveryService emailDeliveryService;
 
 
     public RegistrationService(PasswordEncoder passwordEncoder,
                                UserDomainService userDomainService,
-                               GetTokenService getTokenService, MailService mailService) {
+                               GetTokenService getTokenService, EmailDeliveryService emailDeliveryService) {
         this.passwordEncoder = passwordEncoder;
         this.userDomainService = userDomainService;
         this.getTokenService = getTokenService;
-        this.mailService = mailService;
+        this.emailDeliveryService = emailDeliveryService;
     }
 
     public UserModel addUser(RegisterRequest registerRequest)
-        throws RegistrationException, MessagingException {
+        throws RegistrationException, MessagingException, EmailAccessDeniedException {
         Objects.requireNonNull(registerRequest, "getTokensRequest cannot be null");
         logger.info("Registration start for email: {}", registerRequest.getEmail());
 
@@ -63,24 +65,28 @@ public class RegistrationService {
         logger.info("User registered successfully, email: {}", registerRequest.getEmail());
 
         // Оповещаем админа о регистрации
-        mailService.sendAdminNotification("New registration:"+newUser.getEmail(),"info:"+newUser.toString());
+        emailDeliveryService.sendAdminNotification(
+            "New registration:"+newUser.getEmail(),
+            "info:"+newUser.toString(),
+            NotificationEvent.NEW_SYSTEM_MESSAGE);
 
         // Отправляем письмо с подтверждением
         EmailConfirmationDto dto = EmailConfirmationDto.builder()
-            .token(newUser.getVerifyEmailToken()) // Вставляет ссылку подтверждения
+            .token(newUser.getVerifyEmailToken())
             .build();
 
-        mailService.sendUserNotification(
+        emailDeliveryService.sendUserNotification(
             newUser.getEmail(),
             dto.getSubject(),
-            dto.getMessage()
+            dto.getMessage(),
+            NotificationEvent.NEW_SYSTEM_MESSAGE
         );
 
         return newUser;
     }
 
     public TokensResponse processRegistration(RegisterRequest registerRequest)
-        throws RegistrationException, MessagingException {
+        throws RegistrationException, MessagingException, EmailAccessDeniedException {
         UserModel user = addUser(registerRequest);
         return getTokenService.getNewTokens(user);
     }

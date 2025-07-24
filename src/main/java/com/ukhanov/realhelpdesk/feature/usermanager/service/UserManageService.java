@@ -20,7 +20,7 @@ public class UserManageService {
   private final UserDomainService userDomainService;
 
   public UserManageService(CurrentUserProvider currentUserProvider,
-      UserMapper userMapper, UserDomainService userDomainService) {
+                           UserDomainService userDomainService) {
     this.currentUserProvider = currentUserProvider;
     this.userDomainService = userDomainService;
   }

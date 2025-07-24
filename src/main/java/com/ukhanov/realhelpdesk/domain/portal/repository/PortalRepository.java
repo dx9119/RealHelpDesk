@@ -23,6 +23,9 @@ public interface PortalRepository extends JpaRepository<PortalModel, Long> {
     @Query("SELECT p FROM PortalModel p WHERE :userId MEMBER OF p.allowedUserIds")
     Page<PortalModel> findAccessibleByUserId(@Param("userId") UUID userId, Pageable pageable);
 
+    @Query("SELECT p FROM PortalModel p WHERE :userId MEMBER OF p.allowedUserIds")
+    List<PortalModel> findAllAccessibleByUserId(@Param("userId") UUID userId);
+
     boolean existsByName(String name);
 
 }

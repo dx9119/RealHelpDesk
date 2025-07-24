@@ -3,6 +3,8 @@ package com.ukhanov.realhelpdesk.domain.ticket.service;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 import com.ukhanov.realhelpdesk.domain.ticket.repository.TicketRepository;
 import jakarta.persistence.PersistenceException;
+import java.util.Set;
+import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -62,5 +64,16 @@ public class TicketDomainService {
         return ticketRepository.findAllByPortalId(portalId, pageable);
     }
 
+    public Page<TicketModel> getTicketsPageByUserId(UUID userId, Pageable pageable) {
+        Objects.requireNonNull(userId, "userId must not be null");
+        logger.debug("Fetching paged tickets by userId: {}", userId);
+        return ticketRepository.findAllByAuthorId(userId, pageable);
+    }
+
+    public Set<Long> getIdTicketWithNoAnswer(Long portalId) {
+        Objects.requireNonNull(portalId, "portalId must not be null");
+        logger.debug("Fetching all tickets with no answer for portal ID: {}", portalId);
+        return ticketRepository.findTicketIdsWithoutMessagesByPortalId(portalId);
+    }
 
 }

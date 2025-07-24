@@ -26,7 +26,7 @@ public class UserMapper {
     response.setUserStatus(userModel.getUserStatus());
     response.setUserPlatformSource(userModel.getUserPlatformSource());
     response.setCreatedAt(userModel.getCreatedAt());
-
+    response.setVerifyEmailToken(userModel.getVerifyEmailToken());
     return response;
   }
 

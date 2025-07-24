@@ -1,6 +1,8 @@
 package com.ukhanov.realhelpdesk.feature.ticketmanager.service;
 
-import com.ukhanov.realhelpdesk.core.security.accesscontrol.AccessValidationService;
+import com.ukhanov.realhelpdesk.core.mail.dto.TicketCreatedNotificationDto;
+import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
+import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
@@ -16,8 +18,8 @@ import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketResponse;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponse;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.mapper.TicketMapper;
+import jakarta.mail.MessagingException;
 import java.util.Set;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -35,18 +37,18 @@ public class TicketManageService {
     private final CurrentUserProvider currentUserProvider;
     private final PortalDomainService portalDomainService;
     private final PaginationService paginationService;
-    private final AccessValidationService accessValidationService;
+    private final EmailDeliveryService emailDeliveryService;
 
     public TicketManageService(TicketDomainService ticketDomainService,
                                CurrentUserProvider currentUserProvider,
                                PortalDomainService portalDomainService,
         PaginationService paginationService,
-        PortalManageService portalManageService, AccessValidationService accessValidationService) {
+        PortalManageService portalManageService, EmailDeliveryService emailDeliveryService) {
         this.ticketDomainService = ticketDomainService;
         this.currentUserProvider = currentUserProvider;
         this.portalDomainService = portalDomainService;
       this.paginationService = paginationService;
-      this.accessValidationService = accessValidationService;
+      this.emailDeliveryService = emailDeliveryService;
     }
 
     public TicketResponse getTicketById(Long ticketId) {
@@ -56,7 +58,7 @@ public class TicketManageService {
     }
 
     public CreateTicketResponse createTicket(CreateTicketRequest request, Long portalId)
-        throws PortalException {
+        throws PortalException, MessagingException {
         Objects.requireNonNull(request, "CreateTicketRequest must not be null");
         Objects.requireNonNull(portalId, "portalId must not be null");
 
@@ -70,6 +72,17 @@ public class TicketManageService {
         TicketModel ticket = TicketMapper.fromRequest(request, user, portal);
         TicketModel saved = ticketDomainService.saveTicket(ticket);
 
+        // Отправляем письмо с оповещением о создании заявки
+        TicketCreatedNotificationDto notify = new TicketCreatedNotificationDto.Builder()
+            .info(portalId,saved.getId())
+            .build();
+
+        emailDeliveryService.sendUserNotification(
+            user.getEmail(),
+            notify.getSubject(),
+            notify.getMessage(),
+            NotificationEvent.NEW_TICKET
+        );
         logger.info("Ticket created successfully with ID: {}", saved.getId());
 
         return new CreateTicketResponse("Created ticket with ID: " + saved.getId());
@@ -89,7 +102,6 @@ public class TicketManageService {
 
     public PageResponse<TicketResponse> getPageTickets(Long portalId, int page, int size, String sortBy, String order)
         throws TicketException, PortalException {
-        logger.debug("Received request for paged tickets — portalId: {}, page: {}, size: {}, sortBy: {}, order: {}", portalId, page, size, sortBy, order);
 
         PageRequest pageRequest = paginationService.buildPageRequest(page, size, sortBy, order);
         Page<TicketModel> ticketPage = ticketDomainService.getTicketsPageByPortalId(portalId, pageRequest);
@@ -99,8 +111,19 @@ public class TicketManageService {
     }
 
 
+    public PageResponse<TicketResponse> getPageTicketsByAutor(int page, int size, String sortBy, String order)
+        throws TicketException, PortalException {
+        PageRequest pageRequest = paginationService.buildPageRequest(page, size, sortBy, order);
+        UserModel user = currentUserProvider.getCurrentUserModel();
+        Page<TicketModel> ticketPage = ticketDomainService.getTicketsPageByUserId(user.getId(), pageRequest);
+        Page<TicketResponse> mappedPage = ticketPage.map(TicketMapper::toResponse);
+        return paginationService.mapToResponse(mappedPage, sortBy, order);
+    }
 
-
+    public Set<Long> getTicketNoAnswer(Long portalId) {
+        Objects.requireNonNull(portalId, "portalId must not be null");
+        return ticketDomainService.getIdTicketWithNoAnswer(portalId);
+    }
 }
 
 

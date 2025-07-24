@@ -49,6 +49,7 @@ public class TicketMapper {
                 .authorFullName(authorName)
                 .assignedUserFullName(assignedUserName)
                 .portalName(portalName)
+                .portalId(model.getPortal().getId())
                 .build();
     }
 

@@ -1,7 +1,8 @@
 package com.ukhanov.realhelpdesk.core.mail.service;
 
 import com.ukhanov.realhelpdesk.core.mail.config.EmailProperties;
-import com.ukhanov.realhelpdesk.core.mail.exception.EmailConfirmationException;
+import com.ukhanov.realhelpdesk.core.mail.exception.EmailAccessDeniedException;
+import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
@@ -10,38 +11,43 @@ import jakarta.mail.internet.MimeMessage;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 @Service
-public class MailService {
+public class EmailDeliveryService {
 
-  private static final Logger logger = LoggerFactory.getLogger(MailService.class);
+  private static final Logger logger = LoggerFactory.getLogger(EmailDeliveryService.class);
 
   private final JavaMailSender mailSender;
   private final UserDomainService userDomainService;
-  private final CurrentUserProvider currentUserProvider;
   private final EmailProperties emailProperties;
+  private final EmailPolicyService emailPolicyService;
+  private final CurrentUserProvider currentUserProvider;
 
-  public MailService(JavaMailSender mailSender,
+  public EmailDeliveryService(JavaMailSender mailSender,
       UserDomainService userDomainService,
-      CurrentUserProvider currentUserProvider,
-      EmailProperties emailProperties) {
+      EmailProperties emailProperties, EmailPolicyService emailPolicyService,
+      CurrentUserProvider currentUserProvider) {
     this.mailSender = mailSender;
     this.userDomainService = userDomainService;
-    this.currentUserProvider = currentUserProvider;
     this.emailProperties = emailProperties;
+    this.emailPolicyService = emailPolicyService;
+    this.currentUserProvider = currentUserProvider;
   }
 
-  public void sendEmail(String recipient, String subject, String text) throws MessagingException {
+  public void sendEmail(String recipient, String subject, String text, NotificationEvent sourceEvent) throws MessagingException, EmailAccessDeniedException {
     logger.info("Attempting to send email to recipient: '{}'", recipient);
     logger.info("Recipient string length: {}", recipient != null ? recipient.length() : "null");
     if (recipient != null) {
       logger.info("Recipient string bytes (UTF-8): {}", java.util.Arrays.toString(recipient.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
     }
 
+    if(emailPolicyService.isStopList(recipient, sourceEvent)){
+      logger.info("skip delivery to {}", recipient);
+      return;
+    }
     MimeMessage mimeMessage = mailSender.createMimeMessage();
     MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
 
@@ -54,24 +60,28 @@ public class MailService {
     mimeMessage.setHeader("Content-Transfer-Encoding", "7bit");
 
     mailSender.send(mimeMessage);
+    logger.info("Email sent to recipient: '{}'", recipient);
+
   }
 
-  public void sendAdminNotification(String subject, String text) throws MessagingException {
-    sendEmail(emailProperties.getNotify(), subject, text);
+  public void sendAdminNotification(String subject, String text, NotificationEvent sourceEvent)
+      throws MessagingException, EmailAccessDeniedException {
+    sendEmail(emailProperties.getNotify(), subject, text, sourceEvent);
   }
 
-  public void sendUserNotification(String userEmail, String subject, String text) throws MessagingException {
-    sendEmail(userEmail, subject, text);
+  public void sendUserNotification(String userEmail, String subject, String text, NotificationEvent sourceEvent)
+      throws MessagingException, EmailAccessDeniedException {
+    sendEmail(userEmail, subject, text, sourceEvent);
   }
 
-  public void confirmEmail(UUID token) throws EmailConfirmationException {
+  public void confirmEmail(UUID token) throws EmailAccessDeniedException {
     UserModel user = currentUserProvider.getCurrentUserModel();
-
     if(!user.getVerifyEmailToken().equals(token)) {
-      throw new EmailConfirmationException("Mail token is invalid");
+      throw new EmailAccessDeniedException("Mail token is invalid");
     }
     user.setEmailVerified(true);
     userDomainService.saveUser(user);
   }
+
 
 }

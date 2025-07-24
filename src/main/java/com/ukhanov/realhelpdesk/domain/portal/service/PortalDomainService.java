@@ -3,6 +3,7 @@ package com.ukhanov.realhelpdesk.domain.portal.service;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import com.ukhanov.realhelpdesk.domain.portal.repository.PortalRepository;
 
+import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -36,11 +37,11 @@ public class PortalDomainService {
         return portalRepository.findAllByOwnerIdOrderByCreatedAtDesc(ownerId, pageable);
     }
 
-    public PortalModel getPortalById(Long portalId) {
+    public PortalModel getPortalById(Long portalId) throws PortalException {
         Objects.requireNonNull(portalId, "portalId must not be null");
         logger.debug("Fetching portal by ID: {}", portalId);
         return portalRepository.findById(portalId)
-            .orElseThrow(() -> new IllegalArgumentException("Портал с ID " + portalId + " не найден"));
+            .orElseThrow(() -> new PortalException("Портал с ID " + portalId + " не найден"));
     }
 
     public PortalModel savePortal(PortalModel portal) {
@@ -60,4 +61,16 @@ public class PortalDomainService {
         return portalRepository.findAccessibleByUserId(userId, pageable);
     }
 
+    public boolean deletePortalById(Long portalId) {
+        Objects.requireNonNull(portalId, "portalId must not be null");
+        logger.info("Deleting portal by ID: {}", portalId);
+        portalRepository.deleteById(portalId);
+        return true;
+    }
+
+    public List<PortalModel> getAllSharedPortals(UUID userId) {
+        Objects.requireNonNull(userId, "userId must not be null");
+        logger.info("Fetching all accessible portals for userId: {}", userId);
+        return portalRepository.findAllAccessibleByUserId(userId);
+    }
 }

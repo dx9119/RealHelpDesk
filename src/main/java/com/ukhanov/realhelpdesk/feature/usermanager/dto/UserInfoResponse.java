@@ -21,6 +21,15 @@ public class UserInfoResponse {
   private UserStatus userStatus;
   private UserPlatformSource userPlatformSource;
   private Instant createdAt;
+  private UUID verifyEmailToken;
+
+  public UUID getVerifyEmailToken() {
+    return verifyEmailToken;
+  }
+
+  public void setVerifyEmailToken(UUID verifyEmailToken) {
+    this.verifyEmailToken = verifyEmailToken;
+  }
 
   public UserInfoResponse() {
   }
