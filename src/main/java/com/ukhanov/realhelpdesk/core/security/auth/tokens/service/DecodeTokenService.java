@@ -1,10 +1,13 @@
 package com.ukhanov.realhelpdesk.core.security.auth.tokens.service;
 
 import com.ukhanov.realhelpdesk.core.config.JwtConfig;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenBearer;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -56,5 +59,34 @@ public class DecodeTokenService {
         return new String[] { userId, role };
     }
 
+    public String extractTokenFromCookies(HttpServletRequest request, String cookieName)
+        throws TokenException {
+        logger.debug("Start extracting cookie. Requested name: '{}'", cookieName);
+
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) {
+            logger.warn("No cookies received in request");
+            throw new TokenException("No cookies received in request");
+        }
+
+        logger.debug("Number of cookies received: {}", cookies.length);
+
+        for (int i = 0; i < cookies.length; i++) {
+            Cookie cookie = cookies[i];
+            logger.info("Cookie[{}]: name='{}', value='{}'", i, cookie.getName(), cookie.getValue());
+        }
+
+        boolean found = false;
+        for (Cookie cookie : cookies) {
+            if (cookieName.equals(cookie.getName())) {
+                logger.info("Target cookie '{}' found. Returning value: '{}'", cookieName, cookie.getValue());
+                found = true;
+                return cookie.getValue();
+            }
+        }
+
+      throw new TokenException("No cookie with name '" + cookieName + "' found in request");
+
+    }
 
 }

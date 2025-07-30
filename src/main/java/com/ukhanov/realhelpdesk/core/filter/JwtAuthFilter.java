@@ -10,6 +10,7 @@ import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.MalformedJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
@@ -47,6 +48,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String path = request.getServletPath();
+
+        //пропускаем OPTIONS для CORS запросов
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         // Пропускаем фильтр для URL из БС
         if (WhiteUrlConfig.WHITE_LIST_URLS
@@ -110,17 +117,22 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
     }
 
-    // Извлекаем токен из заголовка Authorization.
+    // Извлекаем токен из куки
     private TokenBearerResponse resolveToken(HttpServletRequest request) {
         TokenBearerResponse token = new TokenBearerResponse();
-        String bearer = Objects.requireNonNullElse(request.getHeader("Authorization"), "");
+        Cookie[] cookies = request.getCookies();
 
-        if (bearer.startsWith("Bearer ")) {
-            logger.debug("The token was successfully received");
-            token.setToken(bearer.substring(7));
-            return token;
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if ("accessToken".equals(cookie.getName())) {
+                    logger.debug("Access token was successfully received from cookie.");
+                    token.setToken(cookie.getValue());
+                    return token;
+                }
+            }
         }
-        logger.debug("The Bearer token is missing in the header.");
+
+        logger.debug("Access token is missing in cookies.");
         return null;
     }
 }

@@ -5,11 +5,14 @@ import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenStatusRespons
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokensResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.RefreshTokenModel;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.Token;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenBearer;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenStatus;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.repository.JwtRefreshTokenRepository;
 import com.ukhanov.realhelpdesk.core.security.user.SecurityUser;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -25,13 +28,16 @@ public class GetTokenService {
     private final JwtRefreshTokenRepository jwtRefreshTokenRepository;
     private final FindTokenService findTokenService;
     private final ValidTokenService validTokenService;
+    private final DecodeTokenService decodeTokenService;
 
-    public GetTokenService(GenTokenService genTokenService, SaveTokenService saveTokenService, JwtRefreshTokenRepository jwtRefreshTokenRepository, FindTokenService findTokenService, ValidTokenService validTokenService) {
+    public GetTokenService(GenTokenService genTokenService, SaveTokenService saveTokenService, JwtRefreshTokenRepository jwtRefreshTokenRepository, FindTokenService findTokenService, ValidTokenService validTokenService,
+        DecodeTokenService decodeTokenService) {
         this.genTokenService = genTokenService;
         this.saveTokenService = saveTokenService;
         this.jwtRefreshTokenRepository = jwtRefreshTokenRepository;
         this.findTokenService = findTokenService;
         this.validTokenService = validTokenService;
+      this.decodeTokenService = decodeTokenService;
     }
 
     // Получить активный рефреш токен и новый access токен
@@ -80,19 +86,22 @@ public class GetTokenService {
                 .orElseThrow(() -> new TokenException("Active refresh token not found"));
     }
 
+    public TokenStatusResponse getStatusRefreshTokenFromCookie(HttpServletRequest request) throws TokenException {
+        Objects.requireNonNull(request, "Request cannot be null");
 
-
-    public TokenStatusResponse getStatusRefreshToken(TokenBearer tokenRefresh) throws TokenException {
-        Objects.requireNonNull(tokenRefresh, "Token cannot be null");
-
-        logger.debug("Start searching refresh tokenRefresh");
+        Token tokenRefresh = new Token(
+            decodeTokenService.extractTokenFromCookies(request, "refreshToken")
+        );
+        if (tokenRefresh.getToken() == null && Objects.equals(tokenRefresh.getToken(), "")) {
+            throw new TokenException("Refresh token cookie not found");
+        }
+        logger.debug("Init find refresh token: {}", tokenRefresh.getToken());
         RefreshTokenModel refreshToken = findTokenService.findRefreshToken(tokenRefresh);
-        logger.debug("Found refresh tokenRefresh: {}", refreshToken);
 
         return TokenStatusResponse.builder()
-                .tokenStatus(refreshToken.getStatus())
-                .createdAt(refreshToken.getCreatedAt())
-                .build();
+            .tokenStatus(refreshToken.getStatus())
+            .createdAt(refreshToken.getCreatedAt())
+            .build();
     }
 
     public UserModel getUserByRefreshToken(String tokenRefresh) throws TokenException {
@@ -105,7 +114,6 @@ public class GetTokenService {
 
         return refreshToken.getUser();
     }
-
 
     public TokenBearerResponse getNewAccessToken(TokenBearer tokenRefresh) throws TokenException {
         Objects.requireNonNull(tokenRefresh, "Token cannot be null");

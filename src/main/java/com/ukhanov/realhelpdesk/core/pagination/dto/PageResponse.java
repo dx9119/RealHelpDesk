@@ -1,4 +1,4 @@
-package com.ukhanov.realhelpdesk.feature.pagination.dto;
+package com.ukhanov.realhelpdesk.core.pagination.dto;
 
 import java.util.List;
 

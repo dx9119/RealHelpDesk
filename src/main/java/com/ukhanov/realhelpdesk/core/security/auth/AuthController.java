@@ -13,9 +13,15 @@ import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenBearerRequest
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenStatusResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokensResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.ChangeTokenService;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.GetTokenService;
 import jakarta.mail.MessagingException;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.time.Duration;
+import java.util.Map;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,42 +34,107 @@ public class AuthController {
     private final LoginService loginService;
     private final LogoutService logoutService;
     private final GetTokenService getTokenService;
+    private final ChangeTokenService changeTokenService;
 
     public AuthController(RegistrationService registrationService,
                           LoginService loginService,
                           LogoutService logoutService,
-                          GetTokenService getTokenService) {
+                          GetTokenService getTokenService,
+        ChangeTokenService changeTokenService) {
         this.registrationService = registrationService;
         this.loginService = loginService;
         this.logoutService = logoutService;
         this.getTokenService = getTokenService;
+        this.changeTokenService = changeTokenService;
     }
 
     @PostMapping("/register")
-    public ResponseEntity<TokensResponse> registration(@Valid @RequestBody RegisterRequest registerRequest)
+    public ResponseEntity<Map<String, String>> registration(@Valid @RequestBody RegisterRequest registerRequest)
         throws RegistrationException, MessagingException, EmailAccessDeniedException {
-        TokensResponse response = registrationService.processRegistration(registerRequest);
-        return ResponseEntity.ok(response);
+
+        TokensResponse tokens = registrationService.processRegistration(registerRequest);
+
+        ResponseCookie accessCookie = ResponseCookie.from("accessToken", tokens.getAccessToken())
+            .httpOnly(true)
+            .secure(false)
+            .path("/")
+            .maxAge(Duration.ofHours(1))
+            .sameSite("None")
+            .build();
+
+        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", tokens.getRefreshToken())
+            .httpOnly(true)
+            .secure(false)
+            .path("/")
+            .maxAge(Duration.ofDays(7))
+            .sameSite("None")
+            .build();
+
+        Map<String, String> responseBody = Map.of(
+            "status", "success",
+            "message", "Регистрация прошла успешно"
+        );
+
+        return ResponseEntity
+            .ok()
+            .header(HttpHeaders.SET_COOKIE, accessCookie.toString(), refreshCookie.toString())
+            .body(responseBody);
     }
 
+
     @PostMapping("/login")
-    public ResponseEntity<TokensResponse> login(@Valid @RequestBody LoginRequest loginRequest) throws TokenException {
-        TokensResponse response = loginService.processLogin(loginRequest);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<Map<String, String>> login(@Valid @RequestBody LoginRequest loginRequest) throws TokenException {
+        TokensResponse tokens = loginService.processLogin(loginRequest);
+
+        ResponseCookie accessCookie = ResponseCookie.from("accessToken", tokens.getAccessToken())
+            .httpOnly(true)
+            .secure(true)
+            .path("/")
+            .maxAge(Duration.ofHours(1))
+            .sameSite("None")
+            .build();
+
+        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", tokens.getRefreshToken())
+            .httpOnly(true)
+            .secure(true)
+            .path("/")
+            .maxAge(Duration.ofDays(7))
+            .sameSite("None")
+            .build();
+
+        Map<String, String> responseBody = Map.of(
+            "status", "success",
+            "message", "Вход выполнен успешно"
+        );
+
+        return ResponseEntity
+            .ok()
+            .header(HttpHeaders.SET_COOKIE, accessCookie.toString(), refreshCookie.toString())
+            .body(responseBody);
     }
+
 
     // Проверка статуса refresh-токена и его срока действия
     @PostMapping("/token")
-    public ResponseEntity<TokenStatusResponse> statusToken(@RequestBody TokenBearerRequest token) throws TokenException {
-        TokenStatusResponse response = getTokenService.getStatusRefreshToken(token);
+    public ResponseEntity<TokenStatusResponse> statusToken(HttpServletRequest request)
+        throws TokenException, LogoutException {
+        TokenStatusResponse response = getTokenService.getStatusRefreshTokenFromCookie(request);
+        return ResponseEntity.ok(response);
+    }
+
+    // Проверка наличия авторизации на клиенте (фильтр не даст дойти до этого метода, если есть проблемы с авторизацией)
+    @PostMapping("/check")
+    public ResponseEntity<Map<String, String>> checkToken(@RequestBody TokenBearerRequest tokenBearerRequest) {
+        Map<String, String> response = Map.of("authorization", "true");
         return ResponseEntity.ok(response);
     }
 
     // Отзыв токена
     @DeleteMapping("/token")
-    public ResponseEntity<LogoutResponse> revokeToken(@RequestBody TokenBearerRequest token) throws LogoutException, TokenException {
-        LogoutResponse response = logoutService.processLogout(token);
+    public ResponseEntity<LogoutResponse> revokeToken(HttpServletRequest request) throws LogoutException, TokenException {
+        LogoutResponse response = logoutService.processLogout(request);
         return ResponseEntity.ok(response);
     }
+
 
 }

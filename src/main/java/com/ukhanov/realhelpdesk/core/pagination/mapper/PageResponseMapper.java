@@ -1,7 +1,7 @@
-package com.ukhanov.realhelpdesk.feature.pagination.mapper;
+package com.ukhanov.realhelpdesk.core.pagination.mapper;
 
 
-import com.ukhanov.realhelpdesk.feature.pagination.dto.PageResponse;
+import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 

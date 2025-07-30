@@ -1,7 +1,11 @@
 package com.ukhanov.realhelpdesk.core.security.auth.tokens.service;
 
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.RefreshTokenModel;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.Token;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenBearer;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenStatus;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -13,19 +17,34 @@ public class ChangeTokenService {
     private static final Logger logger = LoggerFactory.getLogger(ChangeTokenService.class);
 
     private final SaveTokenService saveTokenService;
+    private final DecodeTokenService decodeTokenService;
+    private final FindTokenService findTokenService;
 
-    public ChangeTokenService(SaveTokenService saveTokenService, GetTokenService getTokenService) {
+    public ChangeTokenService(SaveTokenService saveTokenService, GetTokenService getTokenService,
+        DecodeTokenService decodeTokenService, FindTokenService findTokenService) {
         this.saveTokenService = saveTokenService;
+      this.decodeTokenService = decodeTokenService;
+      this.findTokenService = findTokenService;
     }
 
-    public RefreshTokenModel changeStatusRefreshToken(RefreshTokenModel token, TokenStatus newStatus) {
-        Objects.requireNonNull(token, "token must not be null");
-        Objects.requireNonNull(newStatus, "status must not be null");
+    public RefreshTokenModel changeStatusRefreshToken(
+        HttpServletRequest request,
+        TokenStatus newStatus )
+        throws TokenException {
+        logger.debug("Start changing status token");
 
-        token.setStatus(newStatus);
-        logger.debug("Changing status token {} to {}", token, newStatus);
+        TokenBearer tokenBearer =
+            new Token(
+                decodeTokenService
+                    .extractTokenFromCookies(request, "refreshToken")
+            );
+        logger.debug("Grab token from cookies: {}", tokenBearer);
 
-        return saveTokenService.saveRefreshToken(token);
+        RefreshTokenModel RefreshToken = findTokenService.findRefreshToken(tokenBearer);
+        logger.debug("Find token: done");
+        RefreshToken.setStatus(newStatus);
+        logger.debug("Change status token to {}", newStatus);
+        return saveTokenService.saveRefreshToken(RefreshToken);
     }
 
 }

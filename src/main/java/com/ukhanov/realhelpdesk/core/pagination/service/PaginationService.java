@@ -1,8 +1,8 @@
-package com.ukhanov.realhelpdesk.feature.pagination.service;
+package com.ukhanov.realhelpdesk.core.pagination.service;
 
 
-import com.ukhanov.realhelpdesk.feature.pagination.dto.PageResponse;
-import com.ukhanov.realhelpdesk.feature.pagination.mapper.PageResponseMapper;
+import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
+import com.ukhanov.realhelpdesk.core.pagination.mapper.PageResponseMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;

@@ -46,7 +46,7 @@ public class WebSecurityConfiguration {
 
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception { // Remove filters from params, inject them
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         // Фильтры
         // Важно: порядок фильтров нужен для корректного логирования аутентификации через JWT
         http.addFilterBefore(jwtAuthFilter, BasicAuthenticationFilter.class);
@@ -54,8 +54,7 @@ public class WebSecurityConfiguration {
         http.cors(cors -> cors.configurationSource(corsConfigurationSource));
         // Доступ
         http.authorizeHttpRequests(authorize -> authorize
-            // 1. Разрешаем все OPTIONS запросы БЕЗ АУТЕНТИКАЦИИ.
-            // Это позволяет Preflight запросам проходить ДО ВСЕХ других фильтров аутентификации.
+            // 1. Разрешаем все OPTIONS запросы БЕЗ АУТЕНТИКАЦИИ для Preflight запросов
             .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
             // 2. Разрешаем доступ к публичным URL
@@ -70,9 +69,6 @@ public class WebSecurityConfiguration {
         http.csrf(AbstractHttpConfigurer::disable);
         http.sessionManagement(sessionManagement -> sessionManagement
             .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-
-        // CORS с помощью настроек из corsConfigurationSource
-        http.cors(Customizer.withDefaults());
 
         return http.build();
     }

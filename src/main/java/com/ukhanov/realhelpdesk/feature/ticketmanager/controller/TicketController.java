@@ -1,6 +1,6 @@
 package com.ukhanov.realhelpdesk.feature.ticketmanager.controller;
 
-import com.ukhanov.realhelpdesk.feature.pagination.dto.PageResponse;
+import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketRequest;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketResponse;

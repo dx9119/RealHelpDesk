@@ -1,10 +1,9 @@
 package com.ukhanov.realhelpdesk.core.security.auth.tokens.model;
 
-public class TokenAccess implements TokenBearer{
-
+public class Token implements TokenBearer{
   private String token;
 
-  public TokenAccess(String token) {
+  public Token(String token) {
     this.token = token;
   }
 
@@ -14,6 +13,6 @@ public class TokenAccess implements TokenBearer{
 
   @Override
   public String getToken() {
-    return "";
+    return token;
   }
 }

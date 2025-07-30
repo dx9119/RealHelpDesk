@@ -8,7 +8,7 @@ import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalSetUsersRequest;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalSettingsResponse;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.portalmanager.service.PortalManageService;
-import com.ukhanov.realhelpdesk.feature.pagination.dto.PageResponse;
+import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;

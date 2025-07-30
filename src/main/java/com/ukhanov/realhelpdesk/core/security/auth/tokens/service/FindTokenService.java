@@ -4,6 +4,9 @@ import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenExcepti
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.RefreshTokenModel;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenBearer;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.repository.JwtRefreshTokenRepository;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -21,22 +24,21 @@ public class FindTokenService {
         this.jwtRefreshTokenRepository = jwtRefreshTokenRepository;
     }
 
-    public RefreshTokenModel findRefreshToken(TokenBearer token) throws TokenException {
-        Objects.requireNonNull(token, "Token cannot be null!");
-        logger.debug("Start finding refresh token: {}", token.getToken());
+  public RefreshTokenModel findRefreshToken(TokenBearer token) throws TokenException {
+    Objects.requireNonNull(token, "Token cannot be null!");
+    Objects.requireNonNull(token.getToken(), "Token cannot be null!");
 
-        Optional<RefreshTokenModel> refreshTokenModel =
-                jwtRefreshTokenRepository.findByTokenRefresh(token.getToken());
+    logger.debug("Start finding refresh token: {}", token.getToken());
 
-        return refreshTokenModel
-                .map(foundToken -> {
-                    logger.debug("Refresh token found: {}", foundToken.getToken());
-                    return foundToken;
-                })
-                .orElseThrow(() -> {
-                    logger.error("Refresh token not found: {}", token.getToken());
-                    return new TokenException("Refresh token not found",null);
-                });
-    }
-
+    Optional<RefreshTokenModel> refreshTokenModel = jwtRefreshTokenRepository.findByTokenRefresh(token.getToken());
+    return refreshTokenModel
+        .map(foundToken -> {
+          logger.debug("Refresh token found: {}", foundToken.getToken());
+          return foundToken;
+        })
+        .orElseThrow(() -> {
+          logger.error("Refresh token not found: {}", token.getToken());
+          return new TokenException("Refresh token not found: " + token.getToken(), null);
+        });
+  }
 }

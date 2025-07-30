@@ -12,9 +12,8 @@ import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalResponse;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalSettingsResponse;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.portalmanager.mapper.PortalMapper;
-import com.ukhanov.realhelpdesk.feature.pagination.dto.PageResponse;
-import com.ukhanov.realhelpdesk.feature.pagination.service.PaginationService;
-import java.util.ArrayList;
+import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
+import com.ukhanov.realhelpdesk.core.pagination.service.PaginationService;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -116,6 +115,7 @@ public class PortalManageService {
         portalDomainService.savePortal(portal);
     }
 
+    //todo добавить валидацию UUID
     public void addUserForPortal(Long portalId, Set<UUID> newAccessUserId) throws PortalException {
         Objects.requireNonNull(portalId, "portalId must not be null");
         Objects.requireNonNull(newAccessUserId, "newAccessUserId must not be null");
