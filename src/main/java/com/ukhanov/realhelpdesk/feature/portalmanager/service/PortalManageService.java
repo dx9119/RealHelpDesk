@@ -7,6 +7,7 @@ import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import com.ukhanov.realhelpdesk.domain.portal.service.PortalDomainService;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.CreatePortalRequest;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.CreatePortalResponse;
+import com.ukhanov.realhelpdesk.feature.portalmanager.dto.DeleteResult;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalInfoResponse;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalResponse;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalSettingsResponse;
@@ -136,15 +137,23 @@ public class PortalManageService {
         return response;
     }
 
-    public void deletePortals(Set<Long> portalIdSet) throws PortalException {
+    public DeleteResult deletePortals(Set<Long> portalIdSet) throws PortalException {
         Objects.requireNonNull(portalIdSet, "portalIdSet must not be null");
 
+        Set<Long> deletedIds = new HashSet<>();
+
         for (Long id : portalIdSet) {
-            if(accessValidationService.hasPortalOwner(id)){
-                portalDomainService.deletePortalById(id);
+            try {
+                if (accessValidationService.hasPortalOwner(id)) {
+                    portalDomainService.deletePortalById(id);
+                    deletedIds.add(id);
+                }
+            } catch (Exception e) {
+                logger.debug("Failed to delete portal with id: {}", id, e);
             }
         }
 
+        return new DeleteResult(deletedIds.size(), deletedIds);
     }
 
     public List<PortalInfoResponse> getAccessiblePortals() {
@@ -164,8 +173,6 @@ public class PortalManageService {
         PortalModel portal = portalDomainService.getPortalById(portalId);
         return new PortalInfoResponse(portal.getId(),portal.getName(),portal.getDescription());
     }
-
-
 
 }
 

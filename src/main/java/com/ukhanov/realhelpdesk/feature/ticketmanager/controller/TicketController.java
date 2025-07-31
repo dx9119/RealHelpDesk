@@ -1,6 +1,8 @@
 package com.ukhanov.realhelpdesk.feature.ticketmanager.controller;
 
 import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketRequest;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketResponse;
@@ -38,7 +40,6 @@ public class TicketController {
         return ResponseEntity.ok(response);
     }
 
-
     @GetMapping("/{portalId}/ticket")
     @PreAuthorize("@accessValidationService.hasPortalAccess(#portalId)")
     public PageResponse<TicketResponse> getPagedTicketsByPortalId(
@@ -56,7 +57,16 @@ public class TicketController {
     public Set<Long> getPagedTicketsByPortalIdNoAnswer(
         @PathVariable Long portalId
     ) throws TicketException, PortalException {
-        return ticketManageService.getTicketNoAnswer(portalId);
+        return ticketManageService.getIdTicketNoAnswer(portalId);
+    }
+
+    @GetMapping("/{portalId}/ticket/status/{status}")
+    @PreAuthorize("@accessValidationService.hasPortalAccess(#portalId)")
+    public Set<Long> getTicketsWithStatus(
+        @PathVariable Long portalId,
+        @PathVariable TicketStatus status
+    ) throws TicketException, PortalException {
+        return ticketManageService.getIdTicketWithStatus(portalId, status);
     }
 
     @GetMapping("/ticket/author")
@@ -69,6 +79,19 @@ public class TicketController {
         return ticketManageService.getPageTicketsByAutor(page, size, sortBy, order);
     }
 
+    @GetMapping("{portalId}/ticket/page/status/{status}")
+    public PageResponse<TicketResponse> getPagedTicketsByStatus(
+        @RequestParam(defaultValue = "0") @Min(0) int page,
+        @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size,
+        @RequestParam(defaultValue = "createdAt") String sortBy,
+        @RequestParam(defaultValue = "desc") String order,
+        @PathVariable Long portalId,
+        @PathVariable TicketStatus status
+    ) throws TicketException, PortalException {
+        Set<Long> ids = ticketManageService.getIdTicketWithStatus(portalId, status);
+        return ticketManageService.getPageTicketsByIds(ids, page, size, sortBy, order);
+    }
+
 
     @GetMapping("/{portalId}/ticket/{ticketId}")
     @PreAuthorize("@accessValidationService.hasPortalAccess(#portalId)")
@@ -77,5 +100,26 @@ public class TicketController {
     }
 
 
+    @PostMapping("/{portalId}/ticket/set/status/{ticketId}")
+    @PreAuthorize("@accessValidationService.hasPortalAccess(#portalId)")
+    public ResponseEntity<String> setStatusTicket(
+        @PathVariable Long portalId,
+        @PathVariable Long ticketId,
+        @RequestParam TicketStatus status
+    ) throws TicketException, PortalException, MessagingException {
+        ticketManageService.setTicketStatus(portalId, ticketId, status);
+        return ResponseEntity.ok("success");
+    }
+
+    @PostMapping("/{portalId}/ticket/set/priority/{ticketId}")
+    @PreAuthorize("@accessValidationService.hasPortalAccess(#portalId)")
+    public ResponseEntity<String> setPriorityTicket(
+        @PathVariable Long portalId,
+        @PathVariable Long ticketId,
+        @RequestParam TicketPriority priority
+    ) throws TicketException, PortalException, MessagingException {
+        ticketManageService.setTicketPriority(portalId, ticketId, priority);
+        return ResponseEntity.ok("success");
+    }
 
 }

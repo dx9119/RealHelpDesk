@@ -1,5 +1,6 @@
 package com.ukhanov.realhelpdesk.core.security.auth.tokens.service;
 
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.AuthorizationResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenBearerResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenStatusResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokensResponse;
@@ -86,16 +87,22 @@ public class GetTokenService {
                 .orElseThrow(() -> new TokenException("Active refresh token not found"));
     }
 
-    public TokenStatusResponse getStatusRefreshTokenFromCookie(HttpServletRequest request) throws TokenException {
+    private Token extractAndValidateToken(HttpServletRequest request, String tokenName) throws TokenException {
         Objects.requireNonNull(request, "Request cannot be null");
 
-        Token tokenRefresh = new Token(
-            decodeTokenService.extractTokenFromCookies(request, "refreshToken")
+        Token token = new Token(
+            decodeTokenService.extractTokenFromCookies(request, tokenName)
         );
-        if (tokenRefresh.getToken() == null && Objects.equals(tokenRefresh.getToken(), "")) {
-            throw new TokenException("Refresh token cookie not found");
+        if (token.getToken() == null || token.getToken().isEmpty()) {
+            throw new TokenException(tokenName + " cookie not found");
         }
-        logger.debug("Init find refresh token: {}", tokenRefresh.getToken());
+
+        logger.debug("Extracted token [{}]: {}", tokenName, token.getToken());
+        return token;
+    }
+
+    public TokenStatusResponse getStatusRefreshTokenFromCookie(HttpServletRequest request) throws TokenException {
+        Token tokenRefresh = extractAndValidateToken(request, "refreshToken");
         RefreshTokenModel refreshToken = findTokenService.findRefreshToken(tokenRefresh);
 
         return TokenStatusResponse.builder()
@@ -103,6 +110,13 @@ public class GetTokenService {
             .createdAt(refreshToken.getCreatedAt())
             .build();
     }
+
+    public AuthorizationResponse isAccessTokenActive(HttpServletRequest request) throws TokenException {
+        Token tokenAccess = extractAndValidateToken(request, "accessToken");
+        validTokenService.lowLevelVerifyToken(tokenAccess);
+        return new AuthorizationResponse("true");
+    }
+
 
     public UserModel getUserByRefreshToken(String tokenRefresh) throws TokenException {
         Objects.requireNonNull(tokenRefresh, "Token cannot be null");

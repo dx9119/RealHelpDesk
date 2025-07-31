@@ -6,8 +6,10 @@ import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
+import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,6 +76,33 @@ public class EmailDeliveryService {
     sendEmail(userEmail, subject, text, sourceEvent);
   }
 
+  public void initNotifyPortalUsers(PortalModel portal, String subject, String message, NotificationEvent sourceEvent)
+      throws MessagingException {
+    Set<UUID> portalUsers = portal.getAllowedUserIds();
+    portalUsers.add(portal.getOwner().getId());
+
+    sendPortalUsersNotification(
+        portalUsers,
+        subject,
+        message,
+        sourceEvent
+    );
+
+    logger.debug("Init notify portal users: {}", portal);
+
+  }
+
+  public void sendPortalUsersNotification(Set<UUID> userIds, String subject, String text, NotificationEvent sourceEvent)
+      throws MessagingException, EmailAccessDeniedException {
+
+    for (UUID userId : userIds) {
+      UserModel user = userDomainService.getUserById(userId);
+      sendEmail(user.getEmail(), subject, text, sourceEvent);
+      logger.debug("Send email to user: {}", user.getEmail());
+    }
+
+  }
+
   public void confirmEmail(UUID token) throws EmailAccessDeniedException {
     UserModel user = currentUserProvider.getCurrentUserModel();
     if(!user.getVerifyEmailToken().equals(token)) {
@@ -81,6 +110,11 @@ public class EmailDeliveryService {
     }
     user.setEmailVerified(true);
     userDomainService.saveUser(user);
+  }
+
+  public void sendConfirmCode () throws MessagingException {
+    UserModel user = currentUserProvider.getCurrentUserModel();
+    sendUserNotification(user.getEmail(), "Confirm code","Hello, code: "+user.getVerifyEmailToken(), NotificationEvent.NEW_SYSTEM_MESSAGE);
   }
 
 

@@ -9,6 +9,7 @@ import com.ukhanov.realhelpdesk.core.security.auth.logout.service.LogoutService;
 import com.ukhanov.realhelpdesk.core.security.auth.register.dto.RegisterRequest;
 import com.ukhanov.realhelpdesk.core.security.auth.register.exception.RegistrationException;
 import com.ukhanov.realhelpdesk.core.security.auth.register.service.RegistrationService;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.AuthorizationResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenBearerRequest;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenStatusResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokensResponse;
@@ -56,7 +57,7 @@ public class AuthController {
 
         ResponseCookie accessCookie = ResponseCookie.from("accessToken", tokens.getAccessToken())
             .httpOnly(true)
-            .secure(false)
+            .secure(true)
             .path("/")
             .maxAge(Duration.ofHours(1))
             .sameSite("None")
@@ -64,7 +65,7 @@ public class AuthController {
 
         ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", tokens.getRefreshToken())
             .httpOnly(true)
-            .secure(false)
+            .secure(true)
             .path("/")
             .maxAge(Duration.ofDays(7))
             .sameSite("None")
@@ -122,10 +123,11 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    // Проверка наличия авторизации на клиенте (фильтр не даст дойти до этого метода, если есть проблемы с авторизацией)
+    // Проверка наличия авторизации на клиенте (фильтр не даст дойти до этого метода, если есть проблемы с авторизацией/токеном)
     @PostMapping("/check")
-    public ResponseEntity<Map<String, String>> checkToken(@RequestBody TokenBearerRequest tokenBearerRequest) {
-        Map<String, String> response = Map.of("authorization", "true");
+    public ResponseEntity<AuthorizationResponse> checkToken(HttpServletRequest request)
+        throws TokenException {
+        AuthorizationResponse response = new AuthorizationResponse("true");
         return ResponseEntity.ok(response);
     }
 

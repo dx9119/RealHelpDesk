@@ -69,10 +69,6 @@ public class TicketModel {
         this.body = body;
     }
 
-    public UserModel getAssignedUser() {
-        return assignedUser;
-    }
-
     public void setAssignedUser(UserModel assignedUser) {
         this.assignedUser = assignedUser;
     }

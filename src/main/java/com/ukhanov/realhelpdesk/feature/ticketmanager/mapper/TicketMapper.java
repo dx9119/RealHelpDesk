@@ -17,7 +17,6 @@ public class TicketMapper {
         ticket.setTitle(request.getTitle());
         ticket.setBody(request.getBody());
         ticket.setAuthor(author);
-        ticket.setAssignedUser(author);
         ticket.setPortal(portal);
         ticket.setTicketPriority(request.getTicketPriority() != null ? request.getTicketPriority() : TicketPriority.NONE);
         ticket.setTicketStatus(TicketStatus.OPEN); // статус по умолчанию
@@ -31,10 +30,6 @@ public class TicketMapper {
                 ? model.getAuthor().getLastName() + " " + model.getAuthor().getFirstName()
                 : "Неизвестный автор";
 
-        String assignedUserName = model.getAssignedUser() != null
-                ? model.getAssignedUser().getLastName() + " " + model.getAssignedUser().getFirstName()
-                : null;
-
         String portalName = model.getPortal() != null
                 ? model.getPortal().getName()
                 : null;
@@ -47,7 +42,6 @@ public class TicketMapper {
                 .ticketPriority(model.getTicketPriority())
                 .ticketStatus(model.getTicketStatus())
                 .authorFullName(authorName)
-                .assignedUserFullName(assignedUserName)
                 .portalName(portalName)
                 .portalId(model.getPortal().getId())
                 .build();

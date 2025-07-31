@@ -5,6 +5,7 @@ import com.ukhanov.realhelpdesk.core.mail.exception.EmailAccessDeniedException;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailPolicyService;
+import jakarta.mail.MessagingException;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -41,6 +42,12 @@ public class EmailPolicyController {
   @PostMapping("/notify-set")
   public ResponseEntity<String> stopNotify(@RequestParam NotificationEvent level) {
     emailPolicyService.addToStopList(level);
+    return ResponseEntity.ok("success");
+  }
+
+  @GetMapping("/code")
+  public ResponseEntity<String> getCode() throws MessagingException {
+    emailDeliveryService.sendConfirmCode();
     return ResponseEntity.ok("success");
   }
 

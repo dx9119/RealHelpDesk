@@ -3,11 +3,14 @@ package com.ukhanov.realhelpdesk.feature.ticketmanager.service;
 import com.ukhanov.realhelpdesk.core.mail.dto.TicketCreatedNotificationDto;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
+import com.ukhanov.realhelpdesk.core.security.accesscontrol.AccessValidationService;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import com.ukhanov.realhelpdesk.domain.portal.service.PortalDomainService;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 import com.ukhanov.realhelpdesk.domain.ticket.service.TicketDomainService;
 import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
 import com.ukhanov.realhelpdesk.core.pagination.service.PaginationService;
@@ -38,17 +41,20 @@ public class TicketManageService {
     private final PortalDomainService portalDomainService;
     private final PaginationService paginationService;
     private final EmailDeliveryService emailDeliveryService;
+    private final AccessValidationService accessValidationService;
 
     public TicketManageService(TicketDomainService ticketDomainService,
                                CurrentUserProvider currentUserProvider,
                                PortalDomainService portalDomainService,
         PaginationService paginationService,
-        PortalManageService portalManageService, EmailDeliveryService emailDeliveryService) {
+        PortalManageService portalManageService, EmailDeliveryService emailDeliveryService,
+        AccessValidationService accessValidationService) {
         this.ticketDomainService = ticketDomainService;
         this.currentUserProvider = currentUserProvider;
         this.portalDomainService = portalDomainService;
       this.paginationService = paginationService;
       this.emailDeliveryService = emailDeliveryService;
+      this.accessValidationService = accessValidationService;
     }
 
     public TicketResponse getTicketById(Long ticketId) {
@@ -71,19 +77,19 @@ public class TicketManageService {
 
         TicketModel ticket = TicketMapper.fromRequest(request, user, portal);
         TicketModel saved = ticketDomainService.saveTicket(ticket);
+        logger.info("Ticket created successfully with ID: {}", saved.getId());
 
-        // Отправляем письмо с оповещением о создании заявки
+        // Отправляем письмо с оповещением о создании заявки всем пользователям портала
         TicketCreatedNotificationDto notify = new TicketCreatedNotificationDto.Builder()
             .info(portalId,saved.getId())
             .build();
 
-        emailDeliveryService.sendUserNotification(
-            user.getEmail(),
+        emailDeliveryService.initNotifyPortalUsers(
+            portal,
             notify.getSubject(),
             notify.getMessage(),
             NotificationEvent.NEW_TICKET
         );
-        logger.info("Ticket created successfully with ID: {}", saved.getId());
 
         return new CreateTicketResponse("Created ticket with ID: " + saved.getId());
     }
@@ -120,9 +126,82 @@ public class TicketManageService {
         return paginationService.mapToResponse(mappedPage, sortBy, order);
     }
 
-    public Set<Long> getTicketNoAnswer(Long portalId) {
+    public PageResponse<TicketResponse> getPageTicketsByIds(Set<Long> ids, int page, int size, String sortBy, String order)
+        throws TicketException, PortalException {
+        Objects.requireNonNull(ids, "ids must not be null");
+
+        PageRequest pageRequest = paginationService.buildPageRequest(page, size, sortBy, order);
+        Page<TicketModel> ticketPage = ticketDomainService.getTicketsByIds(ids, pageRequest);
+        Page<TicketResponse> mappedPage = ticketPage.map(TicketMapper::toResponse);
+
+        return paginationService.mapToResponse(mappedPage, sortBy, order);
+    }
+
+
+
+    public Set<Long> getIdTicketNoAnswer(Long portalId) {
         Objects.requireNonNull(portalId, "portalId must not be null");
         return ticketDomainService.getIdTicketWithNoAnswer(portalId);
+    }
+
+    public Set<Long> getIdTicketWithStatus(Long portalId, TicketStatus status) {
+        Objects.requireNonNull(status, "status must not be null");
+        return ticketDomainService.getIdTicketWithStatus(portalId, status);
+    }
+
+    public void setTicketStatus(Long portalId, Long ticketId, TicketStatus status)
+        throws TicketException, PortalException, MessagingException {
+       Objects.requireNonNull(ticketId, "ticketId must not be null");
+       Objects.requireNonNull(status, "status must not be null");
+
+       UserModel user = currentUserProvider.getCurrentUserModel();
+       TicketModel ticket = ticketDomainService.findTicketById(ticketId);
+
+       boolean isAccessToPortal = accessValidationService.hasPortalAccess(portalId);
+       boolean isAuthorOfTicket = ticket.getAuthor().getId().equals(user.getId());
+
+       if (!(isAuthorOfTicket || isAccessToPortal)) {
+           throw new TicketException("You can't change status of ticket");
+       }
+
+       ticket.setTicketStatus(status);
+       ticketDomainService.saveTicket(ticket);
+
+       PortalModel portal = portalDomainService.getPortalById(portalId);
+       emailDeliveryService.initNotifyPortalUsers(
+            portal,
+            "Обновление статуса заявки #" + ticketId +"("+status+")",
+            "Для заявки #" + ticketId + " был изменен статус на " + status,
+            NotificationEvent.CHANGE_TICKET);
+
+       logger.debug("ticket status updated");
+    }
+
+    public void setTicketPriority(Long portalId, Long ticketId, TicketPriority priority)
+        throws TicketException, PortalException, MessagingException {
+        Objects.requireNonNull(ticketId, "ticketId must not be null");
+        Objects.requireNonNull(priority, "priority must not be null");
+
+        UserModel user = currentUserProvider.getCurrentUserModel();
+        TicketModel ticket = ticketDomainService.findTicketById(ticketId);
+
+        boolean isAccessToPortal = accessValidationService.hasPortalAccess(portalId);
+        boolean isAuthorOfTicket = ticket.getAuthor().getId().equals(user.getId());
+
+        if (!(isAuthorOfTicket || isAccessToPortal)) {
+            throw new TicketException("You can't change priority of ticket");
+        }
+
+        ticket.setTicketPriority(priority);
+        ticketDomainService.saveTicket(ticket);
+
+        PortalModel portal = portalDomainService.getPortalById(portalId);
+        emailDeliveryService.initNotifyPortalUsers(
+            portal,
+            "Обновление приоритета заявки #" + ticketId +"("+priority+")",
+            "Для заявки #" + ticketId + " был изменен приоритет на " + priority,
+            NotificationEvent.CHANGE_TICKET);
+        logger.debug("ticket priority updated");
     }
 }
 

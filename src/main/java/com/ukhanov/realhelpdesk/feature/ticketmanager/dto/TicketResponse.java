@@ -10,7 +10,6 @@ public class TicketResponse {
     private String title;
     private String body;
     private String authorFullName;
-    private String assignedUserFullName;
     private String portalName;
     private TicketPriority ticketPriority;
     private TicketStatus ticketStatus;
@@ -22,7 +21,6 @@ public class TicketResponse {
         this.title = builder.title;
         this.body = builder.body;
         this.authorFullName = builder.authorFullName;
-        this.assignedUserFullName = builder.assignedUserFullName;
         this.portalName = builder.portalName;
         this.ticketPriority = builder.ticketPriority;
         this.ticketStatus = builder.ticketStatus;
@@ -34,7 +32,6 @@ public class TicketResponse {
     public String getTitle() { return title; }
     public String getBody() { return body; }
     public String getAuthorFullName() { return authorFullName; }
-    public String getAssignedUserFullName() { return assignedUserFullName; }
     public String getPortalName() { return portalName; }
     public TicketPriority getTicketPriority() { return ticketPriority; }
     public TicketStatus getTicketStatus() { return ticketStatus; }
@@ -51,7 +48,6 @@ public class TicketResponse {
         private String title;
         private String body;
         private String authorFullName;
-        private String assignedUserFullName;
         private String portalName;
         private TicketPriority ticketPriority;
         private TicketStatus ticketStatus;
@@ -78,10 +74,6 @@ public class TicketResponse {
             return this;
         }
 
-        public Builder assignedUserFullName(String assignedUserFullName) {
-            this.assignedUserFullName = assignedUserFullName;
-            return this;
-        }
 
         public Builder portalName(String portalName) {
             this.portalName = portalName;

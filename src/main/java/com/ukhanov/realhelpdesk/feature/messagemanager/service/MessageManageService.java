@@ -9,6 +9,7 @@ import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.message.model.MessageModel;
 import com.ukhanov.realhelpdesk.domain.message.service.MessageDomainService;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 import com.ukhanov.realhelpdesk.domain.ticket.service.TicketDomainService;
 import com.ukhanov.realhelpdesk.feature.messagemanager.dto.CreateMessageRequest;
 import com.ukhanov.realhelpdesk.feature.messagemanager.dto.CreateMessageResponse;
@@ -52,7 +53,8 @@ public class MessageManageService {
 
         UserModel user = currentUserProvider.getCurrentUserModel();
         TicketModel ticket = ticketDomainService.findTicketById(ticketId);
-
+        ticket.setTicketStatus(TicketStatus.IN_PROGRESS);
+        ticketDomainService.saveTicket(ticket);
         MessageModel message = messageDomainService.saveMessage(messageMapper.toEntity(request, user, ticket));
 
         // Отправляем письмо с оповещением о новом сообщении в тикете
@@ -60,7 +62,12 @@ public class MessageManageService {
             .info(ticket.getPortal().getId(),ticket.getId())
             .build();
 
-        emailDeliveryService.sendUserNotification(user.getEmail(), notify.getSubject(),notify.getMessage(), NotificationEvent.NEW_MESSAGE);
+        emailDeliveryService.sendUserNotification(
+            ticket.getAuthor().getEmail(),
+            notify.getSubject(),
+            notify.getMessage(),
+            NotificationEvent.NEW_MESSAGE
+        );
 
         logger.info("Message save for ticket ID: {}", ticketId);
         return new CreateMessageResponse("Message created, id: " + message.getId());

@@ -27,6 +27,9 @@ public interface TicketRepository extends JpaRepository<TicketModel, Long> {
     Page<TicketModel> findAllByAuthorId(@Param("authorId") UUID authorId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"assignedUser", "author", "portal"})
+    Page<TicketModel> findByIdIn(Set<Long> ids, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"assignedUser", "author", "portal"})
     Optional<TicketModel> findById(Long id);
 
     @Query("""
@@ -36,6 +39,27 @@ public interface TicketRepository extends JpaRepository<TicketModel, Long> {
 """)
     Set<Long> findTicketIdsWithoutMessagesByPortalId(
         @Param("portalId") Long portalId
+    );
+
+    @Query("""
+    SELECT t.id FROM TicketModel t
+    LEFT JOIN MessageModel m ON m.ticket = t
+    WHERE t.portal.id = :portalId 
+      AND m.id IS NULL 
+      AND t.ticketStatus = com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus.OPEN
+""")
+    Set<Long> findOpenTicketIdsWithoutMessagesByPortalId(
+        @Param("portalId") Long portalId
+    );
+
+    @Query("""
+    SELECT t.id FROM TicketModel t
+    WHERE t.portal.id = :portalId 
+      AND t.ticketStatus = :status
+""")
+    Set<Long> findTicketIdsByPortalIdAndStatus(
+        @Param("portalId") Long portalId,
+        @Param("status") com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus status
     );
 
 

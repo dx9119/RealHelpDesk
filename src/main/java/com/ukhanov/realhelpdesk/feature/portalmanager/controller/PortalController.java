@@ -2,6 +2,7 @@ package com.ukhanov.realhelpdesk.feature.portalmanager.controller;
 
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.CreatePortalRequest;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.CreatePortalResponse;
+import com.ukhanov.realhelpdesk.feature.portalmanager.dto.DeleteResult;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalInfoResponse;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalResponse;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalSetUsersRequest;
@@ -87,9 +88,9 @@ public class PortalController {
     }
 
     @DeleteMapping("/delete")
-    public ResponseEntity<String> deletePortals(@RequestParam(name = "id") @NotNull Set<Long> idPortals) throws PortalException {
-        portalManageService.deletePortals(idPortals);
-        return ResponseEntity.ok("success");
+    public ResponseEntity<DeleteResult> deletePortals(@RequestParam(name = "id") @NotNull Set<Long> idPortals) throws PortalException {
+        DeleteResult response = portalManageService.deletePortals(idPortals);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/info")

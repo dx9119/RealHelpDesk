@@ -5,5 +5,6 @@ public enum NotificationEvent {
   NEW_MESSAGE,
   NEW_SYSTEM_MESSAGE,
   NEW_TICKET_OR_MESSAGE,
+  CHANGE_TICKET,
   NONE;
 }
