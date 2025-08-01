@@ -1,13 +1,16 @@
 package com.ukhanov.realhelpdesk.domain.ticket.repository;
 
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -15,7 +18,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface TicketRepository extends JpaRepository<TicketModel, Long> {
+public interface TicketRepository extends JpaRepository<TicketModel, Long>, JpaSpecificationExecutor<TicketModel> {
 
     @EntityGraph(attributePaths = {"assignedUser","author","portal"})
     List<TicketModel> findAllByPortalId(@Param("portalId") Long portalId);
@@ -31,6 +34,10 @@ public interface TicketRepository extends JpaRepository<TicketModel, Long> {
 
     @EntityGraph(attributePaths = {"assignedUser", "author", "portal"})
     Optional<TicketModel> findById(Long id);
+
+    @EntityGraph(attributePaths = {"author", "portal"})
+    Page<TicketModel> findAll(Specification<TicketModel> spec, Pageable pageable);
+
 
     @Query("""
     SELECT t.id FROM TicketModel t
@@ -61,6 +68,5 @@ public interface TicketRepository extends JpaRepository<TicketModel, Long> {
         @Param("portalId") Long portalId,
         @Param("status") com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus status
     );
-
 
 }

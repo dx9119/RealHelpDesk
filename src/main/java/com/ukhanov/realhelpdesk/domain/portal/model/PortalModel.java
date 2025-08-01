@@ -10,14 +10,19 @@ import java.util.Set;
 import java.util.UUID;
 
 @Entity
-@Table(name = "portals")
+@Table(
+    name = "portals",
+    uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"owner_id", "name"})
+    }
+)
 public class PortalModel {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String name;
 
     @Column(nullable = true, columnDefinition = "TEXT")

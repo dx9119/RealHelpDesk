@@ -36,14 +36,20 @@ public class EmailPolicyService {
 
     // источник события откуда отправляется письмо, если событие совпадает с событием которое в стоп листе, то письмо не отправляется
     if (stopListEmail == sourceEvent) {
-      logger.debug("Email is blocked for notifications about: " + stopListEmail);
+      logger.debug("Email is blocked for notifications about: {}", stopListEmail);
       return true;
     }
     // если в стоп листе стоит событие всех новых заявок и сообщений, то письмо не отправляется
     if (stopListEmail == NotificationEvent.NEW_TICKET_OR_MESSAGE){
-      logger.debug("Email is blocked for notifications about: " + stopListEmail);
+      logger.debug("Email is blocked for notifications about: {}", stopListEmail);
       return true;
     }
+    if (stopListEmail == NotificationEvent.CHANGE_TICKET){
+      logger.debug("Email is blocked for notifications about: {}", stopListEmail);
+      return true;
+    }
+
+
     // нет ограничений на отправку писем
     if (stopListEmail == NotificationEvent.NONE) {
       return false;

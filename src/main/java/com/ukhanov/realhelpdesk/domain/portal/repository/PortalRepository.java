@@ -28,4 +28,13 @@ public interface PortalRepository extends JpaRepository<PortalModel, Long> {
 
     boolean existsByName(String name);
 
+    boolean existsByOwnerIdAndName(UUID ownerId, String name);
+
+    @Query("SELECT COUNT(p) FROM PortalModel p WHERE p.owner.id = :ownerId")
+    Integer countPortalByOwnerId(@Param("ownerId") UUID ownerId);
+
+    @Query("SELECT SIZE(p.allowedUserIds) FROM PortalModel p WHERE p.id = :portalId")
+    Integer countAllowedUsersByPortalId(@Param("portalId") Long portalId);
+
+
 }

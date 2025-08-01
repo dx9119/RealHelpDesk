@@ -1,6 +1,7 @@
 package com.ukhanov.realhelpdesk.core.security.user.service;
 
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
+import com.ukhanov.realhelpdesk.core.security.user.repository.UserDetailsProjection;
 import com.ukhanov.realhelpdesk.core.security.user.repository.UserRepository;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -47,6 +48,12 @@ public class UserDomainService {
     public UserModel saveUser(UserModel user) {
         Objects.requireNonNull(user, "user cannot be null");
         return userRepository.save(user);
+    }
+
+    public UserDetailsProjection getUserDetailsById(UUID userId) {
+        Objects.requireNonNull(userId, "User ID cannot be null");
+        return userRepository.findProjectedById(userId)
+            .orElseThrow(() -> new UsernameNotFoundException("User not found with ID: " + userId));
     }
 
 

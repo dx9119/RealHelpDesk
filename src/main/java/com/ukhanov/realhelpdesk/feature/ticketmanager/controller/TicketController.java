@@ -13,9 +13,11 @@ import jakarta.mail.MessagingException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import java.time.Instant;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -91,6 +93,24 @@ public class TicketController {
         Set<Long> ids = ticketManageService.getIdTicketWithStatus(portalId, status);
         return ticketManageService.getPageTicketsByIds(ids, page, size, sortBy, order);
     }
+
+    @GetMapping("/ticket/search")
+    public PageResponse<TicketResponse> searchTickets(
+        @RequestParam(defaultValue = "0") @Min(0) int page,
+        @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size,
+        @RequestParam(defaultValue = "createdAt") String sortBy,
+        @RequestParam(defaultValue = "desc") String order,
+        @RequestParam(required = false) String search,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant startDate,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant endDate,
+        @RequestParam(required = false) TicketStatus ticketStatus,
+        @RequestParam(required = false) TicketPriority ticketPriority
+    ) throws TicketException, PortalException {
+        return ticketManageService.getPageTicketsByFilters(
+            page, size, sortBy, order, search, startDate, endDate, ticketStatus, ticketPriority
+        );
+    }
+
 
 
     @GetMapping("/{portalId}/ticket/{ticketId}")

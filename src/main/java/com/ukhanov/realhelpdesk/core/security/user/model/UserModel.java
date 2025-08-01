@@ -55,6 +55,10 @@ public class UserModel {
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
+    // Лимиты
+    private Integer portalCuntLimit = 2;
+    private Integer portalSharedUsersCountLimit = 2;
+
     @PrePersist
     public void setCreatedAt() {
         this.createdAt = Instant.now();
@@ -194,4 +198,20 @@ public class UserModel {
     public void setExternalId(Long externalId) {
         this.externalId = externalId;
     }
+
+  public Integer getPortalCuntLimit() {
+    return portalCuntLimit;
+  }
+
+  public void setPortalCuntLimit(Integer portalCuntLimit) {
+    this.portalCuntLimit = portalCuntLimit;
+  }
+
+  public Integer getPortalSharedUsersCountLimit() {
+    return portalSharedUsersCountLimit;
+  }
+
+  public void setPortalSharedUsersCountLimit(Integer portalSharedUsersCountLimit) {
+    this.portalSharedUsersCountLimit = portalSharedUsersCountLimit;
+  }
 }

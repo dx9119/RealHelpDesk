@@ -22,6 +22,7 @@ import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponse;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.mapper.TicketMapper;
 import jakarta.mail.MessagingException;
+import java.time.Instant;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,6 +40,7 @@ public class TicketManageService {
     private final TicketDomainService ticketDomainService;
     private final CurrentUserProvider currentUserProvider;
     private final PortalDomainService portalDomainService;
+    private final PortalManageService portalManageService;
     private final PaginationService paginationService;
     private final EmailDeliveryService emailDeliveryService;
     private final AccessValidationService accessValidationService;
@@ -46,12 +48,13 @@ public class TicketManageService {
     public TicketManageService(TicketDomainService ticketDomainService,
                                CurrentUserProvider currentUserProvider,
                                PortalDomainService portalDomainService,
-        PaginationService paginationService,
-        PortalManageService portalManageService, EmailDeliveryService emailDeliveryService,
+        PortalManageService portalManageService,
+        PaginationService paginationService, EmailDeliveryService emailDeliveryService,
         AccessValidationService accessValidationService) {
         this.ticketDomainService = ticketDomainService;
         this.currentUserProvider = currentUserProvider;
         this.portalDomainService = portalDomainService;
+      this.portalManageService = portalManageService;
       this.paginationService = paginationService;
       this.emailDeliveryService = emailDeliveryService;
       this.accessValidationService = accessValidationService;
@@ -125,6 +128,35 @@ public class TicketManageService {
         Page<TicketResponse> mappedPage = ticketPage.map(TicketMapper::toResponse);
         return paginationService.mapToResponse(mappedPage, sortBy, order);
     }
+
+    public PageResponse<TicketResponse> getPageTicketsByFilters(
+        int page,
+        int size,
+        String sortBy,
+        String order,
+        String search,
+        Instant startDate,
+        Instant endDate,
+        TicketStatus ticketStatus,
+        TicketPriority ticketPriority
+    ) throws TicketException, PortalException {
+
+        PageRequest pageRequest = paginationService.buildPageRequest(page, size, sortBy, order);
+        List<Long> portalIds = portalManageService.mapAccessiblePortalsToIds();
+        if (portalIds.isEmpty()) {
+            throw new TicketException("You don't have access to any portals");
+        }
+
+        Page<TicketModel> ticketPage = ticketDomainService.getTicketsPageByPortalsAndFilters(
+            portalIds, search, startDate, endDate, ticketStatus, ticketPriority, pageRequest
+        );
+        logger.debug("Finding tickets for portals: {} with status={} and priority={}", portalIds, ticketStatus, ticketPriority);
+
+        Page<TicketResponse> mappedPage = ticketPage.map(TicketMapper::toResponse);
+        return paginationService.mapToResponse(mappedPage, sortBy, order);
+    }
+
+
 
     public PageResponse<TicketResponse> getPageTicketsByIds(Set<Long> ids, int page, int size, String sortBy, String order)
         throws TicketException, PortalException {

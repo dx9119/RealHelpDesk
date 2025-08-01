@@ -1,17 +1,21 @@
 package com.ukhanov.realhelpdesk.feature.portalmanager.dto;
 
-import java.util.Set;
-import java.util.UUID;
+import java.util.List;
 
 public class PortalSettingsResponse {
-  private Set<UUID> users;
+  private List<UserInfo> users;
   private boolean isPublic;
 
-  public Set<UUID> getUsers() {
+  public PortalSettingsResponse(List<UserInfo> users, boolean isPublic) {
+    this.users = users;
+    this.isPublic = isPublic;
+  }
+
+  public List<UserInfo> getUsers() {
     return users;
   }
 
-  public void setUsers(Set<UUID> users) {
+  public void setUsers(List<UserInfo> users) {
     this.users = users;
   }
 

@@ -50,9 +50,9 @@ public class PortalDomainService {
         return portalRepository.save(portal);
     }
 
-    public boolean isPortalExistByName (String portalName) {
+    public boolean isPortalExistByName (UUID ownerId, String portalName) {
         Objects.requireNonNull(portalName, "portalName must not be null");
-        return portalRepository.existsByName(portalName);
+        return portalRepository.existsByOwnerIdAndName(ownerId, portalName);
     }
 
     public Page<PortalModel> getPortalPageAccessByUser(UUID userId, Pageable pageable) {

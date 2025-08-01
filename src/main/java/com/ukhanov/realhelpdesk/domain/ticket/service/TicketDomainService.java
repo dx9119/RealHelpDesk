@@ -1,15 +1,19 @@
 package com.ukhanov.realhelpdesk.domain.ticket.service;
 
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 import com.ukhanov.realhelpdesk.domain.ticket.repository.TicketRepository;
+import com.ukhanov.realhelpdesk.domain.ticket.repository.TicketSpecification;
 import jakarta.persistence.PersistenceException;
+import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -70,6 +74,24 @@ public class TicketDomainService {
         logger.debug("Fetching paged tickets by userId: {}", userId);
         return ticketRepository.findAllByAuthorId(userId, pageable);
     }
+
+    public Page<TicketModel> getTicketsPageByPortalsAndFilters(
+        List<Long> portalIds,
+        String search,
+        Instant startDate,
+        Instant endDate,
+        TicketStatus ticketStatus,
+        TicketPriority ticketPriority,
+        Pageable pageable
+    ) {
+        Specification<TicketModel> spec = TicketSpecification.withFilters(
+            portalIds, search, startDate, endDate, ticketStatus, ticketPriority
+        );
+        return ticketRepository.findAll(spec, pageable);
+    }
+
+
+
 
     public Page<TicketModel> getTicketsByIds(Set<Long> ids, Pageable pageable) {
         Objects.requireNonNull(ids, "ids must not be null");
