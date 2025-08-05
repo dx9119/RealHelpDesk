@@ -52,7 +52,7 @@ public class PortalDomainService {
 
     public boolean isPortalExistByName (UUID ownerId, String portalName) {
         Objects.requireNonNull(portalName, "portalName must not be null");
-        return portalRepository.existsByOwnerIdAndName(ownerId, portalName);
+        return portalRepository.existsByOwnerIdAndNameAndIsDeletedFalse(ownerId, portalName);
     }
 
     public Page<PortalModel> getPortalPageAccessByUser(UUID userId, Pageable pageable) {

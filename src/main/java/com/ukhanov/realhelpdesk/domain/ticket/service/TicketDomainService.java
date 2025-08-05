@@ -23,6 +23,7 @@ import java.util.Objects;
 public class TicketDomainService {
 
     private static final Logger logger = LoggerFactory.getLogger(TicketDomainService.class);
+
     private final TicketRepository ticketRepository;
 
     public TicketDomainService(TicketRepository ticketRepository) {

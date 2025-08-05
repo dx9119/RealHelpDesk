@@ -16,25 +16,24 @@ import java.util.UUID;
 @Repository
 public interface PortalRepository extends JpaRepository<PortalModel, Long> {
 
-    List<PortalModel> findAllByOwnerIdOrderByCreatedAtDesc(UUID ownerId);
+    @Query("SELECT p FROM PortalModel p WHERE p.owner.id = :ownerId AND p.isDeleted = false ORDER BY p.createdAt DESC")
+    List<PortalModel> findAllByOwnerIdOrderByCreatedAtDesc(@Param("ownerId") UUID ownerId);
 
-    Page<PortalModel> findAllByOwnerIdOrderByCreatedAtDesc(UUID ownerId, Pageable pageable);
+    @Query("SELECT p FROM PortalModel p WHERE p.owner.id = :ownerId AND p.isDeleted = false ORDER BY p.createdAt DESC")
+    Page<PortalModel> findAllByOwnerIdOrderByCreatedAtDesc(@Param("ownerId") UUID ownerId, Pageable pageable);
 
-    @Query("SELECT p FROM PortalModel p WHERE :userId MEMBER OF p.allowedUserIds")
+    @Query("SELECT p FROM PortalModel p WHERE :userId MEMBER OF p.allowedUserIds AND p.isDeleted = false")
     Page<PortalModel> findAccessibleByUserId(@Param("userId") UUID userId, Pageable pageable);
 
-    @Query("SELECT p FROM PortalModel p WHERE :userId MEMBER OF p.allowedUserIds")
+    @Query("SELECT p FROM PortalModel p WHERE :userId MEMBER OF p.allowedUserIds AND p.isDeleted = false")
     List<PortalModel> findAllAccessibleByUserId(@Param("userId") UUID userId);
 
-    boolean existsByName(String name);
+    boolean existsByOwnerIdAndNameAndIsDeletedFalse(UUID ownerId, String name);
 
-    boolean existsByOwnerIdAndName(UUID ownerId, String name);
-
-    @Query("SELECT COUNT(p) FROM PortalModel p WHERE p.owner.id = :ownerId")
+    @Query("SELECT COUNT(p) FROM PortalModel p WHERE p.owner.id = :ownerId AND p.isDeleted = false")
     Integer countPortalByOwnerId(@Param("ownerId") UUID ownerId);
 
-    @Query("SELECT SIZE(p.allowedUserIds) FROM PortalModel p WHERE p.id = :portalId")
+    @Query("SELECT SIZE(p.allowedUserIds) FROM PortalModel p WHERE p.id = :portalId AND p.isDeleted = false")
     Integer countAllowedUsersByPortalId(@Param("portalId") Long portalId);
-
 
 }

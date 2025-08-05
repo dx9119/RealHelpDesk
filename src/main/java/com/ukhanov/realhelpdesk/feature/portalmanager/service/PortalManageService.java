@@ -21,6 +21,8 @@ import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.portalmanager.mapper.PortalMapper;
 import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
 import com.ukhanov.realhelpdesk.core.pagination.service.PaginationService;
+
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
@@ -198,7 +200,11 @@ public class PortalManageService {
         for (Long id : portalIdSet) {
             try {
                 if (accessValidationService.hasPortalOwner(id)) {
-                    portalDomainService.deletePortalById(id);
+                    PortalModel portal = portalDomainService.getPortalById(id);
+                    String portalName = portal.getName()+"(Удален, "+ Instant.now() +")";
+                    portal.setDeleted(true);
+                    portal.setName(portalName);
+                    portalDomainService.savePortal(portal);
                     deletedIds.add(id);
                 }
             } catch (Exception e) {

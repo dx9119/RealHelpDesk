@@ -21,6 +21,4 @@ public class WhiteUrlConfig {
         return accessToken.equals(headerValue);
     }
 
-
-
 }

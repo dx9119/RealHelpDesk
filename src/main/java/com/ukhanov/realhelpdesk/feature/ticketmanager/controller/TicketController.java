@@ -34,6 +34,7 @@ public class TicketController {
     }
 
     @PostMapping("/{portalId}/ticket")
+    @PreAuthorize("@accessValidationService.hasPortalAccess(#portalId)")
     public ResponseEntity<CreateTicketResponse> createTicketForPortal(@Valid
                                                        @RequestBody CreateTicketRequest request,
                                                        @PathVariable Long portalId)

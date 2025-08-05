@@ -3,6 +3,10 @@ package com.ukhanov.realhelpdesk.domain.portal.model;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 import jakarta.persistence.*;
+import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.FilterDef;
+import org.hibernate.annotations.ParamDef;
+import org.hibernate.annotations.Where;
 
 import java.time.Instant;
 import java.util.HashSet;
@@ -43,6 +47,9 @@ public class PortalModel {
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
+    @Column(nullable = false)
+    private boolean isDeleted = false;
+
     private boolean isPublic = false;
 
     @PrePersist
@@ -52,6 +59,14 @@ public class PortalModel {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public boolean isDeleted() {
+        return isDeleted;
+    }
+
+    public void setDeleted(boolean deleted) {
+        isDeleted = deleted;
     }
 
     public Long getId() {

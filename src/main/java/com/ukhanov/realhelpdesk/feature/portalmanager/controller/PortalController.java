@@ -111,6 +111,7 @@ public class PortalController {
         return ResponseEntity.ok(portalManageService.getPortalInfo(portalId));
     }
 
+    @PreAuthorize("@accessValidationService.hasPortalAccess(#portalId)")
     @PostMapping("/info/update/{portalId}")
     public ResponseEntity<PortalInfoResponse> updatePortalInfo(
         @PathVariable @NotNull Long portalId,
