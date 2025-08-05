@@ -1,10 +1,27 @@
 package com.ukhanov.realhelpdesk.feature.usermanager.dto;
 
+import com.ukhanov.realhelpdesk.core.annotation.NoHtml;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 public class UserInfoRequest {
 
+  @NoHtml
+  @NotBlank(message = "Наличие имени обязательно")
+  @Size(min = 2, max = 20, message = "Имя не может быть короче двух символов")
   private String firstName;
+
+  @NoHtml
+  @NotBlank(message = "Наличие фамилии обязательно")
+  @Size(min = 2, max = 20, message = "Фамилия не может быть короче двух символов")
   private String lastName;
+
+  @NoHtml
+  @Size(max = 20)
   private String middleName;
+
+  @NoHtml
+  @Size(min = 2, max = 5000, message = "Имя не может быть короче двух символов")
   private String additionalInfo;
 
   public String getFirstName() {
