@@ -1,8 +1,10 @@
 package com.ukhanov.realhelpdesk.feature.ticketmanager.dto;
 
 import com.ukhanov.realhelpdesk.core.annotation.NoHtml;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketAccessStatus;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -18,6 +20,8 @@ public class CreateTicketRequest {
     private String body;
     private TicketPriority ticketPriority;
 
+    private TicketAccessStatus ticketAccessStatus;
+
     public String getTitle() {
         return title;
     }
@@ -28,6 +32,14 @@ public class CreateTicketRequest {
 
     public String getBody() {
         return body;
+    }
+
+    public TicketAccessStatus getTicketAccessStatus() {
+        return ticketAccessStatus;
+    }
+
+    public void setTicketAccessStatus(TicketAccessStatus ticketAccessStatus) {
+        this.ticketAccessStatus = ticketAccessStatus;
     }
 
     public void setBody(String body) {

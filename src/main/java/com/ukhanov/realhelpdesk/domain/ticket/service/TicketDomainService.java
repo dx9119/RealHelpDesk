@@ -1,5 +1,7 @@
 package com.ukhanov.realhelpdesk.domain.ticket.service;
 
+import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
+import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
@@ -83,11 +85,22 @@ public class TicketDomainService {
         Instant endDate,
         TicketStatus ticketStatus,
         TicketPriority ticketPriority,
-        Pageable pageable
+        Pageable pageable,
+        Boolean isMyTickets,
+        UUID currentUserId
     ) {
         Specification<TicketModel> spec = TicketSpecification.withFilters(
-            portalIds, search, startDate, endDate, ticketStatus, ticketPriority
+            portalIds,
+            search,
+            startDate,
+            endDate,
+            ticketStatus,
+            ticketPriority,
+            isMyTickets,
+            currentUserId
         );
+
+
         return ticketRepository.findAll(spec, pageable);
     }
 

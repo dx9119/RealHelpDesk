@@ -32,6 +32,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 @Service
 public class TicketManageService {
@@ -63,6 +64,7 @@ public class TicketManageService {
     public TicketResponse getTicketById(Long ticketId) {
         Objects.requireNonNull(ticketId, "ticketId must not be null");
         TicketModel ticket = ticketDomainService.findTicketById(ticketId);
+
         return TicketMapper.toResponse(ticket);
     }
 
@@ -138,17 +140,21 @@ public class TicketManageService {
         Instant startDate,
         Instant endDate,
         TicketStatus ticketStatus,
-        TicketPriority ticketPriority
+        TicketPriority ticketPriority,
+        Boolean isMyTickets
     ) throws TicketException, PortalException {
 
         PageRequest pageRequest = paginationService.buildPageRequest(page, size, sortBy, order);
         List<Long> portalIds = portalManageService.mapAccessiblePortalsToIds();
+        List<Long> publicPortalsWithUserActivityId = portalManageService.getUserActivityInPublicPortals();
+        portalIds.addAll(publicPortalsWithUserActivityId);
+
         if (portalIds.isEmpty()) {
             throw new TicketException("You don't have access to any portals");
         }
 
         Page<TicketModel> ticketPage = ticketDomainService.getTicketsPageByPortalsAndFilters(
-            portalIds, search, startDate, endDate, ticketStatus, ticketPriority, pageRequest
+            portalIds, search, startDate, endDate, ticketStatus, ticketPriority, pageRequest,isMyTickets,currentUserProvider.getCurrentUserId()
         );
         logger.debug("Finding tickets for portals: {} with status={} and priority={}", portalIds, ticketStatus, ticketPriority);
 

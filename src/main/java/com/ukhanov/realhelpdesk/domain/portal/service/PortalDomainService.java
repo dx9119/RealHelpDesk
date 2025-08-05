@@ -73,4 +73,10 @@ public class PortalDomainService {
         logger.info("Fetching all accessible portals for userId: {}", userId);
         return portalRepository.findAllAccessibleByUserId(userId);
     }
+
+    public List<Long> getPublicPortalsByUserActivity(UUID userId){
+        Objects.requireNonNull(userId, "userId must not be null");
+        logger.info("Fetching all public portals for user activity: {}", userId);
+        return portalRepository.findPublicPortalIdsWithUserTickets(userId);
+    }
 }

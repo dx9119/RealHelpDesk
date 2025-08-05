@@ -22,6 +22,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+
 @RestController
 @RequestMapping("/api/v1/portals")
 public class TicketController {
@@ -105,17 +106,18 @@ public class TicketController {
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant startDate,
         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant endDate,
         @RequestParam(required = false) TicketStatus ticketStatus,
-        @RequestParam(required = false) TicketPriority ticketPriority
+        @RequestParam(required = false) TicketPriority ticketPriority,
+        @RequestParam(required = false) boolean isMyTickets
     ) throws TicketException, PortalException {
         return ticketManageService.getPageTicketsByFilters(
-            page, size, sortBy, order, search, startDate, endDate, ticketStatus, ticketPriority
+            page, size, sortBy, order, search, startDate, endDate, ticketStatus, ticketPriority, isMyTickets
         );
     }
 
 
 
     @GetMapping("/{portalId}/ticket/{ticketId}")
-    @PreAuthorize("@accessValidationService.hasPortalAccess(#portalId)")
+    @PreAuthorize("@ticketAccessValidationService.hasTicketAccess(#portalId, #ticketId)")
     public TicketResponse getTicketById(@PathVariable Long portalId, @PathVariable Long ticketId) throws TicketException {
         return ticketManageService.getTicketById(ticketId);
     }

@@ -27,7 +27,7 @@ public class MessageController {
 
 
     @PostMapping("{portalId}/{ticketId}")
-    @PreAuthorize("@accessValidationService.hasPortalAccess(#portalId)")
+    @PreAuthorize("@ticketAccessValidationService.hasTicketAccess(#portalId, #ticketId)")
     public ResponseEntity<CreateMessageResponse> createMessage(@Valid
                                                                @RequestBody CreateMessageRequest request,
                                                                @PathVariable Long ticketId,
@@ -38,7 +38,7 @@ public class MessageController {
     }
 
     @GetMapping("{portalId}/{ticketId}")
-    @PreAuthorize("@accessValidationService.hasPortalAccess(#portalId)")
+    @PreAuthorize("@ticketAccessValidationService.hasTicketAccess(#portalId, #ticketId)")
     public ResponseEntity<List<MessageResponse>> getAllMessages(@PathVariable Long ticketId,
                                                                 @PathVariable Long portalId) //PreAuthorize
         throws MessageException, PortalException {

@@ -138,6 +138,11 @@ public class PortalManageService {
         portalDomainService.savePortal(portal);
     }
 
+    public Boolean getStatusPortal(Long portalId) throws PortalException {
+        PortalModel portalModel = portalDomainService.getPortalById(portalId);
+        return portalModel.isPublic();
+    }
+
     //todo добавить валидацию UUID
     public void addUserForPortal(Long portalId, Set<UUID> newAccessUserId)
         throws PortalException, LimitException {
@@ -223,12 +228,20 @@ public class PortalManageService {
             .toList();
     }
 
+    public List<Long> getUserActivityInPublicPortals() {
+        UUID userId = currentUserProvider.getCurrentUserId();
+        return portalDomainService.getPublicPortalsByUserActivity(userId);
+    }
+
     public List<Long> mapAccessiblePortalsToIds() {
         UUID userId = currentUserProvider.getCurrentUserModel().getId();
-        return getAccessiblePortals(userId).stream()
-            .map(PortalModel::getId)
-            .toList();
+        return new ArrayList<>(
+                getAccessiblePortals(userId).stream()
+                        .map(PortalModel::getId)
+                        .toList()
+        );
     }
+
 
     public List<PortalInfoResponse> mapAccessiblePortalsToInfo() {
         UUID userId = currentUserProvider.getCurrentUserModel().getId();

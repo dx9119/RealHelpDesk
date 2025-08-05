@@ -3,8 +3,17 @@ package com.ukhanov.realhelpdesk.core.security.accesscontrol;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import com.ukhanov.realhelpdesk.domain.portal.service.PortalDomainService;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketAccessStatus;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
+import com.ukhanov.realhelpdesk.domain.ticket.service.TicketDomainService;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
+
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
+
+import com.ukhanov.realhelpdesk.feature.ticketmanager.service.TicketManageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -16,8 +25,10 @@ public class AccessValidationService {
 
   private static final Logger logger = LoggerFactory.getLogger(AccessValidationService.class);
 
+
   public AccessValidationService(PortalDomainService portalDomainService,
-      CurrentUserProvider currentUserProvider) {
+      CurrentUserProvider currentUserProvider,
+                                 TicketDomainService ticketDomainService) {
     this.portalDomainService = portalDomainService;
     this.currentUserProvider = currentUserProvider;
   }
@@ -51,6 +62,9 @@ public class AccessValidationService {
 
     return true;
   }
+
+
+
 
 
 }

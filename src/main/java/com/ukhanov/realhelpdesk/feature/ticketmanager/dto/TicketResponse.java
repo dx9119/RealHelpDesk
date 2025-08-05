@@ -1,5 +1,6 @@
 package com.ukhanov.realhelpdesk.feature.ticketmanager.dto;
 
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketAccessStatus;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 
@@ -15,6 +16,7 @@ public class TicketResponse {
     private TicketStatus ticketStatus;
     private Instant createdAt;
     private Long portalId;
+    private TicketAccessStatus ticketAccessStatus;
 
     private TicketResponse(Builder builder) {
         this.id = builder.id;
@@ -26,6 +28,7 @@ public class TicketResponse {
         this.ticketStatus = builder.ticketStatus;
         this.createdAt = builder.createdAt;
         this.portalId = builder.portalId;
+        this.ticketAccessStatus = builder.ticketAccessStatus;
     }
 
     public Long getId() { return id; }
@@ -36,11 +39,11 @@ public class TicketResponse {
     public TicketPriority getTicketPriority() { return ticketPriority; }
     public TicketStatus getTicketStatus() { return ticketStatus; }
     public Instant getCreatedAt() { return createdAt; }
-    public Long getPortalId() {
-        return portalId;
-    }
-    public void setPortalId(Long portalId) {
-        this.portalId = portalId;
+    public Long getPortalId() { return portalId; }
+    public void setPortalId(Long portalId) { this.portalId = portalId; }
+    public TicketAccessStatus getTicketAccessStatus() { return ticketAccessStatus; }
+    public void setTicketAccessStatus(TicketAccessStatus ticketAccessStatus) {
+        this.ticketAccessStatus = ticketAccessStatus;
     }
 
     public static class Builder {
@@ -53,6 +56,7 @@ public class TicketResponse {
         private TicketStatus ticketStatus;
         private Instant createdAt;
         private Long portalId;
+        private TicketAccessStatus ticketAccessStatus;
 
         public Builder id(Long id) {
             this.id = id;
@@ -73,7 +77,6 @@ public class TicketResponse {
             this.authorFullName = authorFullName;
             return this;
         }
-
 
         public Builder portalName(String portalName) {
             this.portalName = portalName;
@@ -100,9 +103,13 @@ public class TicketResponse {
             return this;
         }
 
+        public Builder ticketAccessStatus(TicketAccessStatus ticketAccessStatus) {
+            this.ticketAccessStatus = ticketAccessStatus;
+            return this;
+        }
+
         public TicketResponse build() {
             return new TicketResponse(this);
         }
     }
-
 }

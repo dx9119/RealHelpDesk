@@ -37,6 +37,9 @@ public class TicketModel {
     @Enumerated(EnumType.STRING)
     private TicketStatus ticketStatus = TicketStatus.OPEN;
 
+    @Column(nullable = false)
+    TicketAccessStatus accessStatus = TicketAccessStatus.ACCESS_CREATOR_AND_PORTAL_USERS;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -55,6 +58,14 @@ public class TicketModel {
 
     public String getTitle() {
         return title;
+    }
+
+    public TicketAccessStatus getAccessStatus() {
+        return accessStatus;
+    }
+
+    public void setAccessStatus(TicketAccessStatus accessStatus) {
+        this.accessStatus = accessStatus;
     }
 
     public void setTitle(String title) {

@@ -2,6 +2,7 @@ package com.ukhanov.realhelpdesk.feature.ticketmanager.mapper;
 
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketAccessStatus;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
@@ -19,7 +20,8 @@ public class TicketMapper {
         ticket.setAuthor(author);
         ticket.setPortal(portal);
         ticket.setTicketPriority(request.getTicketPriority() != null ? request.getTicketPriority() : TicketPriority.NONE);
-        ticket.setTicketStatus(TicketStatus.OPEN); // статус по умолчанию
+        ticket.setTicketStatus(TicketStatus.OPEN);
+        ticket.setAccessStatus(request.getTicketAccessStatus() != null ? request.getTicketAccessStatus() : TicketAccessStatus.ACCESS_CREATOR_AND_PORTAL_USERS);
         return ticket;
     }
 
@@ -44,6 +46,7 @@ public class TicketMapper {
                 .authorFullName(authorName)
                 .portalName(portalName)
                 .portalId(model.getPortal().getId())
+                .ticketAccessStatus(model.getAccessStatus())
                 .build();
     }
 

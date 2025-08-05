@@ -74,6 +74,16 @@ public class PortalController {
     }
 
     @PreAuthorize("@accessValidationService.hasPortalOwner(#portalId)")
+    @GetMapping("/shared/{portalId}/status")
+    public ResponseEntity<String> setStatusPortal(
+            @PathVariable @NotNull Long portalId
+    ) throws PortalException {
+        Boolean response = portalManageService.getStatusPortal(portalId);
+        return ResponseEntity.ok(response.toString());
+    }
+
+
+    @PreAuthorize("@accessValidationService.hasPortalOwner(#portalId)")
     @PostMapping("/shared/{portalId}/users")
     public ResponseEntity<String> addUsersForPortal(
         @PathVariable @NotNull Long portalId,

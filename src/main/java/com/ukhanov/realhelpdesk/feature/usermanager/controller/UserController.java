@@ -3,6 +3,7 @@ package com.ukhanov.realhelpdesk.feature.usermanager.controller;
 import com.ukhanov.realhelpdesk.feature.usermanager.dto.UserInfoRequest;
 import com.ukhanov.realhelpdesk.feature.usermanager.dto.UserInfoResponse;
 import com.ukhanov.realhelpdesk.feature.usermanager.service.UserManageService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -29,7 +30,7 @@ public class UserController {
   }
 
   @PostMapping("/profile")
-  public ResponseEntity<UserInfoResponse> UpdateUserInfo(@RequestBody UserInfoRequest request) {
+  public ResponseEntity<UserInfoResponse> UpdateUserInfo(@Valid @RequestBody UserInfoRequest request) {
 
     UserInfoResponse response = userManageService.updateUserInfo(request);
 

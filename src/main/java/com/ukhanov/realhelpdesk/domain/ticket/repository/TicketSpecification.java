@@ -9,6 +9,8 @@ import jakarta.persistence.criteria.Predicate;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
+
 import org.springframework.data.jpa.domain.Specification;
 
 public class TicketSpecification {
@@ -19,7 +21,9 @@ public class TicketSpecification {
       Instant startDate,
       Instant endDate,
       TicketStatus ticketStatus,
-      TicketPriority ticketPriority
+      TicketPriority ticketPriority,
+      Boolean isMyTickets,
+      UUID currentUserId
   ) {
     return (root, query, cb) -> {
       // JOIN автора и портала для загрузки связанных данных
@@ -32,6 +36,7 @@ public class TicketSpecification {
       if (portalIds != null && !portalIds.isEmpty()) {
         predicates.add(root.get("portal").get("id").in(portalIds));
       }
+
 
       // Поисковая строка
       if (search != null && !search.isBlank()) {
@@ -90,6 +95,11 @@ public class TicketSpecification {
       if (ticketPriority != null) {
         predicates.add(cb.equal(root.get("ticketPriority"), ticketPriority));
       }
+
+      if (Boolean.TRUE.equals(isMyTickets) && currentUserId != null) {
+        predicates.add(cb.equal(root.get("author").get("id"), currentUserId));
+      }
+
 
       // Убираем дубликаты из-за JOIN FETCH
       query.distinct(true);

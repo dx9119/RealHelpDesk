@@ -41,7 +41,7 @@ public class GetTokenService {
       this.decodeTokenService = decodeTokenService;
     }
 
-    // Получить активный рефреш токен и новый access токен
+    // Получить актиный рефреш токен или новый и новый access токен
     public TokensResponse getActiveTokens(UserModel userModel) throws TokenException {
         logger.debug("Getting active tokens for user: {}", userModel.getEmail());
         SecurityUser securityUser = new SecurityUser(userModel);
@@ -144,5 +144,7 @@ public class GetTokenService {
         logger.debug("Gen new access token");
         return genTokenService.generateAccessJwtToken(new SecurityUser(user));
     }
+
+
 
 }

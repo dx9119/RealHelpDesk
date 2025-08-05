@@ -36,4 +36,14 @@ public interface PortalRepository extends JpaRepository<PortalModel, Long> {
     @Query("SELECT SIZE(p.allowedUserIds) FROM PortalModel p WHERE p.id = :portalId AND p.isDeleted = false")
     Integer countAllowedUsersByPortalId(@Param("portalId") Long portalId);
 
+    @Query("""
+    SELECT DISTINCT p.id
+    FROM PortalModel p
+    JOIN TicketModel t ON t.portal.id = p.id
+    WHERE p.isPublic = true
+      AND p.isDeleted = false
+      AND t.author.id = :userId
+""")
+    List<Long> findPublicPortalIdsWithUserTickets(@Param("userId") UUID userId);
+
 }

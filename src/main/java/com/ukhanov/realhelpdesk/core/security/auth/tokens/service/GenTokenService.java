@@ -27,6 +27,7 @@ public class GenTokenService {
 
     public TokenBearerResponse generateAccessJwtToken(SecurityUser securityUser) {
         Objects.requireNonNull(securityUser, "SecurityUser cannot be null!");
+        Objects.requireNonNull(securityUser.getRule(), "Role cannot be null!");
 
         Instant dateNow = Instant.now();
         Instant expiry = dateNow.plusSeconds(jwtConfig.getAccessTokenExp() * 60L);

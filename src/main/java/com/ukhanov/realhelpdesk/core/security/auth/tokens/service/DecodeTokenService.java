@@ -42,11 +42,6 @@ public class DecodeTokenService {
             throw new JwtException("Missing subject claim in token");
         }
 
-        String role = claims.get("role", String.class);
-        if (role == null) {
-            throw new JwtException("Missing role claim in token: "+claims.get("role", String.class));
-        }
-
         return claims;
     }
 

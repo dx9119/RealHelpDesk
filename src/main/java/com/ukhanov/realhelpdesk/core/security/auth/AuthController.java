@@ -10,12 +10,12 @@ import com.ukhanov.realhelpdesk.core.security.auth.register.dto.RegisterRequest;
 import com.ukhanov.realhelpdesk.core.security.auth.register.exception.RegistrationException;
 import com.ukhanov.realhelpdesk.core.security.auth.register.service.RegistrationService;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.AuthorizationResponse;
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenBearerRequest;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenStatusResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokensResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.ChangeTokenService;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.GetTokenService;
+import com.ukhanov.realhelpdesk.core.security.auth.refresh.exception.RefreshException;
+import com.ukhanov.realhelpdesk.core.security.auth.refresh.service.RefreshService;
 import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -35,18 +35,18 @@ public class AuthController {
     private final LoginService loginService;
     private final LogoutService logoutService;
     private final GetTokenService getTokenService;
-    private final ChangeTokenService changeTokenService;
+    private final RefreshService refreshService;
 
     public AuthController(RegistrationService registrationService,
                           LoginService loginService,
                           LogoutService logoutService,
                           GetTokenService getTokenService,
-        ChangeTokenService changeTokenService) {
+                          RefreshService refreshService) {
         this.registrationService = registrationService;
         this.loginService = loginService;
         this.logoutService = logoutService;
         this.getTokenService = getTokenService;
-        this.changeTokenService = changeTokenService;
+        this.refreshService = refreshService;
     }
 
     @PostMapping("/register")
@@ -67,7 +67,7 @@ public class AuthController {
             .httpOnly(true)
             .secure(true)
             .path("/")
-            .maxAge(Duration.ofDays(7))
+            .maxAge(Duration.ofDays(30))
             .sameSite("None")
             .build();
 
@@ -99,7 +99,7 @@ public class AuthController {
             .httpOnly(true)
             .secure(true)
             .path("/")
-            .maxAge(Duration.ofDays(7))
+            .maxAge(Duration.ofDays(30))
             .sameSite("None")
             .build();
 
@@ -112,6 +112,26 @@ public class AuthController {
             .ok()
             .header(HttpHeaders.SET_COOKIE, accessCookie.toString(), refreshCookie.toString())
             .body(responseBody);
+    }
+
+    // Отдать новый токен авторизации при наличии активного refresh token
+    @PostMapping("update")
+    public ResponseEntity<Map<String, String>> updateAuth (HttpServletRequest request) throws TokenException, RefreshException {
+
+        ResponseCookie accessCookie = ResponseCookie.from("accessToken", refreshService.updateAccess(request))
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(Duration.ofHours(1))
+                .sameSite("None")
+                .build();
+
+        Map<String,String> responseBody = Map.of("status","success");
+
+        return ResponseEntity
+                .ok()
+                .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
+                .body(responseBody);
     }
 
 
@@ -137,6 +157,8 @@ public class AuthController {
         LogoutResponse response = logoutService.processLogout(request);
         return ResponseEntity.ok(response);
     }
+
+
 
 
 }

@@ -30,7 +30,6 @@ public class ValidTokenService {
         logger.debug("Start verifying token");
 
         Claims claims = decodeTokenService.decodeJwtClaims(token);
-        logger.debug("Token claims: {}", claims.getExpiration());
 
         Instant expiration = Optional.ofNullable(claims.getExpiration())
                 .map(Date::toInstant)
