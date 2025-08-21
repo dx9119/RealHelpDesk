@@ -40,19 +40,18 @@ public class RefreshService {
 
         TokenStatusResponse tokenStatus = getTokenService.getStatusRefreshTokenFromCookie(request);
         if(tokenStatus.getTokenStatus() != TokenStatus.ACTIVE){
-            throw new RefreshException("Refresh token not active");
+            throw new RefreshException("Токен обновления не активен");
         }
         try {
             validTokenService.lowLevelVerifyToken(refreshToken);
             TokenBearer newAccessToken = getTokenService.getNewAccessToken(refreshToken);
-            logger.debug("new access token send");
             return newAccessToken.getToken();
         }
         catch (TokenException e){
             RefreshTokenModel token = findTokenService.findRefreshToken(refreshToken);
             token.setStatus(TokenStatus.REVOKED);
             saveTokenService.saveRefreshToken(token);
-            throw new RefreshException("Refresh token is dead");
+            throw new RefreshException("Токен обновления истёк");
         }
     }
 

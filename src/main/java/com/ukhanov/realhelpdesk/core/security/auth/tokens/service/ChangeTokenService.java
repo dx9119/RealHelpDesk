@@ -31,20 +31,21 @@ public class ChangeTokenService {
         HttpServletRequest request,
         TokenStatus newStatus )
         throws TokenException {
-        logger.debug("Start changing status token");
+        logger.debug("Начало изменения статуса токена");
 
         TokenBearer tokenBearer =
             new Token(
                 decodeTokenService
                     .extractTokenFromCookies(request, "refreshToken")
             );
-        logger.debug("Grab token from cookies: {}", tokenBearer);
+        logger.debug("Получен токен из cookies: {}", tokenBearer);
 
         RefreshTokenModel RefreshToken = findTokenService.findRefreshToken(tokenBearer);
-        logger.debug("Find token: done");
+        logger.debug("Поиск токена: завершён");
+
         RefreshToken.setStatus(newStatus);
-        logger.debug("Change status token to {}", newStatus);
+        logger.debug("Статус токена изменён на {}", newStatus);
+
         return saveTokenService.saveRefreshToken(RefreshToken);
     }
-
 }

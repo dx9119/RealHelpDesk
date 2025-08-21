@@ -6,12 +6,14 @@ import com.ukhanov.realhelpdesk.feature.messagemanager.dto.MessageResponse;
 import com.ukhanov.realhelpdesk.feature.messagemanager.exception.MessageException;
 import com.ukhanov.realhelpdesk.feature.messagemanager.service.MessageManageService;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
+import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 import jakarta.mail.MessagingException;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.UnsupportedEncodingException;
 import java.util.List;
 
 @RestController
@@ -32,8 +34,8 @@ public class MessageController {
                                                                @RequestBody CreateMessageRequest request,
                                                                @PathVariable Long ticketId,
                                                                @PathVariable Long portalId)
-        throws MessageException, MessagingException {
-        CreateMessageResponse response = messageManageService.createMessage(request, ticketId);
+            throws MessageException, MessagingException, TicketException, UnsupportedEncodingException {
+        CreateMessageResponse response = messageManageService.createMessage(request, ticketId, portalId);
         return ResponseEntity.ok(response);
     }
 

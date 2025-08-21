@@ -7,7 +7,7 @@ import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketRequest;
-import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponse;
+import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponseOld;
 
 import java.util.Objects;
 
@@ -21,12 +21,12 @@ public class TicketMapper {
         ticket.setPortal(portal);
         ticket.setTicketPriority(request.getTicketPriority() != null ? request.getTicketPriority() : TicketPriority.NONE);
         ticket.setTicketStatus(TicketStatus.OPEN);
-        ticket.setAccessStatus(request.getTicketAccessStatus() != null ? request.getTicketAccessStatus() : TicketAccessStatus.ACCESS_CREATOR_AND_PORTAL_USERS);
+        ticket.setAccessStatus(request.getTicketAccessStatus() != null ? request.getTicketAccessStatus() : TicketAccessStatus.CREATOR_AND_PORTAL_USERS);
         return ticket;
     }
 
-    public static TicketResponse toResponse(TicketModel model) {
-        Objects.requireNonNull(model, "TicketModel must not be null");
+    public static TicketResponseOld toResponse(TicketModel model) {
+        Objects.requireNonNull(model, "TicketModel не должен быть null");
 
         String authorName = model.getAuthor() != null
                 ? model.getAuthor().getLastName() + " " + model.getAuthor().getFirstName()
@@ -36,7 +36,7 @@ public class TicketMapper {
                 ? model.getPortal().getName()
                 : null;
 
-        return new TicketResponse.Builder()
+        return new TicketResponseOld.Builder()
                 .id(model.getId())
                 .title(model.getTitle())
                 .body(model.getBody())

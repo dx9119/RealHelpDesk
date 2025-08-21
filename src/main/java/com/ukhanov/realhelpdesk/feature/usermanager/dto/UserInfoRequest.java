@@ -21,7 +21,6 @@ public class UserInfoRequest {
   private String middleName;
 
   @NoHtml
-  @Size(min = 2, max = 5000, message = "Имя не может быть короче двух символов")
   private String additionalInfo;
 
   public String getFirstName() {

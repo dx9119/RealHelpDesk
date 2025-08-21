@@ -6,18 +6,18 @@ import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketRequest;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketResponse;
-import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponse;
+import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponseOld;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.service.TicketManageService;
 import jakarta.mail.MessagingException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
-import java.time.Instant;
+
+import java.io.UnsupportedEncodingException;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -39,14 +39,14 @@ public class TicketController {
     public ResponseEntity<CreateTicketResponse> createTicketForPortal(@Valid
                                                        @RequestBody CreateTicketRequest request,
                                                        @PathVariable Long portalId)
-        throws TicketException, PortalException, MessagingException {
+            throws TicketException, PortalException, MessagingException, UnsupportedEncodingException {
         CreateTicketResponse response = ticketManageService.createTicket(request, portalId);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{portalId}/ticket")
     @PreAuthorize("@accessValidationService.hasPortalAccess(#portalId)")
-    public PageResponse<TicketResponse> getPagedTicketsByPortalId(
+    public PageResponse<TicketResponseOld> getPagedTicketsByPortalId(
         @PathVariable Long portalId,
         @RequestParam(defaultValue = "0") @Min(0) int page,
         @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size,
@@ -74,7 +74,7 @@ public class TicketController {
     }
 
     @GetMapping("/ticket/author")
-    public PageResponse<TicketResponse> getPagedTicketsByAuthor(
+    public PageResponse<TicketResponseOld> getPagedTicketsByAuthor(
         @RequestParam(defaultValue = "0") @Min(0) int page,
         @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size,
         @RequestParam(defaultValue = "createdAt") String sortBy,
@@ -84,7 +84,7 @@ public class TicketController {
     }
 
     @GetMapping("{portalId}/ticket/page/status/{status}")
-    public PageResponse<TicketResponse> getPagedTicketsByStatus(
+    public PageResponse<TicketResponseOld> getPagedTicketsByStatus(
         @RequestParam(defaultValue = "0") @Min(0) int page,
         @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size,
         @RequestParam(defaultValue = "createdAt") String sortBy,
@@ -96,53 +96,44 @@ public class TicketController {
         return ticketManageService.getPageTicketsByIds(ids, page, size, sortBy, order);
     }
 
-    @GetMapping("/ticket/search")
-    public PageResponse<TicketResponse> searchTickets(
-        @RequestParam(defaultValue = "0") @Min(0) int page,
-        @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size,
-        @RequestParam(defaultValue = "createdAt") String sortBy,
-        @RequestParam(defaultValue = "desc") String order,
-        @RequestParam(required = false) String search,
-        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant startDate,
-        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant endDate,
-        @RequestParam(required = false) TicketStatus ticketStatus,
-        @RequestParam(required = false) TicketPriority ticketPriority,
-        @RequestParam(required = false) boolean isMyTickets
-    ) throws TicketException, PortalException {
-        return ticketManageService.getPageTicketsByFilters(
-            page, size, sortBy, order, search, startDate, endDate, ticketStatus, ticketPriority, isMyTickets
-        );
-    }
-
-
 
     @GetMapping("/{portalId}/ticket/{ticketId}")
     @PreAuthorize("@ticketAccessValidationService.hasTicketAccess(#portalId, #ticketId)")
-    public TicketResponse getTicketById(@PathVariable Long portalId, @PathVariable Long ticketId) throws TicketException {
+    public TicketResponseOld getTicketById(@PathVariable Long portalId, @PathVariable Long ticketId) throws TicketException {
         return ticketManageService.getTicketById(ticketId);
     }
 
 
     @PostMapping("/{portalId}/ticket/set/status/{ticketId}")
-    @PreAuthorize("@accessValidationService.hasPortalAccess(#portalId)")
+    @PreAuthorize("@ticketAccessValidationService.hasTicketChange(#portalId, #ticketId)")
     public ResponseEntity<String> setStatusTicket(
         @PathVariable Long portalId,
         @PathVariable Long ticketId,
         @RequestParam TicketStatus status
-    ) throws TicketException, PortalException, MessagingException {
+    ) throws TicketException, PortalException, MessagingException, UnsupportedEncodingException {
         ticketManageService.setTicketStatus(portalId, ticketId, status);
-        return ResponseEntity.ok("success");
+        return ResponseEntity.ok("Успех");
     }
 
     @PostMapping("/{portalId}/ticket/set/priority/{ticketId}")
-    @PreAuthorize("@accessValidationService.hasPortalAccess(#portalId)")
+    @PreAuthorize("@ticketAccessValidationService.hasTicketChange(#portalId, #ticketId)")
     public ResponseEntity<String> setPriorityTicket(
         @PathVariable Long portalId,
         @PathVariable Long ticketId,
         @RequestParam TicketPriority priority
-    ) throws TicketException, PortalException, MessagingException {
+    ) throws TicketException, PortalException, MessagingException, UnsupportedEncodingException {
         ticketManageService.setTicketPriority(portalId, ticketId, priority);
-        return ResponseEntity.ok("success");
+        return ResponseEntity.ok("Успех");
+    }
+
+    @DeleteMapping("/{portalId}/ticket/delete/{ticketId}")
+    @PreAuthorize("@ticketAccessValidationService.hasTicketChange(#portalId, #ticketId)")
+    public ResponseEntity<String> deleteTicket(
+            @PathVariable Long portalId,
+            @PathVariable Long ticketId
+    ) throws TicketException, PortalException, MessagingException, UnsupportedEncodingException {
+        ticketManageService.deleteTicket(ticketId, portalId);
+        return ResponseEntity.ok("Успех");
     }
 
 }

@@ -37,13 +37,13 @@ public class LoggingFilter extends OncePerRequestFilter {
         MDC.put(CLIENT_IP, getClientIpAddress(request));
         MDC.put(URI_REQUEST, getFullUrl(request));
 
-        logger.info("Incoming Request: [{}]",
+        logger.info("Входящий запрос: [{}]",
                 request.getMethod());
 
         try {
             filterChain.doFilter(request, response);
 
-            logger.info("Outgoing Response: [{}] HTTP Status: [{}]",
+            logger.info("Исходящий запрос: [{}] HTTP статус: [{}]",
                     request.getMethod(),
                     response.getStatus());
 

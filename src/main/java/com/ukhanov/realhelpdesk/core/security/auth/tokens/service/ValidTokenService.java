@@ -27,32 +27,30 @@ public class ValidTokenService {
     }
 
     public void lowLevelVerifyToken(TokenBearer token) throws TokenException {
-        logger.debug("Start verifying token");
-
         Claims claims = decodeTokenService.decodeJwtClaims(token);
 
         Instant expiration = Optional.ofNullable(claims.getExpiration())
                 .map(Date::toInstant)
-                .orElseThrow(() -> new TokenException("Expiration claim is missing", null));
+                .orElseThrow(() -> new TokenException("Отсутствует claim 'expiration'", null));
+
 
 
         Set<String> actual = claims.getAudience();
         if (!jwtConfig.getAudience().equals(actual)) {
-            logger.debug("Invalid audience: {}", actual);
-            throw new TokenException("Audience mismatch", null);
+            logger.debug("Недопустимое значение audience: {}", actual);
+            throw new TokenException("Несовпадение значения audience", null);
         }
 
 
         if (expiration.isBefore(Instant.now())) {
-            logger.debug("Token expired at {}", expiration);
-            throw new TokenException("Token expired", null);
+            logger.debug("Срок действия токена истёк: {}", expiration);
+            throw new TokenException("Срок действия токена истёк", null);
         }
 
         String tokenIssuer = claims.getIssuer();
         if (!jwtConfig.getIssuer().equals(tokenIssuer)) {
-            logger.debug("Invalid issuer: {}", tokenIssuer);
-            throw new TokenException("Invalid issuer", null);
+            logger.debug("Недопустимый издатель токена: {}", tokenIssuer);
+            throw new TokenException("Недопустимый издатель токена", null);
         }
-        logger.debug("Token verified");
     }
 }

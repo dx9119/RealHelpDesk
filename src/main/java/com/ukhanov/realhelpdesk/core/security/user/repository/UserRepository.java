@@ -12,5 +12,5 @@ public interface UserRepository extends JpaRepository<UserModel, UUID> {
     Optional<UserModel> findByEmail(String email);
     boolean existsByEmail(String email);
     Optional<UserDetailsProjection> findProjectedById(UUID id);
-
+    Optional<UserModel> findByRecoveryPasswdToken(UUID recoveryPasswdToken);
 }

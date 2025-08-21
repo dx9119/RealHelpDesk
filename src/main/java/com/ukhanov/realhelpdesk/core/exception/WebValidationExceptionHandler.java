@@ -23,7 +23,7 @@ public class WebValidationExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleMethodArgumentNotValid(MethodArgumentNotValidException ex, WebRequest request) {
-        logger.debug("Global handler caught MethodArgumentNotValidException for path: {}", request.getDescription(false));
+        logger.error("Перехватил исключение: {}", request.getDescription(false));
 
         Map<String, String> validationErrors = new HashMap<>();
         // Проходимся по всем ошибкам валидации и собираем их в Map
@@ -31,16 +31,16 @@ public class WebValidationExceptionHandler {
             String fieldName = ((FieldError) error).getField();
             String errorMessage = error.getDefaultMessage();
             validationErrors.put(fieldName, errorMessage);
-            logger.debug("Validation error for field '{}': {}", fieldName, errorMessage);
+            logger.debug("Ошибка валидации, '{}': {}", fieldName, errorMessage);
         });
 
         Map<String, Object> responseBody = new HashMap<>();
-        responseBody.put("timestamp", Instant.now().toString());
-        responseBody.put("status", HttpStatus.BAD_REQUEST.value());
-        responseBody.put("error", "Bad Request");
-        responseBody.put("message", "Validation failed.");
-        responseBody.put("errors", validationErrors);
-        responseBody.put("path", request.getDescription(false).replace("uri=", ""));
+        responseBody.put("Время", Instant.now().toString());
+        responseBody.put("HTTP статус", HttpStatus.BAD_REQUEST.value());
+        responseBody.put("Ошибка", "Некорректный запрос");
+        responseBody.put("Описание", "Не верный логин или пароль");
+        responseBody.put("Подробнее про ошибки", validationErrors);
+        responseBody.put("Путь", request.getDescription(false).replace("uri=", ""));
 
         return new ResponseEntity<>(responseBody, HttpStatus.BAD_REQUEST);
     }

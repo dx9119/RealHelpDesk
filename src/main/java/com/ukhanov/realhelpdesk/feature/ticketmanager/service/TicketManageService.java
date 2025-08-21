@@ -1,6 +1,6 @@
 package com.ukhanov.realhelpdesk.feature.ticketmanager.service;
 
-import com.ukhanov.realhelpdesk.core.mail.dto.TicketCreatedNotificationDto;
+import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
 import com.ukhanov.realhelpdesk.core.security.accesscontrol.AccessValidationService;
@@ -8,31 +8,32 @@ import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import com.ukhanov.realhelpdesk.domain.portal.service.PortalDomainService;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketLiveStatus;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
+import com.ukhanov.realhelpdesk.domain.ticket.repository.TicketRepository;
 import com.ukhanov.realhelpdesk.domain.ticket.service.TicketDomainService;
 import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
 import com.ukhanov.realhelpdesk.core.pagination.service.PaginationService;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
-import com.ukhanov.realhelpdesk.feature.portalmanager.service.PortalManageService;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketRequest;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketResponse;
-import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponse;
+import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponseOld;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.mapper.TicketMapper;
 import jakarta.mail.MessagingException;
+
+import java.io.UnsupportedEncodingException;
 import java.time.Instant;
-import java.util.Set;
+import java.util.*;
+
+import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
 
 @Service
 public class TicketManageService {
@@ -41,184 +42,147 @@ public class TicketManageService {
     private final TicketDomainService ticketDomainService;
     private final CurrentUserProvider currentUserProvider;
     private final PortalDomainService portalDomainService;
-    private final PortalManageService portalManageService;
     private final PaginationService paginationService;
     private final EmailDeliveryService emailDeliveryService;
     private final AccessValidationService accessValidationService;
 
+    private final TicketRepository ticketRepository;
+
     public TicketManageService(TicketDomainService ticketDomainService,
                                CurrentUserProvider currentUserProvider,
                                PortalDomainService portalDomainService,
-        PortalManageService portalManageService,
         PaginationService paginationService, EmailDeliveryService emailDeliveryService,
-        AccessValidationService accessValidationService) {
+        AccessValidationService accessValidationService,
+                               TicketRepository ticketRepository) {
         this.ticketDomainService = ticketDomainService;
         this.currentUserProvider = currentUserProvider;
         this.portalDomainService = portalDomainService;
-      this.portalManageService = portalManageService;
       this.paginationService = paginationService;
       this.emailDeliveryService = emailDeliveryService;
       this.accessValidationService = accessValidationService;
+        this.ticketRepository = ticketRepository;
     }
 
-    public TicketResponse getTicketById(Long ticketId) {
-        Objects.requireNonNull(ticketId, "ticketId must not be null");
+    public TicketResponseOld getTicketById(Long ticketId) throws TicketException {
+        Objects.requireNonNull(ticketId, "ticketId не должен быть null");
+
         TicketModel ticket = ticketDomainService.findTicketById(ticketId);
 
         return TicketMapper.toResponse(ticket);
     }
 
     public CreateTicketResponse createTicket(CreateTicketRequest request, Long portalId)
-        throws PortalException, MessagingException {
-        Objects.requireNonNull(request, "CreateTicketRequest must not be null");
-        Objects.requireNonNull(portalId, "portalId must not be null");
+            throws PortalException, MessagingException, UnsupportedEncodingException {
+        Objects.requireNonNull(request, "CreateTicketRequest не должен быть null");
+        Objects.requireNonNull(portalId, "portalId не должен быть null");
 
-        logger.debug("Starting ticket creation. Request: {}, Portal ID: {}", request, portalId);
+        logger.debug("Начато создание тикета. Запрос: {}, ID портала: {}", request, portalId);
 
         UserModel user = currentUserProvider.getCurrentUserModel();
-        logger.debug("Current user retrieved: {}", user.getId());
 
         PortalModel portal = portalDomainService.getPortalById(portalId);
 
         TicketModel ticket = TicketMapper.fromRequest(request, user, portal);
         TicketModel saved = ticketDomainService.saveTicket(ticket);
-        logger.info("Ticket created successfully with ID: {}", saved.getId());
+
 
         // Отправляем письмо с оповещением о создании заявки всем пользователям портала
-        TicketCreatedNotificationDto notify = new TicketCreatedNotificationDto.Builder()
-            .info(portalId,saved.getId())
-            .build();
-
         emailDeliveryService.initNotifyPortalUsers(
             portal,
-            notify.getSubject(),
-            notify.getMessage(),
+            EmailTemplates.ticketCreatedSubject(ticket.getId()),
+            EmailTemplates.ticketCreatedBody(ticket.getId(), portal.getId()),
             NotificationEvent.NEW_TICKET
         );
 
-        return new CreateTicketResponse("Created ticket with ID: " + saved.getId());
+
+
+        return new CreateTicketResponse("Тикет создан с ID: " + saved.getId());
+
     }
 
-    public List<TicketResponse> getAllTickets(Long portalId) {
-        Objects.requireNonNull(portalId, "portalId must not be null");
-        logger.debug("Start retrieving all tickets for portal ID: {}", portalId);
+    public List<TicketResponseOld> getAllTickets(Long portalId) {
+        Objects.requireNonNull(portalId, "portalId не должен быть null");
+        logger.debug("Начато получение всех тикетов для портала с ID: {}", portalId);
 
         List<TicketModel> tickets = ticketDomainService.getTicketsByPortalId(portalId);
-        logger.info("Found {} tickets for portal ID: {}", tickets.size(), portalId);
 
         return tickets.stream()
                 .map(TicketMapper::toResponse)
                 .toList();
     }
 
-    public PageResponse<TicketResponse> getPageTickets(Long portalId, int page, int size, String sortBy, String order)
-        throws TicketException, PortalException {
+    public PageResponse<TicketResponseOld> getPageTickets(Long portalId, int page, int size, String sortBy, String order)
+            throws TicketException, PortalException {
+
+        Objects.requireNonNull(portalId, "portalId не должен быть null");
+        logger.debug("Запрос на получение тикетов — портал ID: {}, страница: {}, размер: {}, сортировка: {}, порядок: {}", portalId, page, size, sortBy, order);
 
         PageRequest pageRequest = paginationService.buildPageRequest(page, size, sortBy, order);
         Page<TicketModel> ticketPage = ticketDomainService.getTicketsPageByPortalId(portalId, pageRequest);
-        Page<TicketResponse> mappedPage = ticketPage.map(TicketMapper::toResponse);
 
+        Page<TicketResponseOld> mappedPage = ticketPage.map(TicketMapper::toResponse);
         return paginationService.mapToResponse(mappedPage, sortBy, order);
     }
 
 
-    public PageResponse<TicketResponse> getPageTicketsByAutor(int page, int size, String sortBy, String order)
-        throws TicketException, PortalException {
+
+    public PageResponse<TicketResponseOld> getPageTicketsByAutor(int page, int size, String sortBy, String order)
+            throws TicketException, PortalException {
+
+        logger.debug("Запрос на получение тикетов по автору — страница: {}, размер: {}, сортировка: {}, порядок: {}", page, size, sortBy, order);
+
         PageRequest pageRequest = paginationService.buildPageRequest(page, size, sortBy, order);
         UserModel user = currentUserProvider.getCurrentUserModel();
+
         Page<TicketModel> ticketPage = ticketDomainService.getTicketsPageByUserId(user.getId(), pageRequest);
-        Page<TicketResponse> mappedPage = ticketPage.map(TicketMapper::toResponse);
-        return paginationService.mapToResponse(mappedPage, sortBy, order);
-    }
 
-    public PageResponse<TicketResponse> getPageTicketsByFilters(
-        int page,
-        int size,
-        String sortBy,
-        String order,
-        String search,
-        Instant startDate,
-        Instant endDate,
-        TicketStatus ticketStatus,
-        TicketPriority ticketPriority,
-        Boolean isMyTickets
-    ) throws TicketException, PortalException {
-
-        PageRequest pageRequest = paginationService.buildPageRequest(page, size, sortBy, order);
-        List<Long> portalIds = portalManageService.mapAccessiblePortalsToIds();
-        List<Long> publicPortalsWithUserActivityId = portalManageService.getUserActivityInPublicPortals();
-        portalIds.addAll(publicPortalsWithUserActivityId);
-
-        if (portalIds.isEmpty()) {
-            throw new TicketException("You don't have access to any portals");
-        }
-
-        Page<TicketModel> ticketPage = ticketDomainService.getTicketsPageByPortalsAndFilters(
-            portalIds, search, startDate, endDate, ticketStatus, ticketPriority, pageRequest,isMyTickets,currentUserProvider.getCurrentUserId()
-        );
-        logger.debug("Finding tickets for portals: {} with status={} and priority={}", portalIds, ticketStatus, ticketPriority);
-
-        Page<TicketResponse> mappedPage = ticketPage.map(TicketMapper::toResponse);
+        Page<TicketResponseOld> mappedPage = ticketPage.map(TicketMapper::toResponse);
         return paginationService.mapToResponse(mappedPage, sortBy, order);
     }
 
 
 
-    public PageResponse<TicketResponse> getPageTicketsByIds(Set<Long> ids, int page, int size, String sortBy, String order)
-        throws TicketException, PortalException {
-        Objects.requireNonNull(ids, "ids must not be null");
+    public PageResponse<TicketResponseOld> getPageTicketsByIds(Set<Long> ids, int page, int size, String sortBy, String order)
+            throws TicketException, PortalException {
+        Objects.requireNonNull(ids, "ids не должен быть null");
+        logger.debug("Запрос на получение тикетов по ID — количество: {}, страница: {}, размер: {}, сортировка: {}, порядок: {}", ids.size(), page, size, sortBy, order);
 
         PageRequest pageRequest = paginationService.buildPageRequest(page, size, sortBy, order);
         Page<TicketModel> ticketPage = ticketDomainService.getTicketsByIds(ids, pageRequest);
-        Page<TicketResponse> mappedPage = ticketPage.map(TicketMapper::toResponse);
 
+        Page<TicketResponseOld> mappedPage = ticketPage.map(TicketMapper::toResponse);
         return paginationService.mapToResponse(mappedPage, sortBy, order);
     }
 
 
-
     public Set<Long> getIdTicketNoAnswer(Long portalId) {
-        Objects.requireNonNull(portalId, "portalId must not be null");
-        return ticketDomainService.getIdTicketWithNoAnswer(portalId);
+        Objects.requireNonNull(portalId, "portalId не должен быть null");
+        logger.debug("Запрос на получение ID тикетов без ответа для портала с ID: {}", portalId);
+
+        Set<Long> ticketIds = ticketDomainService.getIdTicketWithNoAnswer(portalId);
+
+        return ticketIds;
     }
 
+
     public Set<Long> getIdTicketWithStatus(Long portalId, TicketStatus status) {
-        Objects.requireNonNull(status, "status must not be null");
+        Objects.requireNonNull(portalId, "portalId не должен быть null");
+        Objects.requireNonNull(status, "status не должен быть null");
+
+        logger.debug("Запрос на получение ID тикетов со статусом '{}' для портала с ID: {}", status, portalId);
+
         return ticketDomainService.getIdTicketWithStatus(portalId, status);
     }
 
+
     public void setTicketStatus(Long portalId, Long ticketId, TicketStatus status)
-        throws TicketException, PortalException, MessagingException {
-       Objects.requireNonNull(ticketId, "ticketId must not be null");
-       Objects.requireNonNull(status, "status must not be null");
+            throws TicketException, PortalException, MessagingException, UnsupportedEncodingException {
 
-       UserModel user = currentUserProvider.getCurrentUserModel();
-       TicketModel ticket = ticketDomainService.findTicketById(ticketId);
+        Objects.requireNonNull(portalId, "portalId не должен быть null");
+        Objects.requireNonNull(ticketId, "ticketId не должен быть null");
+        Objects.requireNonNull(status, "status не должен быть null");
 
-       boolean isAccessToPortal = accessValidationService.hasPortalAccess(portalId);
-       boolean isAuthorOfTicket = ticket.getAuthor().getId().equals(user.getId());
-
-       if (!(isAuthorOfTicket || isAccessToPortal)) {
-           throw new TicketException("You can't change status of ticket");
-       }
-
-       ticket.setTicketStatus(status);
-       ticketDomainService.saveTicket(ticket);
-
-       PortalModel portal = portalDomainService.getPortalById(portalId);
-       emailDeliveryService.initNotifyPortalUsers(
-            portal,
-            "Обновление статуса заявки #" + ticketId +"("+status+")",
-            "Для заявки #" + ticketId + " был изменен статус на " + status,
-            NotificationEvent.CHANGE_TICKET);
-
-       logger.debug("ticket status updated");
-    }
-
-    public void setTicketPriority(Long portalId, Long ticketId, TicketPriority priority)
-        throws TicketException, PortalException, MessagingException {
-        Objects.requireNonNull(ticketId, "ticketId must not be null");
-        Objects.requireNonNull(priority, "priority must not be null");
+        logger.debug("Запрос на обновление статуса тикета. Портал ID: {}, Тикет ID: {}, Новый статус: {}", portalId, ticketId, status);
 
         UserModel user = currentUserProvider.getCurrentUserModel();
         TicketModel ticket = ticketDomainService.findTicketById(ticketId);
@@ -227,20 +191,77 @@ public class TicketManageService {
         boolean isAuthorOfTicket = ticket.getAuthor().getId().equals(user.getId());
 
         if (!(isAuthorOfTicket || isAccessToPortal)) {
-            throw new TicketException("You can't change priority of ticket");
+            throw new TicketException("You can't change status of ticket");
+        }
+
+        ticket.setTicketStatus(status);
+        TicketModel ticketSaved = ticketDomainService.saveTicket(ticket);
+
+
+        // Отправляем письмо
+        emailDeliveryService.initNotifyPortalUsers(
+                portalDomainService.getPortalById(portalId),
+                EmailTemplates.updateStatusTicketSubject(ticketSaved.getId(),status),
+                EmailTemplates.updateStatusTicketBody(ticketSaved.getId(),portalId),
+                NotificationEvent.CHANGE_TICKET
+        );
+    }
+
+
+    public void setTicketPriority(Long portalId, Long ticketId, TicketPriority priority)
+            throws TicketException, PortalException, MessagingException, UnsupportedEncodingException {
+
+        Objects.requireNonNull(portalId, "portalId не должен быть null");
+        Objects.requireNonNull(ticketId, "ticketId не должен быть null");
+        Objects.requireNonNull(priority, "priority не должен быть null");
+
+        logger.debug("Запрос на обновление приоритета тикета. Портал ID: {}, Тикет ID: {}, Новый приоритет: {}", portalId, ticketId, priority);
+
+        UserModel user = currentUserProvider.getCurrentUserModel();
+        TicketModel ticket = ticketDomainService.findTicketById(ticketId);
+
+        boolean isAccessToPortal = accessValidationService.hasPortalAccess(portalId);
+        boolean isAuthorOfTicket = ticket.getAuthor().getId().equals(user.getId());
+
+        if (!(isAuthorOfTicket || isAccessToPortal)) {
+            throw new TicketException("Вы не можете изменять приоритет данной заявки");
         }
 
         ticket.setTicketPriority(priority);
-        ticketDomainService.saveTicket(ticket);
-
+        TicketModel ticketSaved = ticketDomainService.saveTicket(ticket);
         PortalModel portal = portalDomainService.getPortalById(portalId);
+
+        // Отправляем письмо
         emailDeliveryService.initNotifyPortalUsers(
-            portal,
-            "Обновление приоритета заявки #" + ticketId +"("+priority+")",
-            "Для заявки #" + ticketId + " был изменен приоритет на " + priority,
-            NotificationEvent.CHANGE_TICKET);
-        logger.debug("ticket priority updated");
+                portal,
+                EmailTemplates.updatePriorityTicketSubject(ticketSaved.getId(),priority),
+                EmailTemplates.updatePriorityTicketBody(ticketSaved.getId(),portal.getId()),
+                NotificationEvent.CHANGE_TICKET
+        );
     }
+
+
+    public void deleteTicket (Long ticketID, Long portalId) throws TicketException, PortalException, MessagingException, UnsupportedEncodingException {
+        Objects.requireNonNull(ticketID,"ticketID не должен быть null");
+        Objects.requireNonNull(ticketID,"portalId не должен быть null");
+
+        UserModel user = currentUserProvider.getCurrentUserModel();
+        TicketModel ticket = ticketDomainService.findTicketById(ticketID);
+        ticket.setWhoDelete(user.getId());
+        ticket.setTimeDelete(Instant.now());
+
+        ticket.setTicketLiveStatus(TicketLiveStatus.DELETE);
+        TicketModel ticketSaved = ticketRepository.save(ticket);
+
+        // Отправляем письмо
+        emailDeliveryService.initNotifyPortalUsers(
+                portalDomainService.getPortalById(portalId),
+                EmailTemplates.deletedTicketSubject(ticketID),
+                EmailTemplates.deletedTicketBody(ticketID,user.getEmail()),
+                NotificationEvent.TICKET_DELETED
+        );
+    }
+
 }
 
 

@@ -50,6 +50,11 @@ public class PortalModel {
     @Column(nullable = false)
     private boolean isDeleted = false;
 
+    @Version
+    private Integer version;
+
+    private Instant timeDelete;
+
     private boolean isPublic = false;
 
     @PrePersist
@@ -107,6 +112,14 @@ public class PortalModel {
 
     public Set<UUID> getAllowedUserIds() {
         return allowedUserIds;
+    }
+
+    public Instant getTimeDelete() {
+        return timeDelete;
+    }
+
+    public void setTimeDelete(Instant timeDelete) {
+        this.timeDelete = timeDelete;
     }
 
     public void setAllowedUserIds(Set<UUID> allowedUserIds) {

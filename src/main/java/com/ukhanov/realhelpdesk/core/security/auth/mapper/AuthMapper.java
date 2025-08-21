@@ -10,8 +10,9 @@ import java.util.UUID;
 public class AuthMapper {
 
     public static UserModel toEntity(RegisterRequest request, String passwordHash) {
-        Objects.requireNonNull(request, "Request must not be null");
-        Objects.requireNonNull(passwordHash, "Password hash must not be null");
+        Objects.requireNonNull(request, "Запрос не должен быть null");
+        Objects.requireNonNull(passwordHash, "Хеш пароля не должен быть null");
+
 
         UserModel user = new UserModel();
         user.setFirstName(request.getFirstName());

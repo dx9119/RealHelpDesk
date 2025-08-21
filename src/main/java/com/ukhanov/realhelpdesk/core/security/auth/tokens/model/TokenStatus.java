@@ -5,5 +5,6 @@ public enum TokenStatus {
     LOGOUT,
     BLOCKED,
     REVOKED,
-    SUSPECTED
+    SUSPECTED,
+    PASSWD_CHANGE
 }

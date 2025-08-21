@@ -34,6 +34,8 @@ public class UserModel {
 
     private UUID verifyEmailToken;
 
+    private UUID recoveryPasswdToken;
+
     private boolean isEmailVerified = false;
 
     @Column(nullable = false)
@@ -64,6 +66,9 @@ public class UserModel {
         this.createdAt = Instant.now();
     }
 
+    @Version
+    private Integer version;
+
     @Override
     public String toString() {
         return "UserModel{" +
@@ -92,6 +97,14 @@ public class UserModel {
 
     public UUID getVerifyEmailToken() {
         return verifyEmailToken;
+    }
+
+    public UUID getRecoveryPasswdToken() {
+        return recoveryPasswdToken;
+    }
+
+    public void setRecoveryPasswdToken(UUID recoveryPasswdToken) {
+        this.recoveryPasswdToken = recoveryPasswdToken;
     }
 
     public void setVerifyEmailToken(UUID verifyEmailToken) {
@@ -181,6 +194,10 @@ public class UserModel {
 
     public void setUserRole(UserRole userRole) {
         this.userRole = userRole;
+    }
+
+    public String getFullName(){
+        return this.firstName+" "+ this.lastName+" "+ this.middleName;
     }
 
     public UserStatus getUserStatus() {

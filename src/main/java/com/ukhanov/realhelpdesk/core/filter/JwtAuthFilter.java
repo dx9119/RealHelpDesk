@@ -58,8 +58,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         // Пропускаем фильтр для URL из БС
         if (WhiteUrlConfig.WHITE_LIST_URLS
             .stream()
-            .anyMatch(whiteListedPath -> antPathMatcher.match(whiteListedPath, path))) { // <-- Изменение здесь!
-            logger.debug("Skip jwt filter: {}", path);
+            .anyMatch(whiteListedPath -> antPathMatcher.match(whiteListedPath, path))) {
 
             filterChain.doFilter(request, response);
             return;
@@ -68,7 +67,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         // Парсим access-токен
         TokenBearerResponse token = resolveToken(request);
         if (token == null) {
-            logger.warn("The access-token is missing: {}", path);
+            logger.warn("Нет access-token: {}", path);
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setHeader("X-Auth-Token-Missing", "true");
             return;
@@ -90,7 +89,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     List.of(new SimpleGrantedAuthority("ROLE_" + role))
             );
             SecurityContextHolder.getContext().setAuthentication(auth);
-            logger.info("Authentication установлен в контекст: {}", auth.getName());
 
             // Следующий фильтр
             filterChain.doFilter(request, response);
@@ -98,22 +96,22 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         } catch (ExpiredJwtException e) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setHeader("X-Access-Token-Expired", "true");
-            logger.info("The token has expired {}: {}", path, e.getMessage());
+            logger.error("Токен истек {}: {}", path, e.getMessage());
 
         } catch (MalformedJwtException e) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setHeader("X-Malformed-Token", "true");
-            logger.info("Incorrect token format{}: {}", path, e.getMessage());
+            logger.error("Не корректный формат токена доступа, {}: {}", path, e.getMessage());
 
         } catch (JwtException e) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setHeader("X-Invalid-Token", "true");
-            logger.info("JWT error {}: {}", path, e.getMessage());
+            logger.error("JWT ошибка {}: {}", path, e.getMessage());
 
         } catch (TokenException e) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setHeader("X-Verify-Token-Failed", "true");
-            logger.info("Access token rejected: {}", e.getMessage());
+            logger.error("Токен доступа отвергнут: {}", e.getMessage());
         }
     }
 
@@ -125,14 +123,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (cookies != null) {
             for (Cookie cookie : cookies) {
                 if ("accessToken".equals(cookie.getName())) {
-                    logger.debug("Access token was successfully received from cookie.");
                     token.setToken(cookie.getValue());
                     return token;
                 }
             }
         }
-
-        logger.debug("Access token is missing in cookies.");
+        logger.debug("Токен доступа отсутствует в файлах cookie.");
         return null;
     }
 }

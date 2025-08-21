@@ -26,20 +26,15 @@ public class PaginationService {
   }
 
   public <T> PageResponse<T> mapToResponse(Page<T> page, String sortBy, String order) {
-    logger.debug("Mapping Page to PageResponse — sortBy: {}, order: {}", sortBy, order);
-    Objects.requireNonNull(page, "Page object must not be null");
+    Objects.requireNonNull(page, "Защита от null: Page необходим для маппинга");
     return pageResponseMapper.map(page);
   }
 
   public PageRequest buildPageRequest(int page, int size, String sortBy, String order) {
-    logger.debug("Creating PageRequest — page: {}, size: {}, sortBy: {}, order: {}", page, size, sortBy, order);
-
-    Objects.requireNonNull(sortBy, "sortBy must not be null");
-    Objects.requireNonNull(order, "order must not be null");
+    Objects.requireNonNull(sortBy, "Параметр sortBy не должен быть null");
+    Objects.requireNonNull(order, "Параметр order не должен быть null");
 
     Sort sort = resolveSortDirection(sortBy, order);
-    logger.info("PageRequest created with sort: {}", sort);
-
     return PageRequest.of(page, size, sort);
   }
 

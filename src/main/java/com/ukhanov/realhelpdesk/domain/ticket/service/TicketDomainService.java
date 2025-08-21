@@ -1,21 +1,19 @@
 package com.ukhanov.realhelpdesk.domain.ticket.service;
 
-import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
-import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketLiveStatus;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 import com.ukhanov.realhelpdesk.domain.ticket.repository.TicketRepository;
-import com.ukhanov.realhelpdesk.domain.ticket.repository.TicketSpecification;
+import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 import jakarta.persistence.PersistenceException;
-import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
+
+import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -32,99 +30,67 @@ public class TicketDomainService {
         this.ticketRepository = ticketRepository;
     }
 
-
+    @Transactional
     public TicketModel saveTicket(TicketModel ticketModel) {
-        Objects.requireNonNull(ticketModel, "Ticket cannot be null!");
+        Objects.requireNonNull(ticketModel, "Заявка не должна быть null!");
 
         try {
             TicketModel savedTicket = ticketRepository.save(ticketModel);
-            logger.debug("Saved ticket: {}", savedTicket.getId());
+            logger.debug("Заявка сохранена: {}", savedTicket.getId());
             return savedTicket;
         } catch (Exception e) {
-            logger.error("Failed to save ticket: {}", ticketModel, e);
-            throw new PersistenceException("Could not save ticket", e);
+            logger.error("Не удалось сохранить заявку: {}", ticketModel, e);
+            throw new PersistenceException("Не удалось сохранить заявку", e);
         }
     }
 
     // Найти заявку по ID
-    public TicketModel findTicketById(Long ticketId) {
-        Objects.requireNonNull(ticketId, "Ticket ID cannot be null!");
+    public TicketModel findTicketById(Long ticketId) throws TicketException {
+        Objects.requireNonNull(ticketId, "ID заявки не должен быть null!");
 
-        TicketModel ticket = ticketRepository.findById(ticketId)
+        TicketModel ticket = ticketRepository.findByIdAndTicketLiveStatus(ticketId, TicketLiveStatus.ACTIVE)
                 .orElseThrow(() -> {
-                    logger.warn("Ticket with ID {} not found!", ticketId);
-                    return new PersistenceException("Ticket not found!");
+                    logger.warn("Заявка с ID {} не найдена!", ticketId);
+                    return new TicketException("Заявка не найдена!");
                 });
 
-        logger.debug("Found ticket: {}", ticket);
         return ticket;
     }
 
     public List<TicketModel> getTicketsByPortalId(Long portalId) {
-        Objects.requireNonNull(portalId, "portalId must not be null");
-        logger.debug("Fetching all tickets for portal ID: {}", portalId);
-        return ticketRepository.findAllByPortalId(portalId);
+        Objects.requireNonNull(portalId, "portalId не должен быть null");
+        logger.debug("Получение всех заявок для портала с ID: {}", portalId);
+        return ticketRepository.findAllByPortalIdAndTicketLiveStatus(portalId,TicketLiveStatus.ACTIVE);
     }
 
     public Page<TicketModel> getTicketsPageByPortalId(Long portalId, Pageable pageable) {
-        Objects.requireNonNull(portalId, "portalId must not be null");
-        logger.debug("Fetching paged tickets by portalId: {}", portalId);
-        return ticketRepository.findAllByPortalId(portalId, pageable);
+        Objects.requireNonNull(portalId, "portalId не должен быть null");
+        logger.debug("Получение заявок с пагинацией для портала с ID: {}", portalId);
+        return ticketRepository.findAllByPortalIdAndTicketLiveStatus(portalId, pageable, TicketLiveStatus.ACTIVE);
     }
 
     public Page<TicketModel> getTicketsPageByUserId(UUID userId, Pageable pageable) {
-        Objects.requireNonNull(userId, "userId must not be null");
-        logger.debug("Fetching paged tickets by userId: {}", userId);
-        return ticketRepository.findAllByAuthorId(userId, pageable);
+        Objects.requireNonNull(userId, "userId не должен быть null");
+        logger.debug("Получение заявок с пагинацией для пользователя с ID: {}", userId);
+        return ticketRepository.findAllByAuthorIdAndTicketLiveStatus(userId, TicketLiveStatus.ACTIVE, pageable);
     }
-
-    public Page<TicketModel> getTicketsPageByPortalsAndFilters(
-        List<Long> portalIds,
-        String search,
-        Instant startDate,
-        Instant endDate,
-        TicketStatus ticketStatus,
-        TicketPriority ticketPriority,
-        Pageable pageable,
-        Boolean isMyTickets,
-        UUID currentUserId
-    ) {
-        Specification<TicketModel> spec = TicketSpecification.withFilters(
-            portalIds,
-            search,
-            startDate,
-            endDate,
-            ticketStatus,
-            ticketPriority,
-            isMyTickets,
-            currentUserId
-        );
-
-
-        return ticketRepository.findAll(spec, pageable);
-    }
-
-
-
 
     public Page<TicketModel> getTicketsByIds(Set<Long> ids, Pageable pageable) {
-        Objects.requireNonNull(ids, "ids must not be null");
-        logger.debug("Fetching paged tickets by ids: {}", ids);
-
-        return ticketRepository.findByIdIn(ids, pageable);
+        Objects.requireNonNull(ids, "ids не должны быть null");
+        logger.debug("Получение заявок с пагинацией по ID: {}", ids);
+        return ticketRepository.findByIdInAndTicketLiveStatus(ids,TicketLiveStatus.ACTIVE,pageable);
     }
 
-
     public Set<Long> getIdTicketWithNoAnswer(Long portalId) {
-        Objects.requireNonNull(portalId, "portalId must not be null");
-        logger.debug("Fetching all tickets with no answer for portal ID: {}", portalId);
-        return ticketRepository.findOpenTicketIdsWithoutMessagesByPortalId(portalId);
+        Objects.requireNonNull(portalId, "portalId не должен быть null");
+        logger.debug("Получение ID заявок без ответа для портала с ID: {}", portalId);
+        return ticketRepository.findOpenTicketIdsWithoutMessagesByPortalIdAndLiveStatus(portalId,TicketLiveStatus.ACTIVE);
     }
 
     public Set<Long> getIdTicketWithStatus(Long portalId, TicketStatus status) {
-        Objects.requireNonNull(portalId, "portalId must not be null");
-        logger.debug("Fetching all tickets with status {} for portal ID: {}", status, portalId);
-        return ticketRepository.findTicketIdsByPortalIdAndStatus(portalId, status);
+        Objects.requireNonNull(portalId, "portalId не должен быть null");
+        logger.debug("Получение ID заявок со статусом {} для портала с ID: {}", status, portalId);
+        return ticketRepository.findTicketIdsByPortalIdAndStatusAndLiveStatus(portalId, status, TicketLiveStatus.ACTIVE);
     }
 
 }

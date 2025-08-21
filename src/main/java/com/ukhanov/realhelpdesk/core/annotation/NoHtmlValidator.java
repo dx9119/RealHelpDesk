@@ -9,7 +9,7 @@ public class NoHtmlValidator implements ConstraintValidator<NoHtml, String> {
     public boolean isValid(String value, ConstraintValidatorContext context) {
         if (value == null) return true;
 
-        // Регулярка: запрещаем HTML, JS и SQL
+        // Регулярка: пытаемся запретить HTML, JS и SQL в ДТО
         return !value.matches("(?i).*(<script>|</script>|<.*?>|SELECT\\s|INSERT\\s|UPDATE\\s|DELETE\\s|--|\\/\\*|\\*\\/|DROP\\s|TRUNCATE\\s|EXEC\\s|UNION\\s).*");
     }
 }

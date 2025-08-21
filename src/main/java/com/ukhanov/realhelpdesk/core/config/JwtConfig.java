@@ -25,30 +25,30 @@ public class JwtConfig {
             @Value("${jwt.refresh-token-expiration}") Integer refreshExp
     ) {
         if (secretForGenJwt == null || secretForGenJwt.isBlank()) {
-            throw new IllegalArgumentException("jwt.secret-for-gen-jwt must not be null or blank");
+            throw new IllegalArgumentException("jwt.secret-for-gen-jwt не содержит значение");
         }
 
         if (issuer == null || issuer.isBlank()) {
-            throw new IllegalArgumentException("jwt.issuer must not be null or blank");
+            throw new IllegalArgumentException("jwt.issuer не содержит значение");
         }
 
         if (audience == null || audience.isEmpty()) {
-            throw new IllegalArgumentException("jwt.audience must not be null or empty");
+            throw new IllegalArgumentException("jwt.audience не содержит значение");
         }
 
         if (accessTokenExp == null || accessTokenExp <= 0) {
-            throw new IllegalArgumentException("jwt.access-token-expiration must be a positive number");
+            throw new IllegalArgumentException("jwt.access-token-expiration не содержит значение");
         }
 
         if (refreshExp == null || refreshExp <= 0) {
-            throw new IllegalArgumentException("jwt.refresh-token-expiration must be a positive number");
+            throw new IllegalArgumentException("jwt.refresh-token-expiration не содержит значение");
         }
 
         try {
             this.jwtKey = Keys.hmacShaKeyFor(Base64.getDecoder().decode(secretForGenJwt));
         } catch (IllegalArgumentException e) {
             throw new IllegalStateException(
-                    "Failed to decode JWT secret: must be a valid Base64-encoded string of sufficient length for HMAC key generation (e.g. HS256 requires 256-bit key). Hint: use `openssl rand -base64 32` to generate one.",
+                    "Ошибка при декодировании секрета JWT: должен быть корректной строкой в формате Base64 достаточной длины для генерации ключа HMAC (HS256 требует ключ длиной 256 бит).",
                     e
             );
         }

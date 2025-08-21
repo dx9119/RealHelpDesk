@@ -27,6 +27,9 @@ public class MessageModel {
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
+    @Version
+    private Integer version;
+
     @PrePersist
     public void setCreatedAt() {
         this.createdAt = Instant.now();

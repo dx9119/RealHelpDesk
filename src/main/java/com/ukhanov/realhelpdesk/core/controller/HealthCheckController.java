@@ -12,8 +12,8 @@ public class HealthCheckController {
   @GetMapping("/api/v1/health-check")
   public Map<String, Object> checkHealth() {
     Map<String, Object> response = new HashMap<>();
-    response.put("status", "UP");
-    response.put("timestamp", LocalDateTime.now().toString());
+    response.put("Статус", "Активен");
+    response.put("Время", LocalDateTime.now().toString());
     return response;
   }
 }

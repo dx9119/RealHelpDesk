@@ -24,21 +24,19 @@ public class FindTokenService {
         this.jwtRefreshTokenRepository = jwtRefreshTokenRepository;
     }
 
-  public RefreshTokenModel findRefreshToken(TokenBearer token) throws TokenException {
-    Objects.requireNonNull(token, "Token cannot be null!");
-    Objects.requireNonNull(token.getToken(), "Token cannot be null!");
+    public RefreshTokenModel findRefreshToken(TokenBearer token) throws TokenException {
+        Objects.requireNonNull(token, "Токен не может быть null!");
+        Objects.requireNonNull(token.getToken(), "Значение токена не может быть null!");
 
-    logger.debug("Start finding refresh token: {}", token.getToken());
-
-    Optional<RefreshTokenModel> refreshTokenModel = jwtRefreshTokenRepository.findByTokenRefresh(token.getToken());
-    return refreshTokenModel
-        .map(foundToken -> {
-          logger.debug("Refresh token found: {}", foundToken.getToken());
-          return foundToken;
-        })
-        .orElseThrow(() -> {
-          logger.error("Refresh token not found: {}", token.getToken());
-          return new TokenException("Refresh token not found: " + token.getToken(), null);
-        });
-  }
+        Optional<RefreshTokenModel> refreshTokenModel = jwtRefreshTokenRepository.findByTokenRefresh(token.getToken());
+        return refreshTokenModel
+                .map(foundToken -> {
+                    logger.debug("Токен обновления найден: {}", foundToken.getToken());
+                    return foundToken;
+                })
+                .orElseThrow(() -> {
+                    logger.error("Токен обновления не найден: {}", token.getToken());
+                    return new TokenException("Токен обновления не найден: " + token.getToken(), null);
+                });
+    }
 }

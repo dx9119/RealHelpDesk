@@ -3,7 +3,6 @@ package com.ukhanov.realhelpdesk.core.security.auth;
 import com.ukhanov.realhelpdesk.core.mail.exception.EmailAccessDeniedException;
 import com.ukhanov.realhelpdesk.core.security.auth.login.dto.LoginRequest;
 import com.ukhanov.realhelpdesk.core.security.auth.login.service.LoginService;
-import com.ukhanov.realhelpdesk.core.security.auth.logout.dto.LogoutResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.logout.exception.LogoutException;
 import com.ukhanov.realhelpdesk.core.security.auth.logout.service.LogoutService;
 import com.ukhanov.realhelpdesk.core.security.auth.register.dto.RegisterRequest;
@@ -16,9 +15,12 @@ import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenExcepti
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.GetTokenService;
 import com.ukhanov.realhelpdesk.core.security.auth.refresh.exception.RefreshException;
 import com.ukhanov.realhelpdesk.core.security.auth.refresh.service.RefreshService;
+import com.ukhanov.realhelpdesk.core.security.сaptcha.exception.CaptchaException;
 import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+
+import java.io.UnsupportedEncodingException;
 import java.time.Duration;
 import java.util.Map;
 import org.springframework.http.HttpHeaders;
@@ -50,10 +52,12 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<Map<String, String>> registration(@Valid @RequestBody RegisterRequest registerRequest)
-        throws RegistrationException, MessagingException, EmailAccessDeniedException {
+    public ResponseEntity<Map<String, String>> registration(
+            @Valid @RequestBody RegisterRequest registerRequest,
+            @RequestParam String capId)
+            throws RegistrationException, MessagingException, EmailAccessDeniedException, CaptchaException, UnsupportedEncodingException {
 
-        TokensResponse tokens = registrationService.processRegistration(registerRequest);
+        TokensResponse tokens = registrationService.processRegistration(registerRequest, capId);
 
         ResponseCookie accessCookie = ResponseCookie.from("accessToken", tokens.getAccessToken())
             .httpOnly(true)
@@ -72,8 +76,8 @@ public class AuthController {
             .build();
 
         Map<String, String> responseBody = Map.of(
-            "status", "success",
-            "message", "Регистрация прошла успешно"
+            "Статус", "Успех",
+            "Сообщение", "Регистрация прошла успешно"
         );
 
         return ResponseEntity
@@ -84,7 +88,10 @@ public class AuthController {
 
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, String>> login(@Valid @RequestBody LoginRequest loginRequest) throws TokenException {
+    public ResponseEntity<Map<String, String>> login(
+            @Valid
+            @RequestBody LoginRequest loginRequest,
+            @CookieValue(value = "captcha", defaultValue = "") String captchaCookie) throws TokenException {
         TokensResponse tokens = loginService.processLogin(loginRequest);
 
         ResponseCookie accessCookie = ResponseCookie.from("accessToken", tokens.getAccessToken())
@@ -104,8 +111,8 @@ public class AuthController {
             .build();
 
         Map<String, String> responseBody = Map.of(
-            "status", "success",
-            "message", "Вход выполнен успешно"
+            "Статус", "Успех",
+            "Сообщение", "Вход выполнен успешно"
         );
 
         return ResponseEntity
@@ -126,7 +133,7 @@ public class AuthController {
                 .sameSite("None")
                 .build();
 
-        Map<String,String> responseBody = Map.of("status","success");
+        Map<String,String> responseBody = Map.of("Статус","Успех");
 
         return ResponseEntity
                 .ok()
@@ -147,18 +154,39 @@ public class AuthController {
     @PostMapping("/check")
     public ResponseEntity<AuthorizationResponse> checkToken(HttpServletRequest request)
         throws TokenException {
-        AuthorizationResponse response = new AuthorizationResponse("true");
-        return ResponseEntity.ok(response);
-    }
-
-    // Отзыв токена
-    @DeleteMapping("/token")
-    public ResponseEntity<LogoutResponse> revokeToken(HttpServletRequest request) throws LogoutException, TokenException {
-        LogoutResponse response = logoutService.processLogout(request);
+        AuthorizationResponse response = new AuthorizationResponse("Активен");
         return ResponseEntity.ok(response);
     }
 
 
+    // удаляем куки если пользователь хочет завершить сессию
+    @DeleteMapping("/cookies")
+    public ResponseEntity<Map<String, String>> deleteCookies(HttpServletRequest request) throws TokenException, LogoutException {
 
+        logoutService.processLogout(request);
+
+        ResponseCookie accessCookie = ResponseCookie.from("accessToken", "")
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(Duration.ZERO)
+                .sameSite("None")
+                .build();
+
+        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", "")
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(Duration.ZERO)
+                .sameSite("None")
+                .build();
+
+        Map<String,String> responseBody = Map.of("Статус","Успех");
+
+        return ResponseEntity
+                .ok()
+                .header(HttpHeaders.SET_COOKIE, accessCookie.toString(), refreshCookie.toString())
+                .body(responseBody);
+    }
 
 }

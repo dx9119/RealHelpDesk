@@ -26,11 +26,8 @@ public class DecodeTokenService {
     }
 
     public Claims decodeJwtClaims(TokenBearer token) throws JwtException {
-        Objects.requireNonNull(token, "Token cannot be null!");
+        Objects.requireNonNull(token, "Токен не может быть null!");
 
-        logger.debug("Parsing JWT claims for token");
-
-        // Распарсиваем для логирования всех claim'ов
         Claims claims = Jwts.parser()
                 .verifyWith((SecretKey) jwtConfig.getJwtKey())
                 .build()
@@ -39,7 +36,7 @@ public class DecodeTokenService {
 
         // Обязательные поля
         if (claims.getSubject() == null) {
-            throw new JwtException("Missing subject claim in token");
+            throw new JwtException("Отсутствует claim 'subject' в токене");
         }
 
         return claims;
@@ -56,32 +53,22 @@ public class DecodeTokenService {
 
     public String extractTokenFromCookies(HttpServletRequest request, String cookieName)
         throws TokenException {
-        logger.debug("Start extracting cookie. Requested name: '{}'", cookieName);
+        logger.debug("Начало извлечения cookie. Запрошенное имя: '{}'", cookieName);
 
         Cookie[] cookies = request.getCookies();
         if (cookies == null) {
-            logger.warn("No cookies received in request");
-            throw new TokenException("No cookies received in request");
-        }
-
-        logger.debug("Number of cookies received: {}", cookies.length);
-
-        for (int i = 0; i < cookies.length; i++) {
-            Cookie cookie = cookies[i];
-            logger.info("Cookie[{}]: name='{}', value='{}'", i, cookie.getName(), cookie.getValue());
+            logger.warn("В запросе не получены cookies");
+            throw new TokenException("В запросе не получены cookies");
         }
 
         boolean found = false;
         for (Cookie cookie : cookies) {
             if (cookieName.equals(cookie.getName())) {
-                logger.info("Target cookie '{}' found. Returning value: '{}'", cookieName, cookie.getValue());
+                logger.info("Целевая cookie '{}' найдена. Возвращаемое значение: '{}'", cookieName, cookie.getValue());
                 found = true;
                 return cookie.getValue();
             }
         }
-
-      throw new TokenException("No cookie with name '" + cookieName + "' found in request");
-
+        throw new TokenException("В запросе не найдена cookie с именем '" + cookieName + "'");
     }
-
 }

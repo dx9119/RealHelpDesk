@@ -43,7 +43,6 @@ public class GetTokenService {
 
     // Получить актиный рефреш токен или новый и новый access токен
     public TokensResponse getActiveTokens(UserModel userModel) throws TokenException {
-        logger.debug("Getting active tokens for user: {}", userModel.getEmail());
         SecurityUser securityUser = new SecurityUser(userModel);
 
         TokenBearerResponse tokenBearerResponse = genTokenService.generateAccessJwtToken(securityUser);
@@ -51,7 +50,7 @@ public class GetTokenService {
 
         if(refreshToken.getToken() == null) {
             refreshToken = genTokenService.generateRefreshJwtToken(securityUser);
-            logger.debug("not found refresh token, user: {}", securityUser.getUsername());
+            logger.debug("Токен обновления не найден, пользователь: {}", securityUser.getUsername());
             saveTokenService.saveRefreshToken(refreshToken);
         }
 
@@ -64,7 +63,6 @@ public class GetTokenService {
 
     // Получить новые токены
     public TokensResponse getNewTokens(UserModel user) {
-        logger.debug("Generating new tokens for user: {}", user.getEmail());
         SecurityUser securityUser = new SecurityUser(user);
 
         TokenBearerResponse tokenBearerResponse = genTokenService.generateAccessJwtToken(securityUser);
@@ -80,21 +78,22 @@ public class GetTokenService {
     }
 
     public RefreshTokenModel getActiveRefreshToken(UserModel user) throws TokenException {
-        Objects.requireNonNull(user, "user cannot be null!");
+        Objects.requireNonNull(user, "Пользователь не может быть null!");
 
         return jwtRefreshTokenRepository
                 .findTopByUserEmailAndStatusOrderByCreatedAtDesc(user.getEmail(), TokenStatus.ACTIVE)
-                .orElseThrow(() -> new TokenException("Active refresh token not found"));
+                .orElseThrow(() -> new TokenException("Активный токен обновления не найден"));
     }
 
     private Token extractAndValidateToken(HttpServletRequest request, String tokenName) throws TokenException {
-        Objects.requireNonNull(request, "Request cannot be null");
+        Objects.requireNonNull(request, "Запрос не может быть null");
+
 
         Token token = new Token(
             decodeTokenService.extractTokenFromCookies(request, tokenName)
         );
         if (token.getToken() == null || token.getToken().isEmpty()) {
-            throw new TokenException(tokenName + " cookie not found");
+            throw new TokenException("Cookie с именем " + tokenName + " не найдена");
         }
 
         logger.debug("Extracted token [{}]: {}", tokenName, token.getToken());
@@ -114,25 +113,22 @@ public class GetTokenService {
     public AuthorizationResponse isAccessTokenActive(HttpServletRequest request) throws TokenException {
         Token tokenAccess = extractAndValidateToken(request, "accessToken");
         validTokenService.lowLevelVerifyToken(tokenAccess);
-        return new AuthorizationResponse("true");
+        return new AuthorizationResponse("Активен");
     }
 
 
     public UserModel getUserByRefreshToken(String tokenRefresh) throws TokenException {
-        Objects.requireNonNull(tokenRefresh, "Token cannot be null");
-
-        logger.debug("Start searching user by refresh token: {}", tokenRefresh);
+        Objects.requireNonNull(tokenRefresh, "Токен не может быть null");
 
         RefreshTokenModel refreshToken = jwtRefreshTokenRepository.findByTokenRefresh(tokenRefresh)
-                .orElseThrow(() -> new TokenException("Token not found", null));
+                .orElseThrow(() -> new TokenException("Токен не найден", null));
 
         return refreshToken.getUser();
     }
 
     public TokenBearerResponse getNewAccessToken(TokenBearer tokenRefresh) throws TokenException {
-        Objects.requireNonNull(tokenRefresh, "Token cannot be null");
+        Objects.requireNonNull(tokenRefresh, "Токен не может быть null");
 
-        logger.debug("Start searching and check refresh tokenRefresh");
         RefreshTokenModel refreshToken = findTokenService.findRefreshToken(tokenRefresh);
 
         if(refreshToken.getStatus() == TokenStatus.ACTIVE) {
@@ -140,8 +136,6 @@ public class GetTokenService {
         }
 
         UserModel user = getUserByRefreshToken(tokenRefresh.getToken());
-
-        logger.debug("Gen new access token");
         return genTokenService.generateAccessJwtToken(new SecurityUser(user));
     }
 

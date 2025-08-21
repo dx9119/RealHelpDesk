@@ -26,16 +26,15 @@ public class CurrentUserProvider {
     // Получить ID текущего пользователя
     public UUID getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        Objects.requireNonNull(authentication, "The user is not logged in");
+        Objects.requireNonNull(authentication, "Пользователь не авторизован");
 
         String rawId = authentication.getName();
-        logger.debug("User ID from SecurityContext: {}", rawId);
 
         try {
             return UUID.fromString(rawId);
         } catch (IllegalArgumentException e) {
-            logger.error("Incorrect UUID format:{}", rawId);
-            throw new IllegalStateException("Invalid user ID");
+            logger.error("Неверный формат UUID: {}", rawId);
+            throw new IllegalStateException("Недопустимый идентификатор пользователя");
         }
     }
 

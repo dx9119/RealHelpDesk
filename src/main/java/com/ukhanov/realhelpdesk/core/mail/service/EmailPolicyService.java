@@ -28,7 +28,7 @@ public class EmailPolicyService {
   }
 
   public boolean isStopList(String email, NotificationEvent sourceEvent) {
-    Objects.requireNonNull(email, "Email is null");
+    Objects.requireNonNull(email, "Email должен иметь значение");
 
     NotificationEvent stopListEmail = repository.findByEmail(email)
         .map(UnsubscribedEmail::getMuteEvent)
@@ -36,16 +36,13 @@ public class EmailPolicyService {
 
     // источник события откуда отправляется письмо, если событие совпадает с событием которое в стоп листе, то письмо не отправляется
     if (stopListEmail == sourceEvent) {
-      logger.debug("Email is blocked for notifications about: {}", stopListEmail);
       return true;
     }
     // если в стоп листе стоит событие всех новых заявок и сообщений, то письмо не отправляется
     if (stopListEmail == NotificationEvent.NEW_TICKET_OR_MESSAGE){
-      logger.debug("Email is blocked for notifications about: {}", stopListEmail);
       return true;
     }
     if (stopListEmail == NotificationEvent.CHANGE_TICKET){
-      logger.debug("Email is blocked for notifications about: {}", stopListEmail);
       return true;
     }
 
@@ -58,7 +55,7 @@ public class EmailPolicyService {
   }
 
   public void deleteFromStopList(UUID token) {
-    Objects.requireNonNull(token, "Token is null");
+    Objects.requireNonNull(token, "Token должен иметь значение");
 
     UserModel user = currentUserProvider.getCurrentUserModel();
 
@@ -66,7 +63,7 @@ public class EmailPolicyService {
   }
 
   public void addToStopList(NotificationEvent level) {
-    Objects.requireNonNull(level, "Level is null");
+    Objects.requireNonNull(level, "Level (NotificationEvent) должен иметь значение");
 
     UserModel user = currentUserProvider.getCurrentUserModel();
 

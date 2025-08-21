@@ -22,10 +22,10 @@ public class EmailAccessDeniedExceptionHandler {
         HttpStatus status = HttpStatus.CONFLICT;
 
         Map<String, String> error = new HashMap<>();
-        error.put("message", ex.getMessage());
-        error.put("path", request.getDescription(false));
+        error.put("Сообщение", ex.getMessage());
+        error.put("Путь", request.getDescription(false));
 
-        logger.debug("Email confirmation caught: {}", ex.getClass().getName());
+        logger.error(ex.getMessage());
 
         return new ResponseEntity<>(error, status);
     }

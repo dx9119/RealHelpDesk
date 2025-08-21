@@ -27,7 +27,7 @@ public class PortalUtilsService {
   public void validateUUIDList(Set<UUID> userIds) throws PortalException {
     for (UUID userId : userIds) {
       if (!isValidUUIDFormat(userId.toString())) {
-        logger.info("format UUID is not valid: {}", userId);
+        logger.debug("Неверный формат UUID: {}", userId);
         throw new PortalException("Неверный формат UUID: " + userId);
       }
     }

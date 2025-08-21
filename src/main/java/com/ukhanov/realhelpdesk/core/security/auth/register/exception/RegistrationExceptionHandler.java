@@ -24,9 +24,11 @@ public class RegistrationExceptionHandler extends ResponseEntityExceptionHandler
         HttpStatus status = HttpStatus.CONFLICT;
 
         Map<String, String> errorResponse = new HashMap<>();
-        errorResponse.put("Error:", e.getMessage());
-        errorResponse.put("Cause:", e.getCause().getMessage());
-        errorResponse.put("Path:", webRequest.getDescription(false));
+        errorResponse.put("Ошибка", e.getMessage());
+        errorResponse.put("Подробнее", e.getCause().getMessage());
+        errorResponse.put("Путь", webRequest.getDescription(false));
+
+        logger.error(e.getClass().getName());
 
         return new ResponseEntity<>(errorResponse, status);
     }

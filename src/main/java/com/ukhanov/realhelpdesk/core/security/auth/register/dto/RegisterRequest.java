@@ -16,6 +16,10 @@ public class RegisterRequest {
     @Size(min = 2, max = 50, message = "Фамилия должна быть не менее 2 символов и не более 50")
     private String lastName;
 
+    @NotBlank(message = "Наличие капчи обязательно")
+    @Size(min = 2, max = 50, message = "Фамилия должна быть не менее 2 символов и не более 50")
+    private String capCode;
+
     @NotBlank(message = "Поле Email обязательно для заполнения")
     @Email(message = "Некорректный формат Email")
     private String email;
@@ -52,6 +56,14 @@ public class RegisterRequest {
 
     public String getPassword() {
         return password;
+    }
+
+    public String getCapCode() {
+        return capCode;
+    }
+
+    public void setCapCode(String capCode) {
+        this.capCode = capCode;
     }
 
     public void setEmail(String email) {

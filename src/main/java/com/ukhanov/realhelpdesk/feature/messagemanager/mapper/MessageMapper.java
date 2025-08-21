@@ -13,9 +13,9 @@ import java.util.Objects;
 public class MessageMapper {
 
     public MessageModel toEntity(CreateMessageRequest request, UserModel author, TicketModel ticket) {
-        Objects.requireNonNull(request, "request must not be null");
-        Objects.requireNonNull(author, "author must not be null");
-        Objects.requireNonNull(ticket, "ticket must not be null");
+        Objects.requireNonNull(request, "Запрос на создание сообщения не должен быть null");
+        Objects.requireNonNull(author, "Автор сообщения не должен быть null");
+        Objects.requireNonNull(ticket, "Заявка не должна быть null");
 
         MessageModel message = new MessageModel();
         message.setMessageText(request.getMessageText());
@@ -25,7 +25,7 @@ public class MessageMapper {
     }
 
     public MessageResponse toResponse(MessageModel model) {
-        Objects.requireNonNull(model, "MessageModel must not be null");
+        Objects.requireNonNull(model, "Модель сообщения не должна быть null");
 
         MessageResponse response = new MessageResponse();
         response.setId(model.getId());

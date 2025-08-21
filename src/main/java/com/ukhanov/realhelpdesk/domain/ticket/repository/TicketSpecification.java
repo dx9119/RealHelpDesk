@@ -1,110 +1,78 @@
 package com.ukhanov.realhelpdesk.domain.ticket.repository;
 
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketLiveStatus;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
-import jakarta.persistence.criteria.Expression;
-import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.util.StringUtils;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
-
-import org.springframework.data.jpa.domain.Specification;
 
 public class TicketSpecification {
 
-  public static Specification<TicketModel> withFilters(
-      List<Long> portalIds,
-      String search,
-      Instant startDate,
-      Instant endDate,
-      TicketStatus ticketStatus,
-      TicketPriority ticketPriority,
-      Boolean isMyTickets,
-      UUID currentUserId
-  ) {
-    return (root, query, cb) -> {
-      // JOIN автора и портала для загрузки связанных данных
-      root.join("author", JoinType.LEFT);
-      root.join("portal", JoinType.LEFT);
+    public static Specification<TicketModel> build(
+            String search,
+            Instant startDate,
+            Instant endDate,
+            TicketStatus ticketStatus,
+            TicketPriority ticketPriority,
+            Boolean isMyTickets,
+            UUID currentUserId,
+            Set<Long> accessiblePortalIds) {
 
-      List<Predicate> predicates = new ArrayList<>();
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
 
-      // Ограничение по порталам
-      if (portalIds != null && !portalIds.isEmpty()) {
-        predicates.add(root.get("portal").get("id").in(portalIds));
-      }
+            // Глобальный фильтр: только активные заявки
+            predicates.add(criteriaBuilder.equal(root.get("ticketLiveStatus"), TicketLiveStatus.ACTIVE));
 
-
-      // Поисковая строка
-      if (search != null && !search.isBlank()) {
-        String likeSearch = "%" + search.toLowerCase() + "%";
-
-        Predicate titleLike = cb.like(cb.lower(root.get("title")), likeSearch);
-        Predicate bodyLike = cb.like(cb.lower(root.get("body")), likeSearch);
-
-        Predicate authorFirst = cb.like(cb.lower(root.get("author").get("firstName")), likeSearch);
-        Predicate authorLast = cb.like(cb.lower(root.get("author").get("lastName")), likeSearch);
-        Predicate authorMiddle = cb.like(cb.lower(root.get("author").get("middleName")), likeSearch);
-
-        // Объединённое ФИО, с защитой от null
-        Expression<String> fullNameConcat = cb.concat(
-            cb.concat(
-                cb.coalesce(cb.lower(root.get("author").get("lastName")), ""), " "
-            ),
-            cb.concat(
-                cb.coalesce(cb.lower(root.get("author").get("firstName")), ""), " "
-            )
-        );
-
-        Expression<String> fullNameWithMiddle = cb.concat(
-            fullNameConcat,
-            cb.coalesce(cb.lower(root.get("author").get("middleName")), "")
-        );
-
-        Predicate fullNameMatch = cb.like(fullNameWithMiddle, likeSearch);
-
-        predicates.add(cb.or(
-            titleLike,
-            bodyLike,
-            authorFirst,
-            authorLast,
-            authorMiddle,
-            fullNameMatch
-        ));
-      }
+            // 1. Фильтр по доступным порталам (самый важный для безопасности)
+            if (accessiblePortalIds == null || accessiblePortalIds.isEmpty()) {
+                // Если нет доступных порталов, возвращаем предикат, который всегда ложен
+                return criteriaBuilder.disjunction(); // or 1=0
+            }
+            predicates.add(root.get("portal").get("id").in(accessiblePortalIds));
 
 
-      if (startDate != null) {
-        predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"), startDate));
-      }
+            // 2. Фильтр "Только мои заявки"
+            if (Boolean.TRUE.equals(isMyTickets) && currentUserId != null) {
+                predicates.add(criteriaBuilder.equal(root.get("author").get("id"), currentUserId));
+            }
 
+            // 3. Фильтр по поисковой строке (в названии или теле заявки)
+            if (StringUtils.hasText(search)) {
+                String likePattern = "%" + search.toLowerCase() + "%";
+                Predicate titleLike = criteriaBuilder.like(criteriaBuilder.lower(root.get("title")), likePattern);
+                Predicate bodyLike = criteriaBuilder.like(criteriaBuilder.lower(root.get("body")), likePattern);
+                predicates.add(criteriaBuilder.or(titleLike, bodyLike));
+            }
 
-      if (endDate != null) {
-        predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), endDate));
-      }
+            // 4. Фильтр по дате создания
+            if (startDate != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("createdAt"), startDate));
+            }
+            if (endDate != null) {
+                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("createdAt"), endDate));
+            }
 
+            // 5. Фильтр по статусу
+            if (ticketStatus != null) {
+                predicates.add(criteriaBuilder.equal(root.get("ticketStatus"), ticketStatus));
+            }
 
-      if (ticketStatus != null) {
-        predicates.add(cb.equal(root.get("ticketStatus"), ticketStatus));
-      }
+            // 6. Фильтр по приоритету
+            if (ticketPriority != null) {
+                predicates.add(criteriaBuilder.equal(root.get("ticketPriority"), ticketPriority));
+            }
 
-
-      if (ticketPriority != null) {
-        predicates.add(cb.equal(root.get("ticketPriority"), ticketPriority));
-      }
-
-      if (Boolean.TRUE.equals(isMyTickets) && currentUserId != null) {
-        predicates.add(cb.equal(root.get("author").get("id"), currentUserId));
-      }
-
-
-      // Убираем дубликаты из-за JOIN FETCH
-      query.distinct(true);
-
-      return cb.and(predicates.toArray(new Predicate[0]));
-    };
-  }
+            // Объединяем все условия через AND
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+    }
 }

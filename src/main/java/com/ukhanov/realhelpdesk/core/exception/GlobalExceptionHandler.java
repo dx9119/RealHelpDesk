@@ -11,11 +11,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.MailException;
 import org.springframework.mail.MailSendException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @ControllerAdvice
@@ -24,87 +25,63 @@ public class GlobalExceptionHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    private ResponseEntity<Map<String, String>> buildResponse(HttpStatus status, String errorMessage) {
+        Map<String, String> response = new LinkedHashMap<>();
+        response.put("Источник", "Глобальный перехватчик");
+        response.put("Ошибка", errorMessage);
+        return ResponseEntity.status(status).body(response);
+    }
+
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<Map<String, String>> handleConstraintViolationException(ConstraintViolationException ex) {
         HttpStatus status = HttpStatus.BAD_REQUEST;
-        logger.debug("Global handler caught ConstraintViolationException: {}", ex.getClass().getName());
 
-            Map<String, String> errors = new HashMap<>();
-            errors.put("Source:", "Global handler");
-            for (ConstraintViolation<?> violation : ex.getConstraintViolations()) {
-                errors.put(violation.getPropertyPath().toString(), violation.getMessage());
-            }
+        Map<String, String> errors = new LinkedHashMap<>();
+        errors.put("Источник", "Глобальный перехватчик");
+
+        logger.error("Глобальный перехватчик сработал: {}", ex.getConstraintViolations().size());
+        for (ConstraintViolation<?> violation : ex.getConstraintViolations()) {
+            errors.put(violation.getPropertyPath().toString(), violation.getMessage());
+        }
 
         return new ResponseEntity<>(errors, status);
     }
 
     @ExceptionHandler(AuthorizationDeniedException.class)
     public ResponseEntity<Map<String, String>> handleAuthorizationDeniedException(AuthorizationDeniedException ex) {
-        logger.warn("Access Denied: {}", ex.getMessage());
-
-        Map<String, String> response = Map.of(
-                "Source", "Global handler",
-                "Error", "Access Denied"
-        );
-
-        return ResponseEntity
-                .status(HttpStatus.FORBIDDEN)
-                .body(response);
+        logger.warn("Доступ запрещен: {}", ex.getMessage());
+        return buildResponse(HttpStatus.FORBIDDEN, "Доступ запрещен");
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleGenericException(Exception ex) {
-        logger.debug("Unhandled exception caught: {}", ex.getMessage(), ex);
+        logger.error("Перехвачено необработанное исключение: {}", ex.getMessage(), ex);
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Операция завершилась неудачей");
+    }
 
-        Map<String, String> response = Map.of(
-                "Source","Global handler",
-                "Error", "Operation failed."
-        );
-
-        return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(response);
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<Map<String, String>> handleOptimisticLockingFailure(ObjectOptimisticLockingFailureException ex) {
+        logger.warn("Конфликт версий при сохранении объекта: {}", ex.getMessage());
+        return buildResponse(HttpStatus.CONFLICT, "Конфликт версий, проверьте актуальность данных и попробуйте снова");
     }
 
     @ExceptionHandler(MailSendException.class)
     public ResponseEntity<Map<String, String>> handleMailSendException(MailSendException ex) {
-
         Throwable rootCause = ex.getCause();
         String causeMessage = rootCause != null ? rootCause.getMessage() : "Unknown mail cause";
-        logger.error("Error when sending an email: {}", causeMessage, ex);
-
-        Map<String, String> response = Map.of(
-            "Source", "Global handler",
-            "Error", "Failed to send email"
-        );
-
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response);
+        logger.error("Ошибка при отправке email: {}", causeMessage, ex);
+        return buildResponse(HttpStatus.SERVICE_UNAVAILABLE, "Ошибка отправки email");
     }
 
     @ExceptionHandler(MailException.class)
     public ResponseEntity<Map<String, String>> handleMailException(MailException ex) {
-        logger.warn("The mail module is not available: {}", ex.getMessage(), ex);
-
-        Map<String, String> response = Map.of(
-            "Source", "Global handler",
-            "Error", "Mail system error"
-        );
-
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response);
+        logger.error("Почтовый модуль недоступен: {}", ex.getMessage(), ex);
+        return buildResponse(HttpStatus.SERVICE_UNAVAILABLE, "Почтовая система столкнулась с ошибкой");
     }
 
     @ExceptionHandler(MessagingException.class)
     public ResponseEntity<Map<String, String>> handleMessagingException(MessagingException ex) {
-        logger.warn("MIME or SMTP error:{}", ex.getMessage(), ex);
-
-        Map<String, String> response = Map.of(
-            "Source", "Global handler",
-            "Error", "Email formatting or transport error"
-        );
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        logger.error("MIME или SMTP ошибка: {}", ex.getMessage(), ex);
+        return buildResponse(HttpStatus.BAD_REQUEST, "Ошибка MIME или SMTP");
     }
-
-
 }
-

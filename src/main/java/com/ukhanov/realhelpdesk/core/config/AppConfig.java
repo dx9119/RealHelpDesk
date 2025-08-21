@@ -57,15 +57,9 @@ public class AppConfig {
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration configuration = new CorsConfiguration();
     configuration.setAllowedOrigins(Arrays.asList(
-        "https://localhost:8443",
-        "https://localhost:3000",
-        "https://localhost:3001",
-        "https://localhost:3002",
-        "https://localhost:3003",
-        "https://127.0.0.1:8000"
+        "https://localhost.ru"
     ));
     configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-    configuration.setAllowedHeaders(Arrays.asList("*"));
     configuration.setAllowCredentials(true);
     configuration.setMaxAge(3600L);
 

@@ -42,7 +42,7 @@ public class AccessValidationService {
     boolean isPublic = portal.isPublic();
 
     if (!isOwner && !isAllowedUser && !isPublic) {
-      logger.info("User {} does not have access to portal {}", currentUserId, portalId);
+      logger.info("Пользователь {} не имеет доступа к порталу {}", currentUserId, portalId);
       return false;
     }
 
@@ -56,7 +56,7 @@ public class AccessValidationService {
     boolean isOwner = portal.getOwner().getId().equals(currentUserId);
 
     if (!isOwner) {
-      logger.info("User is not owner of portal {}", portalId);
+      logger.info("Пользователь не является владельцем портала {}", portalId);
       return false;
     }
 

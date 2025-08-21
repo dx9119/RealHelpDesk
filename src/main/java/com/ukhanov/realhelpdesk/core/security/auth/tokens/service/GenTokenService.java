@@ -26,13 +26,11 @@ public class GenTokenService {
     }
 
     public TokenBearerResponse generateAccessJwtToken(SecurityUser securityUser) {
-        Objects.requireNonNull(securityUser, "SecurityUser cannot be null!");
-        Objects.requireNonNull(securityUser.getRule(), "Role cannot be null!");
+        Objects.requireNonNull(securityUser, "SecurityUser не может быть null!");
+        Objects.requireNonNull(securityUser.getRule(), "Роль у SecurityUser не может отсутствовать!");
 
         Instant dateNow = Instant.now();
         Instant expiry = dateNow.plusSeconds(jwtConfig.getAccessTokenExp() * 60L);
-
-        logger.debug("Start gen access token for: {}, role user: {}", securityUser.getUsername(), securityUser.getRule());
 
         String token = Jwts.builder()
                 .issuer(jwtConfig.getIssuer())
@@ -47,17 +45,15 @@ public class GenTokenService {
 
         TokenBearerResponse accessTokenModel = new TokenBearerResponse();
         accessTokenModel.setToken(token);
-        logger.debug("Final gen access token for: {}", accessTokenModel.getToken());
         return accessTokenModel;
     }
 
     public RefreshTokenModel generateRefreshJwtToken(SecurityUser securityUser) {
-        Objects.requireNonNull(securityUser, "SecurityUser cannot be null!");
+        Objects.requireNonNull(securityUser, "SecurityUser не может быть null!");
 
         Instant now = Instant.now();
         Instant expiry = now.plusSeconds(jwtConfig.getRefreshExpiration() * 60L);
 
-        logger.debug("Start gen refresh Token for user {}", securityUser.getUsername());
         String token = Jwts.builder()
                 .issuer(jwtConfig.getIssuer())
                 .subject(securityUser.getId())
@@ -72,7 +68,6 @@ public class GenTokenService {
         jwtRefreshTokenModel.setStatus(TokenStatus.ACTIVE);
         jwtRefreshTokenModel.setToken(token);
 
-        logger.debug("Final gen refresh Token for user {}", jwtRefreshTokenModel.getToken());
         return jwtRefreshTokenModel;
     }
 

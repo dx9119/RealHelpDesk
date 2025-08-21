@@ -12,8 +12,10 @@ public class WhiteUrlConfig {
             "/api/v1/auth/login",
             "/api/v1/auth/register",
             "/api/v1/auth/update",
+            "/api/v1/captcha",
             "/api/v1/health-check",
-            "/api/v1/telegram/**"
+            "/api/v1/user/passwd-reset/request",
+            "/api/v1/user/passwd-reset/confirm"
     );
 
     public static boolean isMyTelegramBot(HttpServletRequest request) {

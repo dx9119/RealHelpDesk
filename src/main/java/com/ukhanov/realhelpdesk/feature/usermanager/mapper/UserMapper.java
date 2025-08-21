@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 public class UserMapper {
 
   public static UserInfoResponse toResponse(UserModel userModel) {
-    Objects.requireNonNull(userModel, "userModel must not be null");
+    Objects.requireNonNull(userModel, "userModel не должен быть пустым");
 
     UserInfoResponse response = new UserInfoResponse();
 
@@ -31,7 +31,7 @@ public class UserMapper {
   }
 
   public static UserModel toModel(UserInfoRequest request) {
-    Objects.requireNonNull(request, "request must not be null");
+    Objects.requireNonNull(request, "request не должен быть пустым");
 
     UserModel userModel = new UserModel();
 

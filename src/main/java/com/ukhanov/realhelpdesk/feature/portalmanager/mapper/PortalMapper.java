@@ -12,8 +12,8 @@ import java.util.Objects;
 public class PortalMapper {
 
     public static PortalModel toEntity(CreatePortalRequest request, UserModel owner) {
-        Objects.requireNonNull(request, "request must not be null");
-        Objects.requireNonNull(owner, "owner must not be null");
+        Objects.requireNonNull(request, "Запрос не должен быть null");
+        Objects.requireNonNull(owner, "Владелец не должен быть null");
 
         PortalModel portal = new PortalModel();
         portal.setName(request.getName());

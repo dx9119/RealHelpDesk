@@ -5,7 +5,11 @@ import com.ukhanov.realhelpdesk.core.mail.exception.EmailAccessDeniedException;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailPolicyService;
+import com.ukhanov.realhelpdesk.core.security.сaptcha.exception.CaptchaException;
+import com.ukhanov.realhelpdesk.core.security.сaptcha.service.CaptchaService;
 import jakarta.mail.MessagingException;
+
+import java.io.UnsupportedEncodingException;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,17 +24,20 @@ public class EmailPolicyController {
 
   private final EmailDeliveryService emailDeliveryService;
   private final EmailPolicyService emailPolicyService;
+  private final CaptchaService captchaService;
 
-  public EmailPolicyController(EmailDeliveryService emailDeliveryService, EmailPolicyService emailPolicyService) {
+  public EmailPolicyController(EmailDeliveryService emailDeliveryService, EmailPolicyService emailPolicyService, CaptchaService captchaService) {
     this.emailDeliveryService = emailDeliveryService;
     this.emailPolicyService = emailPolicyService;
+    this.captchaService = captchaService;
   }
 
   @GetMapping("/confirm")
-  public ResponseEntity<String> confirmEmail(@RequestParam("token") UUID token)
-      throws EmailAccessDeniedException {
+  public ResponseEntity<String> confirmEmail(
+          @RequestParam("token") UUID token
+  ) throws EmailAccessDeniedException {
     emailDeliveryService.confirmEmail(token);
-    return ResponseEntity.ok("success");
+    return ResponseEntity.ok("Успешно");
   }
 
   @GetMapping("/info")
@@ -42,13 +49,17 @@ public class EmailPolicyController {
   @PostMapping("/notify-set")
   public ResponseEntity<String> stopNotify(@RequestParam NotificationEvent level) {
     emailPolicyService.addToStopList(level);
-    return ResponseEntity.ok("success");
+    return ResponseEntity.ok("Успешно");
   }
 
   @GetMapping("/code")
-  public ResponseEntity<String> getCode() throws MessagingException {
+  public ResponseEntity<String> getCode(
+          @RequestParam("capId") String capId,
+          @RequestParam("capCode") String capCode
+  ) throws MessagingException, CaptchaException, UnsupportedEncodingException {
+    captchaService.captVerificationResult(capId, capCode);
     emailDeliveryService.sendConfirmCode();
-    return ResponseEntity.ok("success");
+    return ResponseEntity.ok("Успешно");
   }
 
 }

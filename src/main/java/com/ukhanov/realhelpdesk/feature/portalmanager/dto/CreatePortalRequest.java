@@ -12,6 +12,7 @@ public class CreatePortalRequest {
     @NoHtml
     private String name;
 
+    @Size(max = 2500, message = "Описание не может превышать 2500 символов")
     @NoHtml
     private String description;
 
