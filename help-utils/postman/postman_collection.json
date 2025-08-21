@@ -10,32 +10,66 @@
 			"name": "Auth",
 			"item": [
 				{
-					"name": "Register a new user",
+					"name": "Новая регистрация",
 					"request": {
 						"method": "POST",
 						"header": [
 							{
 								"key": "Content-Type",
-								"value": "application/json; charset=UTF-8"
-							},
-							{
-								"key": "",
-								"value": "",
-								"type": "text",
-								"disabled": true
+								"value": "application/json",
+								"type": "text"
 							}
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"firstName\": \"Иван\",\n    \"lastName\": \"Иванов\",\n    \"email\": \"ivan.ivanov@example.com\",\n    \"password\": \"mySecurePassword123\"\n}"
+							"raw": "{\n  \"firstName\": \"ЫЫЫЫЫ\",\n  \"lastName\": \"Иванов\",\n  \"email\": \"test@test.com\",\n  \"password\": \"test@test.com\",\n  \"capCode\": \"fwfewf\"\n}\n"
 						},
 						"url": {
-							"raw": "http://localhost:8080/api/v1/auth/register",
-							"protocol": "http",
+							"raw": "https://localhost:8443/api/v1/auth/register?capId=728bc3de-8ф",
+							"protocol": "https",
 							"host": [
 								"localhost"
 							],
-							"port": "8080",
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"register"
+							],
+							"query": [
+								{
+									"key": "capId",
+									"value": "728bc3de-8ф"
+								}
+							]
+						},
+						"description": "Регистрирует нового пользователя. Не требует токена."
+					},
+					"response": []
+				},
+				{
+					"name": "Запросить капчу",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"Иван\",\n  \"lastName\": \"Иванов\",\n  \"email\": \"test@test.com\",\n  \"password\": \"test@test.com\"\n}\n"
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/auth/register",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
 							"path": [
 								"api",
 								"v1",
@@ -48,26 +82,21 @@
 					"response": []
 				},
 				{
-					"name": "Login and get tokens",
+					"name": "Логин",
 					"request": {
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"email\": \"1ivan.ivanov@example.com\",\n    \"password\": \"mySecurePassword123\"\n}"
+							"raw": "{\n  \"email\": \"test@test.com\",\n  \"password\": \"test@test.com\"\n}"
 						},
 						"url": {
-							"raw": "http://localhost:8080/api/v1/auth/login",
-							"protocol": "http",
+							"raw": "https://localhost:8443/api/v1/auth/login",
+							"protocol": "https",
 							"host": [
 								"localhost"
 							],
-							"port": "8080",
+							"port": "8443",
 							"path": [
 								"api",
 								"v1",
@@ -80,30 +109,48 @@
 					"response": []
 				},
 				{
-					"name": "Logout (revoke refresh token)",
+					"name": "Получить новый токен доступа",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"test@test.com\",\n  \"password\": \"test@test.com\"\n}"
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/auth/login",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"login"
+							]
+						},
+						"description": "Аутентифицирует пользователя и выдает access/refresh токены."
+					},
+					"response": []
+				},
+				{
+					"name": "Завершить \"сессию\"",
 					"request": {
 						"method": "DELETE",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "Authorization",
-								"value": "Bearer {{accessToken}}"
-							}
-						],
+						"header": [],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"token\": \"{{refreshToken}}\"\n}"
 						},
 						"url": {
-							"raw": "http://localhost:8080/api/v1/auth/token",
-							"protocol": "http",
+							"raw": "https://localhost:8443/api/v1/auth/token",
+							"protocol": "https",
 							"host": [
 								"localhost"
 							],
-							"port": "8080",
+							"port": "8443",
 							"path": [
 								"api",
 								"v1",
@@ -116,18 +163,37 @@
 					"response": []
 				},
 				{
-					"name": "Check refresh token status",
-					"protocolProfileBehavior": {
-						"disableBodyPruning": true
-					},
+					"name": "Удалить HTTP-Only куки",
 					"request": {
-						"method": "GET",
+						"method": "DELETE",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"token\": \"{{refreshToken}}\"\n}"
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/auth/cookies",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"cookies"
+							]
+						},
+						"description": "Аннулирует refresh-токен. Требует access-токен в заголовке."
+					},
+					"response": []
+				},
+				{
+					"name": "Проверить статус токена обновления",
+					"request": {
+						"method": "POST",
 						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{accessToken}}",
-								"type": "text"
-							},
 							{
 								"key": "Content-Type",
 								"value": "application/json",
@@ -144,12 +210,49 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:8080/api/v1/auth/token",
-							"protocol": "http",
+							"raw": "https://localhost:8443/api/v1/auth/token",
+							"protocol": "https",
 							"host": [
 								"localhost"
 							],
-							"port": "8080",
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"auth",
+								"token"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Проверить доступность сервера",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"token\": \"{{refreshToken}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/auth/token",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
 							"path": [
 								"api",
 								"v1",
@@ -166,30 +269,21 @@
 			"name": "Portal",
 			"item": [
 				{
-					"name": "Create a new portal",
+					"name": "Создать портал",
 					"request": {
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "Authorization",
-								"value": "Bearer {{accessToken}}"
-							}
-						],
+						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"name\": \"test 3\",\n    \"description\":\"description test 2 description \"\n}"
+							"raw": "{\n    \"name\": \"test1\",\n    \"description\":\"des\"\n}"
 						},
 						"url": {
-							"raw": "http://localhost:8080/api/v1/portals",
-							"protocol": "http",
+							"raw": "https://localhost:8443/api/v1/portals",
+							"protocol": "https",
 							"host": [
 								"localhost"
 							],
-							"port": "8080",
+							"port": "8443",
 							"path": [
 								"api",
 								"v1",
@@ -201,33 +295,188 @@
 					"response": []
 				},
 				{
-					"name": "Get all portals for current user",
-					"protocolProfileBehavior": {
-						"disableBodyPruning": true
-					},
+					"name": "Удалить порталы",
 					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "Authorization",
-								"value": "Bearer {{accessToken}}"
-							}
-						],
+						"method": "DELETE",
+						"header": [],
 						"body": {
 							"mode": "raw",
 							"raw": ""
 						},
 						"url": {
-							"raw": "http://localhost:8080/api/v1/portals?page=0&size=10&sortBy=createdAt&order=desc",
-							"protocol": "http",
+							"raw": "https://localhost:8443/api/v1/portals/delete?id=2&id=1",
+							"protocol": "https",
 							"host": [
 								"localhost"
 							],
-							"port": "8080",
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"portals",
+								"delete"
+							],
+							"query": [
+								{
+									"key": "id",
+									"value": "2"
+								},
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						},
+						"description": "Аннулирует refresh-токен. Требует access-токен в заголовке."
+					},
+					"response": []
+				},
+				{
+					"name": "Получить все доступные порталы",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/portals/info",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"portals",
+								"info"
+							]
+						},
+						"description": "Аннулирует refresh-токен. Требует access-токен в заголовке."
+					},
+					"response": []
+				},
+				{
+					"name": "Получить все доступные порталы по номерам",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/portals/info/id-list",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"portals",
+								"info",
+								"id-list"
+							]
+						},
+						"description": "Аннулирует refresh-токен. Требует access-токен в заголовке."
+					},
+					"response": []
+				},
+				{
+					"name": "Получить описание конкретного портала",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/portals/info/{{portalid}}",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"portals",
+								"info",
+								"{{portalid}}"
+							]
+						},
+						"description": "Аннулирует refresh-токен. Требует access-токен в заголовке."
+					},
+					"response": []
+				},
+				{
+					"name": "Изменить описание портала",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n   \"name\": \"fewfw\",\n   \"description\": \"fwefwf\"\n}"
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/portals/info/update/{{portalid}}",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"portals",
+								"info",
+								"update",
+								"{{portalid}}"
+							]
+						},
+						"description": "Аннулирует refresh-токен. Требует access-токен в заголовке."
+					},
+					"response": []
+				},
+				{
+					"name": "Получить все порталы пользователя",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/portals?page=0&size=10&sortBy=createdAt&order=desc",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
 							"path": [
 								"api",
 								"v1",
@@ -257,24 +506,16 @@
 					"response": []
 				},
 				{
-					"name": "Share portal with user",
+					"name": "Получить настройки портала",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
 					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json",
-								"type": "text"
-							},
-							{
-								"key": "Authorization",
-								"value": "Bearer {{accessToken}}",
-								"type": "text"
-							}
-						],
+						"method": "GET",
+						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "[\n  \"c973e2f5-df89-4ddf-bdc0-1f5d5a16fe34\",\n  \"7f21a770-1c39-4eb2-9878-54a647a539ce\",\n  \"c7356e42-497c-4f35-91c5-f4cdf801e277\"\n]\n",
+							"raw": "",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -282,12 +523,12 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:8080/api/v1/portals/shared/{{portalid}}",
-							"protocol": "http",
+							"raw": "https://localhost:8443/api/v1/portals/shared/{{portalid}}",
+							"protocol": "https",
 							"host": [
 								"localhost"
 							],
-							"port": "8080",
+							"port": "8443",
 							"path": [
 								"api",
 								"v1",
@@ -300,28 +541,163 @@
 					"response": []
 				},
 				{
-					"name": "Get shared portals",
+					"name": "Задать статус портала",
 					"request": {
-						"method": "GET",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json",
-								"type": "text"
-							},
-							{
-								"key": "Authorization",
-								"value": "Bearer {{accessToken}}",
-								"type": "text"
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
 							}
-						],
+						},
 						"url": {
-							"raw": "http://localhost:8080/api/v1/portals/shared?page=0&size=10&sortBy=createdAt&order=desc",
-							"protocol": "http",
+							"raw": "https://localhost:8443/api/v1/portals/shared/{{portalid}}/status?isPublic=true",
+							"protocol": "https",
 							"host": [
 								"localhost"
 							],
-							"port": "8080",
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"portals",
+								"shared",
+								"{{portalid}}",
+								"status"
+							],
+							"query": [
+								{
+									"key": "isPublic",
+									"value": "true"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Получить статус портала",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/portals/shared/{{portalid}}/status?isPublic=true",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"portals",
+								"shared",
+								"{{portalid}}",
+								"status"
+							],
+							"query": [
+								{
+									"key": "isPublic",
+									"value": "true"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Добавить пользователя к порталу",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"newAccessUserId\": [\n    \"51c30336-0da3-453f-897e-1dfd10bb3203\",\n    \"60de54e7-ed06-476e-b2a1-a1264d2baeb8\"\n  ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/portals/shared/{{portalid}}/users",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"portals",
+								"shared",
+								"{{portalid}}",
+								"users"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Получить общие порталы",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/portals/shared/{{portalid}}",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"portals",
+								"shared",
+								"{{portalid}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Получить пагинацию с общими порталами",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://localhost:8443/api/v1/portals/shared?page=0&size=10&sortBy=createdAt&order=desc",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
 							"path": [
 								"api",
 								"v1",
@@ -356,30 +732,27 @@
 			"name": "Ticket",
 			"item": [
 				{
-					"name": "Create ticket in portal",
+					"name": "Создать заявку в портале",
 					"request": {
 						"method": "POST",
 						"header": [
 							{
 								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "Authorization",
-								"value": "Bearer {{accessToken}}"
+								"value": "application/json",
+								"type": "text"
 							}
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"title\": \"Пример заголовка заявки\",\n    \"body\": \"Полное описание проблемы или запроса.\",\n    \"ticketPriority\": \"LOW\"\n}"
+							"raw": "{\n    \"title\": \"Пример заголовка заявки\",\n    \"body\": \"Полное описание проблемы или запроса.\",\n    \"ticketPriority\": \"LOW\",\n    \"ticketAccessStatus\": \"ALL_USERS\"\n}"
 						},
 						"url": {
-							"raw": "http://localhost:8080/api/v1/portals/{{portalid}}/ticket",
-							"protocol": "http",
+							"raw": "https://localhost:8443/api/v1/portals/{{portalid}}/ticket",
+							"protocol": "https",
 							"host": [
 								"localhost"
 							],
-							"port": "8080",
+							"port": "8443",
 							"path": [
 								"api",
 								"v1",
@@ -393,39 +766,375 @@
 					"response": []
 				},
 				{
-					"name": "Get all tickets for portal",
+					"name": "Задать статус портала",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Пример заголовка заявки\",\n    \"body\": \"Полное описание проблемы или запроса.\",\n    \"ticketPriority\": \"LOW\"\n}"
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/portals/{{portalid}}/ticket/set/status/{{ticketId}}",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"portals",
+								"{{portalid}}",
+								"ticket",
+								"set",
+								"status",
+								"{{ticketId}}"
+							]
+						},
+						"description": "Аннулирует refresh-токен. Требует access-токен в заголовке."
+					},
+					"response": []
+				},
+				{
+					"name": "Удалить заявку",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Пример заголовка заявки\",\n    \"body\": \"Полное описание проблемы или запроса.\",\n    \"ticketPriority\": \"LOW\"\n}"
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/portals/{{portalid}}/ticket/delete/{{ticketId}}",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"portals",
+								"{{portalid}}",
+								"ticket",
+								"delete",
+								"{{ticketId}}"
+							]
+						},
+						"description": "Аннулирует refresh-токен. Требует access-токен в заголовке."
+					},
+					"response": []
+				},
+				{
+					"name": "Задать приоритет заявки",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Пример заголовка заявки\",\n    \"body\": \"Полное описание проблемы или запроса.\",\n    \"ticketPriority\": \"LOW\"\n}"
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/portals/{{portalid}}/ticket/set/priority/{{ticketId}}?priority=CRITICAL",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"portals",
+								"{{portalid}}",
+								"ticket",
+								"set",
+								"priority",
+								"{{ticketId}}"
+							],
+							"query": [
+								{
+									"key": "priority",
+									"value": "CRITICAL"
+								}
+							]
+						},
+						"description": "Аннулирует refresh-токен. Требует access-токен в заголовке."
+					},
+					"response": []
+				},
+				{
+					"name": "Получить заявку",
 					"protocolProfileBehavior": {
 						"disableBodyPruning": true
 					},
 					"request": {
 						"method": "GET",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							},
-							{
-								"key": "Authorization",
-								"value": "Bearer {{accessToken}}"
-							}
-						],
+						"header": [],
 						"body": {
 							"mode": "raw",
 							"raw": ""
 						},
 						"url": {
-							"raw": "http://localhost:8080/api/v1/portals/{{portalid}}/ticket?page=0&size=10&sortBy=createdAt&order=desc",
-							"protocol": "http",
+							"raw": "https://localhost:8443/api/v1/portals/{{portalid}}/ticket/{{ticketId}}",
+							"protocol": "https",
 							"host": [
 								"localhost"
 							],
-							"port": "8080",
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"portals",
+								"{{portalid}}",
+								"ticket",
+								"{{ticketId}}"
+							]
+						},
+						"description": "Аннулирует refresh-токен. Требует access-токен в заголовке."
+					},
+					"response": []
+				},
+				{
+					"name": "Получить все заявки портала",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/portals/{{portalid}}/ticket?page=0&size=10&sortBy=createdAt&order=desc",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
 							"path": [
 								"api",
 								"v1",
 								"portals",
 								"{{portalid}}",
 								"ticket"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								},
+								{
+									"key": "sortBy",
+									"value": "createdAt"
+								},
+								{
+									"key": "order",
+									"value": "desc"
+								}
+							]
+						},
+						"description": "Аннулирует refresh-токен. Требует access-токен в заголовке."
+					},
+					"response": []
+				},
+				{
+					"name": "Поиск заявки по доступным пользователю порталам",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/portals/{{portalid}}/ticket?page=0&size=10&sortBy=createdAt&order=desc",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"portals",
+								"{{portalid}}",
+								"ticket"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								},
+								{
+									"key": "sortBy",
+									"value": "createdAt"
+								},
+								{
+									"key": "order",
+									"value": "desc"
+								}
+							]
+						},
+						"description": "Аннулирует refresh-токен. Требует access-токен в заголовке."
+					},
+					"response": []
+				},
+				{
+					"name": "Получить заявки портала без ответа",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/portals/{{portalid}}/ticket/no-answer",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"portals",
+								"{{portalid}}",
+								"ticket",
+								"no-answer"
+							]
+						},
+						"description": "Аннулирует refresh-токен. Требует access-токен в заголовке."
+					},
+					"response": []
+				},
+				{
+					"name": "Получить все заявки портала со статусом",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/portals/{{portalid}}/ticket/status/OPEN",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"portals",
+								"{{portalid}}",
+								"ticket",
+								"status",
+								"OPEN"
+							]
+						},
+						"description": "Аннулирует refresh-токен. Требует access-токен в заголовке."
+					},
+					"response": []
+				},
+				{
+					"name": "Получить все заявки автора, с пагинацией",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/portals/ticket/author?page=0&size=10&sortBy=createdAt&order=desc",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"portals",
+								"ticket",
+								"author"
+							],
+							"query": [
+								{
+									"key": "page",
+									"value": "0"
+								},
+								{
+									"key": "size",
+									"value": "10"
+								},
+								{
+									"key": "sortBy",
+									"value": "createdAt"
+								},
+								{
+									"key": "order",
+									"value": "desc"
+								}
+							]
+						},
+						"description": "Аннулирует refresh-токен. Требует access-токен в заголовке."
+					},
+					"response": []
+				},
+				{
+					"name": "Получить все заявки со статусом",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/portals/{{portalid}}/ticket/page/status/OPEN?page=0&size=10&sortBy=createdAt&order=desc",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"portals",
+								"{{portalid}}",
+								"ticket",
+								"page",
+								"status",
+								"OPEN"
 							],
 							"query": [
 								{
@@ -456,21 +1165,10 @@
 			"name": "Message",
 			"item": [
 				{
-					"name": "Create message for ticket",
+					"name": "Создать сообщение для заявки",
 					"request": {
 						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{accessToken}}",
-								"type": "text"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json",
-								"type": "text"
-							}
-						],
+						"header": [],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"messageText\":\"Большая проблема!\"\n}",
@@ -481,17 +1179,17 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:8080/api/v1/message/{{portalid}}}/{{ticketId}}",
-							"protocol": "http",
+							"raw": "https://localhost:8443/api/v1/message/{{portalid}}/{{ticketId}}",
+							"protocol": "https",
 							"host": [
 								"localhost"
 							],
-							"port": "8080",
+							"port": "8443",
 							"path": [
 								"api",
 								"v1",
 								"message",
-								"{{portalid}}}",
+								"{{portalid}}",
 								"{{ticketId}}"
 							]
 						}
@@ -499,24 +1197,13 @@
 					"response": []
 				},
 				{
-					"name": "Get all messages for ticket",
+					"name": "Получить все сообщения по заявке",
 					"protocolProfileBehavior": {
 						"disableBodyPruning": true
 					},
 					"request": {
 						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{accessToken}}",
-								"type": "text"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json",
-								"type": "text"
-							}
-						],
+						"header": [],
 						"body": {
 							"mode": "raw",
 							"raw": "",
@@ -527,12 +1214,12 @@
 							}
 						},
 						"url": {
-							"raw": "http://localhost:8080/api/v1/message/{{portalid}}/{{ticketId}}",
-							"protocol": "http",
+							"raw": "https://localhost:8443/api/v1/message/{{portalid}}/{{ticketId}}",
+							"protocol": "https",
 							"host": [
 								"localhost"
 							],
-							"port": "8080",
+							"port": "8443",
 							"path": [
 								"api",
 								"v1",
@@ -550,28 +1237,17 @@
 			"name": "Mail",
 			"item": [
 				{
-					"name": "Email verified",
+					"name": "Email подтвердить",
 					"request": {
 						"method": "GET",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{accessToken}}",
-								"type": "text"
-							},
-							{
-								"key": "Content-Type",
-								"value": "application/json",
-								"type": "text"
-							}
-						],
+						"header": [],
 						"url": {
-							"raw": "http://localhost:8080/api/v1/email/confirm?token=3b402073-e2e9-4003-a7f9-f5b3f40224c5",
-							"protocol": "http",
+							"raw": "https://localhost:8443/api/v1/email/confirm?token={{emailToken}}",
+							"protocol": "https",
 							"host": [
 								"localhost"
 							],
-							"port": "8080",
+							"port": "8443",
 							"path": [
 								"api",
 								"v1",
@@ -581,7 +1257,246 @@
 							"query": [
 								{
 									"key": "token",
-									"value": "3b402073-e2e9-4003-a7f9-f5b3f40224c5"
+									"value": "{{emailToken}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "email задать политику",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "https://localhost:8443/api/v1/email/notify-set?level=NONE",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"email",
+								"notify-set"
+							],
+							"query": [
+								{
+									"key": "level",
+									"value": "NONE"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "email узнать политику",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://localhost:8443/api/v1/email/info",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"email",
+								"info"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "email отправить код повторно",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://localhost:8443/api/v1/email/code",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"email",
+								"code"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "User",
+			"item": [
+				{
+					"name": "информация о пользователе",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/user/profile",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"user",
+								"profile"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Обновить информацию о пользователе",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"firstName\": \"Постмановский\",\n  \"lastName\": \"Петров\",\n  \"middleName\": \"Александрович\",\n  \"additionalInfo\": \"Любит автоматизацию и пишет на Java\"\n}\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/user/profile",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"user",
+								"profile"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Запросить смену пароля",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"test@test.com\"\n}\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/user/passwd-reset/request",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"user",
+								"passwd-reset",
+								"request"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Задать новый пароль",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"password\": \"ИванИванИван\"\n}\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://localhost:8443/api/v1/user/passwd-reset/confirm?code=194547bc-f108-487b-a68d-518d6e38054b",
+							"protocol": "https",
+							"host": [
+								"localhost"
+							],
+							"port": "8443",
+							"path": [
+								"api",
+								"v1",
+								"user",
+								"passwd-reset",
+								"confirm"
+							],
+							"query": [
+								{
+									"key": "code",
+									"value": "194547bc-f108-487b-a68d-518d6e38054b"
 								}
 							]
 						}
@@ -632,6 +1547,11 @@
 		{
 			"key": "ticketId",
 			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "emailToken",
+			"value": "",
 			"type": "string"
 		}
 	]
