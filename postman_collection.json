@@ -1,6 +1,6 @@
 {
 	"info": {
-		"_postman_id": "4b02e9cc-6cb1-4726-ad47-1e35e54a3193",
+		"_postman_id": "4036984c-a32b-4cc9-94ab-171c5c4a6621",
 		"name": "RealHelpDesk API",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
 		"_exporter_id": "13873020"
@@ -50,8 +50,11 @@
 				},
 				{
 					"name": "Запросить капчу",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
 					"request": {
-						"method": "POST",
+						"method": "GET",
 						"header": [
 							{
 								"key": "Content-Type",
@@ -64,17 +67,23 @@
 							"raw": "{\n  \"firstName\": \"Иван\",\n  \"lastName\": \"Иванов\",\n  \"email\": \"test@test.com\",\n  \"password\": \"test@test.com\"\n}\n"
 						},
 						"url": {
-							"raw": "https://localhost:8443/api/v1/auth/register",
+							"raw": "https://example.com:8443/api/v1/captcha?capId=abc123xyz9",
 							"protocol": "https",
 							"host": [
-								"localhost"
+								"example",
+								"com"
 							],
 							"port": "8443",
 							"path": [
 								"api",
 								"v1",
-								"auth",
-								"register"
+								"captcha"
+							],
+							"query": [
+								{
+									"key": "capId",
+									"value": "abc123xyz9"
+								}
 							]
 						},
 						"description": "Регистрирует нового пользователя. Не требует токена."
