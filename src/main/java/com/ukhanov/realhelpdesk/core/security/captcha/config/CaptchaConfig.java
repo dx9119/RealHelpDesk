@@ -1,4 +1,4 @@
-package com.ukhanov.realhelpdesk.core.security.сaptcha.config;
+package com.ukhanov.realhelpdesk.core.security.captcha.config;
 
 import com.google.code.kaptcha.impl.DefaultKaptcha;
 import com.google.code.kaptcha.util.Config;

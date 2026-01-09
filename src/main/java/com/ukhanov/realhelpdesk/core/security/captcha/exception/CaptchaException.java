@@ -1,4 +1,4 @@
-package com.ukhanov.realhelpdesk.core.security.сaptcha.exception;
+package com.ukhanov.realhelpdesk.core.security.captcha.exception;
 
 
 public class CaptchaException extends Exception {

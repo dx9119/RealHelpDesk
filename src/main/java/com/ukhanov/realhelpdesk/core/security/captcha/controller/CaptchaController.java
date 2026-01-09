@@ -1,6 +1,6 @@
-package com.ukhanov.realhelpdesk.core.security.сaptcha.controller;
+package com.ukhanov.realhelpdesk.core.security.captcha.controller;
 
-import com.ukhanov.realhelpdesk.core.security.сaptcha.service.CaptchaService;
+import com.ukhanov.realhelpdesk.core.security.captcha.service.CaptchaService;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;

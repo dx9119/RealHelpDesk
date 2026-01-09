@@ -15,7 +15,7 @@ import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenExcepti
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.GetTokenService;
 import com.ukhanov.realhelpdesk.core.security.auth.refresh.exception.RefreshException;
 import com.ukhanov.realhelpdesk.core.security.auth.refresh.service.RefreshService;
-import com.ukhanov.realhelpdesk.core.security.сaptcha.exception.CaptchaException;
+import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaException;
 import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;

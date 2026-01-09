@@ -1,57 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<configuration> <!-- Основной корневой тег конфигурации Logback -->
+<configuration>
 
-    <!-- Настройка корневого логгера -->
-    <root level="INFO">
-        <appender-ref ref="APP_FILE"/> <!-- Привязка логгера к APP_FILE -->
-    </root>
-
-    <!-- Определение корневого appender (механизма записи логов) -->
-    <appender name="APP_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <!-- Определение политики ротации логов -->
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- Формат имени файлов логов с датой и индексом -->
-            <fileNamePattern>logs/application-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <!-- Настройка триггера ротации логов по размеру -->
-            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
-                <!-- Максимальный размер одного файла логов -->
-                <maxFileSize>50MB</maxFileSize>
-            </timeBasedFileNamingAndTriggeringPolicy>
-            <!-- Сохранение логов за последние 7 дней -->
-            <maxHistory>7</maxHistory>
-        </rollingPolicy>
-
-        <!-- Определение кодировщика логов -->
+    <!-- Console appender -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <!-- Формат лог-записи -->
             <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} | %-5level | %logger{36} | %msg%n</pattern>
             <charset>UTF-8</charset>
         </encoder>
     </appender>
 
-    <!-- Настройка общего логгера пакета realhelpdesk -->
     <logger name="com.ukhanov.realhelpdesk" level="DEBUG" additivity="false">
-        <appender-ref ref="REAL_HELP_DESK"/>
+        <appender-ref ref="CONSOLE"/>
     </logger>
 
-    <!-- Определение appender для realhelpdesk -->
-    <appender name="REAL_HELP_DESK" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- Формат имени файлов логов с датой и индексом -->
-            <fileNamePattern>logs/realHelpDesk-%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <!-- Настройка триггера ротации логов по размеру -->
-            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
-                <!-- Максимальный размер одного файла логов -->
-                <maxFileSize>50MB</maxFileSize>
-            </timeBasedFileNamingAndTriggeringPolicy>
-            <!-- Сохранение логов за последние 7 дней -->
-            <maxHistory>7</maxHistory>
-        </rollingPolicy>
-        <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} | %X{clientIp} | %-5level | %logger{0} | %X{uriRequest} | %X{requestId} | %msg%n </pattern>
-            <charset>UTF-8</charset>
-        </encoder>
-    </appender>
-
+    <!-- Корневой логгер -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
 
 </configuration>

@@ -1,0 +1,66 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: realhelpdesk:latest
+    container_name: realhelpdesk
+    ports:
+      - "8443:8443"
+    environment:
+      APP_NAME: "Real help desk"
+      APP_DOMAIN_NAME: "example.com"
+      SERVER_PORT: 8443
+      KEY_STORE: "keystore.p12"
+      KEY_STORE_PASS: "demo-keystore-pass"
+      KEY_STORE_ALIAS: "tomcat"
+      LOG_LEVEL_SECURITY: "INFO"
+      LOG_LEVEL_HIBERNATE_SQL: "WARN"
+      LOG_LEVEL_HIBERNATE_BINDER: "INFO"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/desk
+      SPRING_DATASOURCE_USERNAME: user
+      SPRING_DATASOURCE_PASSWORD: ",pass"
+      SPRING_JPA_HIBERNATE_DDL_AUTO: "create-drop"
+      SPRING_JPA_SHOW_SQL: "false"
+      SPRING_JPA_OPEN_IN_VIEW: "false"
+      JWT_SECRET: "BVVF+eQUUTNkrFc3ltSzdVDZXmwja8n8M/FhU/xLsC0="
+      JWT_ISSUER: "https://example.com"
+      JWT_AUDIENCE: "https://example.com"
+      SPRING_MAIL_HOST: smtp
+      SPRING_MAIL_PORT: 25
+      SPRING_MAIL_USERNAME: "user@example.com"
+      SPRING_MAIL_PASSWORD: "password"
+      SMTP_AUTH: "false"
+      SMTP_STARTTLS: "false"
+      EMAIL_DOMAIN: "example.com"
+      MAIL_FROM: "noreply@example.com"
+      MAIL_NOTIFY: "admin@example.com"
+
+    depends_on:
+      - postgres
+      - smtp
+    restart: on-failure:2
+
+  postgres:
+    image: postgres:15
+    container_name: realhelpdesk_postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: ",pass"
+      POSTGRES_DB: desk
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: on-failure:2
+
+  smtp:
+    image: rnwood/smtp4dev
+    container_name: realhelpdesk_smtp
+    ports:
+      - "25:25"
+      - "3000:80"
+    restart: on-failure:2
+
+volumes:
+  postgres_data:

@@ -1,4 +1,4 @@
-package com.ukhanov.realhelpdesk.core.security.сaptcha.exception;
+package com.ukhanov.realhelpdesk.core.security.captcha.exception;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

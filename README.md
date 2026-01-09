@@ -31,16 +31,24 @@
 - Feature - управление порталами, заявками, сообщениями, пользователями.
 
 ## Запуск проекта
+`docker compose up --build -d`
 
-1. Поднять postgres: `help-utils/docker/docker-compose.postgres15.yml`
-2. Поднять smtp4dev: `docker-compose.smtp4dev.yml`
-3. `source init.sh `
-4. `init.sh` собирает проект (Maven), генерирует самоподписанный сертификат (`gen-selfsigned-keystore.sh`) и устанавливает переменные окружения (`setup-env-vars.sh`), используемые для конфигурации проекта.
-
-## Логгирование (logback-spring.xml)
-
-- `/log/realHelpDesk-**.log` запросы
-- `/log/application-**.log` приложение
+## Регистрация  
+1. В Postman отправляем запрос на получение капчи (capId это ID посетителя, генерируем руками или на фронте):
+https://example.com:8443/api/v1/captcha?capId=abc123xyz9
+2. Смотрим картинку с кодом капчи, указываем его в теле (поле capCode) в запросе на регистрацию:
+https://localhost:8443/api/v1/auth/register?capId=abc123xyz9
+```
+{
+  "firstName": "Иван",
+  "lastName": "Иванов",
+  "email": "test@test.com",
+  "password": "SuperStrongPass123",
+  "capCode": "356dd"
+}
+```
+3. После регистрации будет получен jwt токен, Postman его запомнит сам.
+4. Profit!
 
 ## Тестирование
 
