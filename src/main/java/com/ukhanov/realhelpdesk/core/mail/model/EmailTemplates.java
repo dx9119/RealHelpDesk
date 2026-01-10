@@ -5,8 +5,8 @@ import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 
 public class EmailTemplates {
 
-    public static final String DOMAIN = "front.zayavus.ru";
-    public static final String PROJECT_NAME = "Заявус";
+    public static final String DOMAIN = "front.example.ru";
+    public static final String PROJECT_NAME = "real help desk";
 
     public static String registrationLinkSubject() {
         return "Подтверждение регистрации";

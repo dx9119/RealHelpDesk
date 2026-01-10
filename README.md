@@ -37,7 +37,7 @@
 1. В Postman отправляем запрос на получение капчи (capId это ID посетителя, генерируем руками или на фронте):
 https://example.com:8443/api/v1/captcha?capId=abc123xyz9
 2. Смотрим картинку с кодом капчи, указываем его в теле (поле capCode) в запросе на регистрацию:
-https://localhost:8443/api/v1/auth/register?capId=abc123xyz9
+https://example.com:8443/api/v1/auth/register?capId=abc123xyz9
 ```
 {
   "firstName": "Иван",
