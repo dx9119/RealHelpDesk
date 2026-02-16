@@ -15,7 +15,7 @@ import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 import com.ukhanov.realhelpdesk.domain.ticket.repository.TicketRepository;
 import com.ukhanov.realhelpdesk.domain.ticket.service.TicketDomainService;
 import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
-import com.ukhanov.realhelpdesk.core.pagination.service.PaginationService;
+import com.ukhanov.realhelpdesk.core.pagination.service.PaginationAdapter;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketRequest;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketResponse;
@@ -28,7 +28,6 @@ import java.io.UnsupportedEncodingException;
 import java.time.Instant;
 import java.util.*;
 
-import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -42,7 +41,7 @@ public class TicketManageService {
     private final TicketDomainService ticketDomainService;
     private final CurrentUserProvider currentUserProvider;
     private final PortalDomainService portalDomainService;
-    private final PaginationService paginationService;
+    private final PaginationAdapter paginationAdapter;
     private final EmailDeliveryService emailDeliveryService;
     private final AccessValidationService accessValidationService;
 
@@ -51,13 +50,13 @@ public class TicketManageService {
     public TicketManageService(TicketDomainService ticketDomainService,
                                CurrentUserProvider currentUserProvider,
                                PortalDomainService portalDomainService,
-        PaginationService paginationService, EmailDeliveryService emailDeliveryService,
-        AccessValidationService accessValidationService,
+                               PaginationAdapter paginationAdapter, EmailDeliveryService emailDeliveryService,
+                               AccessValidationService accessValidationService,
                                TicketRepository ticketRepository) {
         this.ticketDomainService = ticketDomainService;
         this.currentUserProvider = currentUserProvider;
         this.portalDomainService = portalDomainService;
-      this.paginationService = paginationService;
+      this.paginationAdapter = paginationAdapter;
       this.emailDeliveryService = emailDeliveryService;
       this.accessValidationService = accessValidationService;
         this.ticketRepository = ticketRepository;
@@ -117,11 +116,11 @@ public class TicketManageService {
         Objects.requireNonNull(portalId, "portalId не должен быть null");
         logger.debug("Запрос на получение тикетов — портал ID: {}, страница: {}, размер: {}, сортировка: {}, порядок: {}", portalId, page, size, sortBy, order);
 
-        PageRequest pageRequest = paginationService.buildPageRequest(page, size, sortBy, order);
+        PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order);
         Page<TicketModel> ticketPage = ticketDomainService.getTicketsPageByPortalId(portalId, pageRequest);
 
         Page<TicketResponseOld> mappedPage = ticketPage.map(TicketMapper::toResponse);
-        return paginationService.mapToResponse(mappedPage, sortBy, order);
+        return paginationAdapter.mapToResponse(mappedPage, sortBy, order);
     }
 
 
@@ -131,13 +130,13 @@ public class TicketManageService {
 
         logger.debug("Запрос на получение тикетов по автору — страница: {}, размер: {}, сортировка: {}, порядок: {}", page, size, sortBy, order);
 
-        PageRequest pageRequest = paginationService.buildPageRequest(page, size, sortBy, order);
+        PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order);
         UserModel user = currentUserProvider.getCurrentUserModel();
 
         Page<TicketModel> ticketPage = ticketDomainService.getTicketsPageByUserId(user.getId(), pageRequest);
 
         Page<TicketResponseOld> mappedPage = ticketPage.map(TicketMapper::toResponse);
-        return paginationService.mapToResponse(mappedPage, sortBy, order);
+        return paginationAdapter.mapToResponse(mappedPage, sortBy, order);
     }
 
 
@@ -147,11 +146,11 @@ public class TicketManageService {
         Objects.requireNonNull(ids, "ids не должен быть null");
         logger.debug("Запрос на получение тикетов по ID — количество: {}, страница: {}, размер: {}, сортировка: {}, порядок: {}", ids.size(), page, size, sortBy, order);
 
-        PageRequest pageRequest = paginationService.buildPageRequest(page, size, sortBy, order);
+        PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order);
         Page<TicketModel> ticketPage = ticketDomainService.getTicketsByIds(ids, pageRequest);
 
         Page<TicketResponseOld> mappedPage = ticketPage.map(TicketMapper::toResponse);
-        return paginationService.mapToResponse(mappedPage, sortBy, order);
+        return paginationAdapter.mapToResponse(mappedPage, sortBy, order);
     }
 
 

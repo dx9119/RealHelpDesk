@@ -13,16 +13,15 @@ import org.springframework.stereotype.Service;
 import java.util.Objects;
 
 @Service
-public class PaginationService {
+public class PaginationAdapter {
 
-  private static final Logger logger = LoggerFactory.getLogger(PaginationService.class);
+  private static final Logger logger = LoggerFactory.getLogger(PaginationAdapter.class);
 
   private final PageResponseMapper pageResponseMapper;
 
-  public PaginationService(PageResponseMapper pageResponseMapper,
-      PageResponseMapper pageResponseMapper1) {
+  public PaginationAdapter(PageResponseMapper pageResponseMapper) {
 
-    this.pageResponseMapper = pageResponseMapper1;
+    this.pageResponseMapper = pageResponseMapper;
   }
 
   public <T> PageResponse<T> mapToResponse(Page<T> page, String sortBy, String order) {

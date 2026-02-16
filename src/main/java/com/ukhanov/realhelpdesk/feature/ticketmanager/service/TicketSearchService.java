@@ -1,10 +1,8 @@
 package com.ukhanov.realhelpdesk.feature.ticketmanager.service;
 
-
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import com.ukhanov.realhelpdesk.domain.portal.repository.PortalRepository;
-
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
@@ -23,8 +21,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-
-
 
 
 @Service

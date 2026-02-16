@@ -23,7 +23,7 @@ import com.ukhanov.realhelpdesk.feature.portalmanager.dto.UserInfo;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.portalmanager.mapper.PortalMapper;
 import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
-import com.ukhanov.realhelpdesk.core.pagination.service.PaginationService;
+import com.ukhanov.realhelpdesk.core.pagination.service.PaginationAdapter;
 
 import java.io.UnsupportedEncodingException;
 import java.time.Instant;
@@ -40,7 +40,6 @@ import jakarta.persistence.OptimisticLockException;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -57,7 +56,7 @@ public class PortalManageService {
 
     private final CurrentUserProvider currentUserProvider;
     private final PortalDomainService portalDomainService;
-    private final PaginationService paginationService;
+    private final PaginationAdapter paginationAdapter;
     private final PortalUtilsService portalUtilsService;
     private final AccessValidationService accessValidationService;
     private final LimitService limitService;
@@ -67,13 +66,13 @@ public class PortalManageService {
     public PortalManageService(
             CurrentUserProvider currentUserProvider,
             PortalDomainService portalDomainService,
-            PaginationService paginationService, PortalUtilsService portalUtilsService,
+            PaginationAdapter paginationAdapter, PortalUtilsService portalUtilsService,
             AccessValidationService accessValidationService, LimitService limitService,
             UserDomainService userDomainService, EmailDeliveryService emailDeliveryService)
     {
         this.currentUserProvider = currentUserProvider;
         this.portalDomainService = portalDomainService;
-        this.paginationService = paginationService;
+        this.paginationAdapter = paginationAdapter;
         this.portalUtilsService = portalUtilsService;
         this.accessValidationService = accessValidationService;
       this.limitService = limitService;
@@ -140,22 +139,22 @@ public class PortalManageService {
 
     public PageResponse<PortalResponse> getPagePortalsByOwner(int page, int size, String sortBy, String order) {
         UserModel userModel = currentUserProvider.getCurrentUserModel();
-        PageRequest pageRequest = paginationService.buildPageRequest(page, size, sortBy, order);
+        PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order);
 
         Page<PortalModel> portalPage = portalDomainService.getPortalsPageByOwnerId(userModel.getId(), pageRequest);
         Page<PortalResponse> mappedPage = portalPage.map(PortalMapper::toResponse);
 
-        return paginationService.mapToResponse(mappedPage, sortBy, order);
+        return paginationAdapter.mapToResponse(mappedPage, sortBy, order);
     }
 
     public PageResponse<PortalResponse> getPagePortalsByAccess(int page, int size, String sortBy, String order) {
         UserModel userModel = currentUserProvider.getCurrentUserModel();
-        PageRequest pageRequest = paginationService.buildPageRequest(page, size, sortBy, order);
+        PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order);
 
         Page<PortalModel> portalPage = portalDomainService.getPortalPageAccessByUser(userModel.getId(), pageRequest);
         Page<PortalResponse> mappedPage = portalPage.map(PortalMapper::toResponse);
 
-        return paginationService.mapToResponse(mappedPage, sortBy, order);
+        return paginationAdapter.mapToResponse(mappedPage, sortBy, order);
     }
 
     public void setPortalStatus(Long portalId, boolean isPublic) throws PortalException {

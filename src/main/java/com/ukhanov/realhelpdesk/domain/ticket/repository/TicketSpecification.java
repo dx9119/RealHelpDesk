@@ -1,21 +1,71 @@
 package com.ukhanov.realhelpdesk.domain.ticket.repository;
 
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketLiveStatus;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
-import jakarta.persistence.criteria.Predicate;
+import com.ukhanov.realhelpdesk.domain.ticket.model.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
 public class TicketSpecification {
 
+    // Фильтр: только активные тикеты
+    public static Specification<TicketModel> active() {
+        return (root, query, cb) ->
+                cb.equal(root.get("ticketLiveStatus"), TicketLiveStatus.ACTIVE);
+    }
+
+    // Фильтр: тикеты только из доступных порталов
+    public static Specification<TicketModel> inPortals(Set<Long> portalIds) {
+        return (root, query, cb) ->
+                root.get("portal").get("id").in(portalIds);
+    }
+
+    // Фильтр: тикеты, созданные текущим пользователем
+    public static Specification<TicketModel> onlyMy(UUID userId) {
+        return (root, query, cb) ->
+                cb.equal(root.get("author").get("id"), userId);
+    }
+
+    // Фильтр: поиск по заголовку и телу тикета
+    public static Specification<TicketModel> search(String text) {
+        if (!StringUtils.hasText(text)) return null;
+
+        return (root, query, cb) -> {
+            String pattern = "%" + text.toLowerCase() + "%";
+            return cb.or(
+                    cb.like(cb.lower(root.get("title")), pattern),
+                    cb.like(cb.lower(root.get("body")), pattern)
+            );
+        };
+    }
+
+    // Фильтр: создан после указанной даты
+    public static Specification<TicketModel> createdAfter(Instant start) {
+        return (root, query, cb) ->
+                cb.greaterThanOrEqualTo(root.get("createdAt"), start);
+    }
+
+    // Фильтр: создан до указанной даты
+    public static Specification<TicketModel> createdBefore(Instant end) {
+        return (root, query, cb) ->
+                cb.lessThanOrEqualTo(root.get("createdAt"), end);
+    }
+
+    // Фильтр: по статусу тикета
+    public static Specification<TicketModel> withStatus(TicketStatus status) {
+        return (root, query, cb) ->
+                cb.equal(root.get("ticketStatus"), status);
+    }
+
+    // Фильтр: по приоритету тикета
+    public static Specification<TicketModel> withPriority(TicketPriority priority) {
+        return (root, query, cb) ->
+                cb.equal(root.get("ticketPriority"), priority);
+    }
+
+    // Основной билдер спецификаций: собирает все фильтры в одну спецификацию
     public static Specification<TicketModel> build(
             String search,
             Instant startDate,
@@ -26,53 +76,39 @@ public class TicketSpecification {
             UUID currentUserId,
             Set<Long> accessiblePortalIds) {
 
-        return (root, query, criteriaBuilder) -> {
-            List<Predicate> predicates = new ArrayList<>();
+        // Если нет доступных порталов — возвращаем пустой результат
+        if (accessiblePortalIds == null || accessiblePortalIds.isEmpty()) {
+            return Specification.where(null);
+        }
 
-            // Глобальный фильтр: только активные заявки
-            predicates.add(criteriaBuilder.equal(root.get("ticketLiveStatus"), TicketLiveStatus.ACTIVE));
+        Specification<TicketModel> spec = Specification.where(active())
+                .and(inPortals(accessiblePortalIds));
 
-            // 1. Фильтр по доступным порталам (самый важный для безопасности)
-            if (accessiblePortalIds == null || accessiblePortalIds.isEmpty()) {
-                // Если нет доступных порталов, возвращаем предикат, который всегда ложен
-                return criteriaBuilder.disjunction(); // or 1=0
-            }
-            predicates.add(root.get("portal").get("id").in(accessiblePortalIds));
+        if (Boolean.TRUE.equals(isMyTickets)) {
+            spec = spec.and(onlyMy(currentUserId));
+        }
 
+        if (StringUtils.hasText(search)) {
+            spec = spec.and(search(search));
+        }
 
-            // 2. Фильтр "Только мои заявки"
-            if (Boolean.TRUE.equals(isMyTickets) && currentUserId != null) {
-                predicates.add(criteriaBuilder.equal(root.get("author").get("id"), currentUserId));
-            }
+        if (startDate != null) {
+            spec = spec.and(createdAfter(startDate));
+        }
 
-            // 3. Фильтр по поисковой строке (в названии или теле заявки)
-            if (StringUtils.hasText(search)) {
-                String likePattern = "%" + search.toLowerCase() + "%";
-                Predicate titleLike = criteriaBuilder.like(criteriaBuilder.lower(root.get("title")), likePattern);
-                Predicate bodyLike = criteriaBuilder.like(criteriaBuilder.lower(root.get("body")), likePattern);
-                predicates.add(criteriaBuilder.or(titleLike, bodyLike));
-            }
+        if (endDate != null) {
+            spec = spec.and(createdBefore(endDate));
+        }
 
-            // 4. Фильтр по дате создания
-            if (startDate != null) {
-                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("createdAt"), startDate));
-            }
-            if (endDate != null) {
-                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("createdAt"), endDate));
-            }
+        if (ticketStatus != null) {
+            spec = spec.and(withStatus(ticketStatus));
+        }
 
-            // 5. Фильтр по статусу
-            if (ticketStatus != null) {
-                predicates.add(criteriaBuilder.equal(root.get("ticketStatus"), ticketStatus));
-            }
+        if (ticketPriority != null) {
+            spec = spec.and(withPriority(ticketPriority));
+        }
 
-            // 6. Фильтр по приоритету
-            if (ticketPriority != null) {
-                predicates.add(criteriaBuilder.equal(root.get("ticketPriority"), ticketPriority));
-            }
-
-            // Объединяем все условия через AND
-            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
-        };
+        return spec;
     }
+
 }
