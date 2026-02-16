@@ -2,6 +2,7 @@ package com.ukhanov.realhelpdesk.core.security.captcha.service;
 
 import com.google.code.kaptcha.impl.DefaultKaptcha;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
+import com.ukhanov.realhelpdesk.core.security.captcha.dto.DtoCaptchaProperties;
 import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,10 +22,12 @@ import static com.ukhanov.realhelpdesk.core.security.captcha.utils.CaptchaStorag
 public class CaptchaService {
 
     private final DefaultKaptcha captchaProducer;
+    private final DtoCaptchaProperties captchaProperties;
     private static final Logger logger = LoggerFactory.getLogger(CaptchaService.class);
 
-    public CaptchaService(DefaultKaptcha captchaProducer) {
+    public CaptchaService(DefaultKaptcha captchaProducer, DtoCaptchaProperties captchaProperties) {
         this.captchaProducer = captchaProducer;
+        this.captchaProperties = captchaProperties;
     }
 
     public String generateCaptchaText(String CapId) {
@@ -53,7 +56,9 @@ public class CaptchaService {
         String expectedCode = captchaMap.get(captchaId);
 
         if (expectedCode == null || !expectedCode.equalsIgnoreCase(captCode)) {
-            throw new CaptchaException("Провал прохождения капчи");
+            if (captchaProperties.captchaEnabled() == true) {
+                throw new CaptchaException("Провал прохождения капчи");
+            }
         }
 
         captchaMap.remove(captchaId);
