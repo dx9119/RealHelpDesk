@@ -7,6 +7,7 @@ import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 import java.time.Instant;
 
 public class TicketResponseOld {
+
     private Long id;
     private String title;
     private String body;
@@ -17,6 +18,9 @@ public class TicketResponseOld {
     private Instant createdAt;
     private Long portalId;
     private TicketAccessStatus ticketAccessStatus;
+
+    public TicketResponseOld() {
+    }
 
     private TicketResponseOld(Builder builder) {
         this.id = builder.id;
@@ -31,16 +35,34 @@ public class TicketResponseOld {
         this.ticketAccessStatus = builder.ticketAccessStatus;
     }
 
+    // Геттеры и сеттеры (без изменений)
     public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
     public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+
     public String getBody() { return body; }
+    public void setBody(String body) { this.body = body; }
+
     public String getAuthorFullName() { return authorFullName; }
+    public void setAuthorFullName(String authorFullName) { this.authorFullName = authorFullName; }
+
     public String getPortalName() { return portalName; }
+    public void setPortalName(String portalName) { this.portalName = portalName; }
+
     public TicketPriority getTicketPriority() { return ticketPriority; }
+    public void setTicketPriority(TicketPriority ticketPriority) { this.ticketPriority = ticketPriority; }
+
     public TicketStatus getTicketStatus() { return ticketStatus; }
+    public void setTicketStatus(TicketStatus ticketStatus) { this.ticketStatus = ticketStatus; }
+
     public Instant getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
     public Long getPortalId() { return portalId; }
     public void setPortalId(Long portalId) { this.portalId = portalId; }
+
     public TicketAccessStatus getTicketAccessStatus() { return ticketAccessStatus; }
     public void setTicketAccessStatus(TicketAccessStatus ticketAccessStatus) {
         this.ticketAccessStatus = ticketAccessStatus;

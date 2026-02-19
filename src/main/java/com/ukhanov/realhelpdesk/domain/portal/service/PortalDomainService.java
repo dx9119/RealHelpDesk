@@ -2,8 +2,6 @@ package com.ukhanov.realhelpdesk.domain.portal.service;
 
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import com.ukhanov.realhelpdesk.domain.portal.repository.PortalRepository;
-
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketLiveStatus;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;

@@ -23,6 +23,13 @@ public class UserInfoRequest {
   @NoHtml
   private String additionalInfo;
 
+  public UserInfoRequest(String firstName, String lastName, String middleName, String additionalInfo) {
+    this.firstName = firstName;
+    this.lastName = lastName;
+    this.middleName = middleName;
+    this.additionalInfo = additionalInfo;
+  }
+
   public String getFirstName() {
     return firstName;
   }

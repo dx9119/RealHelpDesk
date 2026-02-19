@@ -35,6 +35,14 @@ public class MessageModel {
         this.createdAt = Instant.now();
     }
 
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
     public Long getId() {
         return id;
     }
