@@ -4,7 +4,7 @@ import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
 import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
 import com.ukhanov.realhelpdesk.core.pagination.service.PaginationAdapter;
-import com.ukhanov.realhelpdesk.core.security.accesscontrol.AccessValidationService;
+import com.ukhanov.realhelpdesk.core.security.accesscontrol.TicketAccessValidationService;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
@@ -47,7 +47,7 @@ class TicketManageServiceTest {
     @Mock private PortalDomainService mockPortalDomainService;
     @Mock private PaginationAdapter mockPaginationAdapter;
     @Mock private EmailDeliveryService mockEmailDeliveryService;
-    @Mock private AccessValidationService mockAccessValidationService;
+    @Mock private TicketAccessValidationService mockTicketAccessValidationService;
     @Mock private TicketRepository mockTicketRepository;
 
     @Captor private ArgumentCaptor<TicketModel> ticketCaptor;
@@ -67,7 +67,7 @@ class TicketManageServiceTest {
                 mockPortalDomainService,
                 mockPaginationAdapter,
                 mockEmailDeliveryService,
-                mockAccessValidationService,
+                mockTicketAccessValidationService,
                 mockTicketRepository
         );
 

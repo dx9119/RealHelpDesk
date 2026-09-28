@@ -3,7 +3,7 @@ package com.ukhanov.realhelpdesk.feature.ticketmanager.service;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
-import com.ukhanov.realhelpdesk.core.security.accesscontrol.AccessValidationService;
+import com.ukhanov.realhelpdesk.core.security.accesscontrol.TicketAccessValidationService;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
@@ -43,7 +43,7 @@ public class TicketManageService {
     private final PortalDomainService portalDomainService;
     private final PaginationAdapter paginationAdapter;
     private final EmailDeliveryService emailDeliveryService;
-    private final AccessValidationService accessValidationService;
+    private final TicketAccessValidationService ticketAccessValidationService;
 
     private final TicketRepository ticketRepository;
 
@@ -51,14 +51,14 @@ public class TicketManageService {
                                CurrentUserProvider currentUserProvider,
                                PortalDomainService portalDomainService,
                                PaginationAdapter paginationAdapter, EmailDeliveryService emailDeliveryService,
-                               AccessValidationService accessValidationService,
+                               TicketAccessValidationService ticketAccessValidationService,
                                TicketRepository ticketRepository) {
         this.ticketDomainService = ticketDomainService;
         this.currentUserProvider = currentUserProvider;
         this.portalDomainService = portalDomainService;
       this.paginationAdapter = paginationAdapter;
       this.emailDeliveryService = emailDeliveryService;
-      this.accessValidationService = accessValidationService;
+      this.ticketAccessValidationService = ticketAccessValidationService;
         this.ticketRepository = ticketRepository;
     }
 
@@ -183,13 +183,9 @@ public class TicketManageService {
 
         logger.debug("Запрос на обновление статуса тикета. Портал ID: {}, Тикет ID: {}, Новый статус: {}", portalId, ticketId, status);
 
-        UserModel user = currentUserProvider.getCurrentUserModel();
         TicketModel ticket = ticketDomainService.findTicketById(ticketId);
 
-        boolean isAccessToPortal = accessValidationService.hasPortalAccess(portalId);
-        boolean isAuthorOfTicket = ticket.getAuthor().getId().equals(user.getId());
-
-        if (!(isAuthorOfTicket || isAccessToPortal)) {
+        if (!ticketAccessValidationService.hasTicketChange(portalId, ticketId)) {
             throw new TicketException("You can't change status of ticket");
         }
 
@@ -216,13 +212,9 @@ public class TicketManageService {
 
         logger.debug("Запрос на обновление приоритета тикета. Портал ID: {}, Тикет ID: {}, Новый приоритет: {}", portalId, ticketId, priority);
 
-        UserModel user = currentUserProvider.getCurrentUserModel();
         TicketModel ticket = ticketDomainService.findTicketById(ticketId);
 
-        boolean isAccessToPortal = accessValidationService.hasPortalAccess(portalId);
-        boolean isAuthorOfTicket = ticket.getAuthor().getId().equals(user.getId());
-
-        if (!(isAuthorOfTicket || isAccessToPortal)) {
+        if (!ticketAccessValidationService.hasTicketChange(portalId, ticketId)) {
             throw new TicketException("Вы не можете изменять приоритет данной заявки");
         }
 
@@ -242,7 +234,11 @@ public class TicketManageService {
 
     public void deleteTicket (Long ticketID, Long portalId) throws TicketException, PortalException, MessagingException, UnsupportedEncodingException {
         Objects.requireNonNull(ticketID,"ticketID не должен быть null");
-        Objects.requireNonNull(ticketID,"portalId не должен быть null");
+        Objects.requireNonNull(portalId,"portalId не должен быть null");
+
+        if (!ticketAccessValidationService.hasTicketChange(portalId, ticketID)) {
+            throw new TicketException("Вы не можете удалять данную заявку");
+        }
 
         UserModel user = currentUserProvider.getCurrentUserModel();
         TicketModel ticket = ticketDomainService.findTicketById(ticketID);

@@ -9,7 +9,6 @@ import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 import com.ukhanov.realhelpdesk.domain.ticket.service.TicketDomainService;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
-import com.ukhanov.realhelpdesk.feature.ticketmanager.service.TicketManageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -40,6 +39,11 @@ public class TicketAccessValidationService {
         PortalModel portal = portalDomainService.getPortalById(portalId);
         TicketModel ticket = ticketDomainService.findTicketById(ticketId);
 
+        if (!belongsToPortal(ticket, portalId)) {
+            logger.info("Заявка {} не относится к порталу {}, доступ отклонён", ticketId, portalId);
+            return false;
+        }
+
         TicketAccessStatus status = ticket.getAccessStatus();
 
         if (status == TicketAccessStatus.ALL_USERS) {
@@ -63,6 +67,11 @@ public class TicketAccessValidationService {
         PortalModel portal = portalDomainService.getPortalById(portalId);
         TicketModel ticket = ticketDomainService.findTicketById(ticketId);
 
+        if (!belongsToPortal(ticket, portalId)) {
+            logger.info("Заявка {} не относится к порталу {}, изменение отклонено", ticketId, portalId);
+            return false;
+        }
+
         Set<UUID> allowedUsers = new HashSet<>(portal.getAllowedUserIds());
         allowedUsers.add(portal.getOwner().getId());
         allowedUsers.add(ticket.getAuthor().getId());
@@ -70,6 +79,13 @@ public class TicketAccessValidationService {
 
         //Изменить статус заявки может либо автор заявки, либо владельцы портала.
         return allowedUsers.contains(currentUserId);
+    }
+
+    // Заявка должна принадлежать тому порталу, от которого пришёл запрос,
+    // иначе владелец случайного портала получил бы доступ к чужой заявке
+    private boolean belongsToPortal(TicketModel ticket, Long portalId) {
+        PortalModel ticketPortal = ticket.getPortal();
+        return ticketPortal != null && portalId.equals(ticketPortal.getId());
     }
 
 }

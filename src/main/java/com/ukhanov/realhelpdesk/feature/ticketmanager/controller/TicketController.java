@@ -84,6 +84,7 @@ public class TicketController {
     }
 
     @GetMapping("{portalId}/ticket/page/status/{status}")
+    @PreAuthorize("@accessValidationService.hasPortalAccess(#portalId)")
     public PageResponse<TicketResponseOld> getPagedTicketsByStatus(
         @RequestParam(defaultValue = "0") @Min(0) int page,
         @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size,
