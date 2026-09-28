@@ -46,8 +46,7 @@ public class AppConfig {
   // Логика аутентификации(загрузка пользователя, проверка пароля)
   @Bean
   public DaoAuthenticationProvider authenticationProvider() {
-    final DaoAuthenticationProvider daoAuthenticationProvider = new DaoAuthenticationProvider();
-    daoAuthenticationProvider.setUserDetailsService(customUserDetailsService);
+    final DaoAuthenticationProvider daoAuthenticationProvider = new DaoAuthenticationProvider(customUserDetailsService);
     daoAuthenticationProvider.setPasswordEncoder(passwordEncoder());
     return daoAuthenticationProvider;
   }

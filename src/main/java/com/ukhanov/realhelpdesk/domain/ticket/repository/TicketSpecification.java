@@ -77,7 +77,7 @@ public class TicketSpecification {
 
         // Если нет доступных порталов — возвращаем пустой результат
         if (accessiblePortalIds == null || accessiblePortalIds.isEmpty()) {
-            return Specification.where(null);
+            return Specification.where((Specification<TicketModel>) null);
         }
 
         Specification<TicketModel> spec = Specification.where(active())

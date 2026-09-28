@@ -1,6 +1,6 @@
 package com.ukhanov.realhelpdesk.core.security.ratelimit.interceptor;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.annotation.RateLimit;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.service.RateLimitService;
 import jakarta.servlet.http.HttpServletRequest;
