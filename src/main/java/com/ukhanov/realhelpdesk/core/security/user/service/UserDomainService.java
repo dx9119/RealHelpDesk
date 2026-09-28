@@ -9,7 +9,6 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.Objects;
-import java.util.UUID;
 
 @Service
 public class UserDomainService {
@@ -28,7 +27,7 @@ public class UserDomainService {
             return userRepository.findByEmail(identifier)
                     .orElseThrow(() -> new UsernameNotFoundException("Не найден пользователь с email: " + identifier));
         } else {
-            UUID id = UUID.fromString(identifier);
+            Long id = Long.valueOf(identifier);
             return userRepository.findById(id)
                     .orElseThrow(() -> new UsernameNotFoundException("Не найден пользователь с ID: " + identifier));
         }
@@ -39,7 +38,7 @@ public class UserDomainService {
         return resolveUserByIdentifier(email, true);
     }
 
-    public UserModel getUserById(UUID userId) {
+    public UserModel getUserById(Long userId) {
         return resolveUserByIdentifier(userId.toString(), false);
     }
 
@@ -56,14 +55,14 @@ public class UserDomainService {
         return userRepository.save(user);
     }
 
-    public UserDetailsProjection getUserDetailsById(UUID userId) {
+    public UserDetailsProjection getUserDetailsById(Long userId) {
         Objects.requireNonNull(userId, "ID пользователя не может быть null");
 
         return userRepository.findProjectedById(userId)
             .orElseThrow(() -> new UsernameNotFoundException("Не найден пользователь с ID: " + userId));
     }
 
-    public UserModel getUserByRecoveryPasswdToken (UUID code){
+    public UserModel getUserByRecoveryPasswdToken (Long code){
         Objects.requireNonNull(code,"Код обязателен");
 
         return userRepository.findByRecoveryPasswdToken(code)

@@ -11,7 +11,6 @@ import com.ukhanov.realhelpdesk.core.security.ratelimit.annotation.RateLimit;
 import jakarta.mail.MessagingException;
 
 import java.io.UnsupportedEncodingException;
-import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -35,7 +34,7 @@ public class EmailPolicyController {
 
   @GetMapping("/confirm")
   public ResponseEntity<String> confirmEmail(
-          @RequestParam("token") UUID token
+          @RequestParam("token") Long token
   ) throws EmailAccessDeniedException {
     emailDeliveryService.confirmEmail(token);
     return ResponseEntity.ok("Успешно");

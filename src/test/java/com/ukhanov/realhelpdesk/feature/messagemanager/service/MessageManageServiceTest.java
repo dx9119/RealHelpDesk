@@ -33,7 +33,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.io.UnsupportedEncodingException;
 import java.time.Instant;
 import java.util.List;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -59,7 +58,7 @@ class MessageManageServiceTest {
     private static final Long PORTAL_ID = 100L;
     private static final String MESSAGE_TEXT = "Это тестовое сообщение от клиента";
     private static final String USER_EMAIL = "client@example.com";
-    private static final UUID USER_ID = UUID.randomUUID();
+    private static final Long USER_ID = 77L;
 
     @BeforeEach
     void setUp() {

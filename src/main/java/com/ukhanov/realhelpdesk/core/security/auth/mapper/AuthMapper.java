@@ -4,10 +4,12 @@ package com.ukhanov.realhelpdesk.core.security.auth.mapper;
 import com.ukhanov.realhelpdesk.core.security.auth.register.dto.RegisterRequest;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 
+import java.security.SecureRandom;
 import java.util.Objects;
-import java.util.UUID;
 
 public class AuthMapper {
+
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     public static UserModel toEntity(RegisterRequest request, String passwordHash) {
         Objects.requireNonNull(request, "Запрос не должен быть null");
@@ -18,7 +20,7 @@ public class AuthMapper {
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
         user.setEmail(request.getEmail());
-        user.setVerifyEmailToken(UUID.randomUUID());
+        user.setVerifyEmailToken(RANDOM.nextLong());
         user.setPasswordHash(passwordHash);
         user.setExternalId(request.getExternalId());
         user.setUserExternalSource(request.getUserPlatformSource());

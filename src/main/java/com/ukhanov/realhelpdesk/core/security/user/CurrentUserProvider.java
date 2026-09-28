@@ -9,7 +9,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import java.util.Objects;
-import java.util.UUID;
 
 // Провайдер текущего пользователя
 @Component
@@ -24,23 +23,23 @@ public class CurrentUserProvider {
     }
 
     // Получить ID текущего пользователя
-    public UUID getCurrentUserId() {
+    public Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         Objects.requireNonNull(authentication, "Пользователь не авторизован");
 
         String rawId = authentication.getName();
 
         try {
-            return UUID.fromString(rawId);
+            return Long.valueOf(rawId);
         } catch (IllegalArgumentException e) {
-            logger.error("Неверный формат UUID: {}", rawId);
+            logger.error("Неверный формат ID: {}", rawId);
             throw new IllegalStateException("Недопустимый идентификатор пользователя");
         }
     }
 
     // Получить модель текущего пользователя
     public UserModel getCurrentUserModel() {
-        UUID userId = getCurrentUserId();
+        Long userId = getCurrentUserId();
         return userDomainService.getUserById(userId);
     }
 }

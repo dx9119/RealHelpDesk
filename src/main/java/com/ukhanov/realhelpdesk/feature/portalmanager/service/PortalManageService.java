@@ -30,7 +30,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
@@ -178,13 +177,13 @@ public class PortalManageService {
         return portalModel.isPublic();
     }
 
-    //todo добавить валидацию UUID
-    public void addUserForPortal(Long portalId, Set<UUID> newAccessUserId)
+    //todo добавить валидацию id
+    public void addUserForPortal(Long portalId, Set<Long> newAccessUserId)
         throws PortalException, LimitException {
         Objects.requireNonNull(portalId, "portalId не должен быть null");
         Objects.requireNonNull(newAccessUserId, "newAccessUserId не должен быть null");
 
-        portalUtilsService.validateUUIDList(newAccessUserId);
+        portalUtilsService.validateIdList(newAccessUserId);
 
         PortalModel portal = portalDomainService.getPortalById(portalId);
         UserModel user = currentUserProvider.getCurrentUserModel();
@@ -204,8 +203,8 @@ public class PortalManageService {
         PortalModel portal = portalDomainService.getPortalById(portalId);
         List<UserInfo> userInfoList = new ArrayList<>();
 
-        Set<UUID> portalUserIds = portal.getAllowedUserIds();
-        for (UUID userId : portalUserIds) {
+        Set<Long> portalUserIds = portal.getAllowedUserIds();
+        for (Long userId : portalUserIds) {
             try {
                 UserDetailsProjection user = userDomainService.getUserDetailsById(userId);
                 UserInfo userInfo = new UserInfo();
@@ -265,7 +264,7 @@ public class PortalManageService {
     }
 
 
-    private List<PortalModel> getAccessiblePortals(UUID userId) {
+    private List<PortalModel> getAccessiblePortals(Long userId) {
         return Stream.concat(
                 portalDomainService.getPortalsByOwnerId(userId).stream(),
                 portalDomainService.getAllSharedPortals(userId).stream()
@@ -274,12 +273,12 @@ public class PortalManageService {
     }
 
     public List<Long> getUserActivityInPublicPortals() {
-        UUID userId = currentUserProvider.getCurrentUserId();
+        Long userId = currentUserProvider.getCurrentUserId();
         return portalDomainService.getPublicPortalsByUserActivity(userId);
     }
 
     public List<Long> mapAccessiblePortalsToIds() {
-        UUID userId = currentUserProvider.getCurrentUserModel().getId();
+        Long userId = currentUserProvider.getCurrentUserModel().getId();
         return new ArrayList<>(
                 getAccessiblePortals(userId).stream()
                         .map(PortalModel::getId)
@@ -289,7 +288,7 @@ public class PortalManageService {
 
 
     public List<PortalInfoResponse> mapAccessiblePortalsToInfo() {
-        UUID userId = currentUserProvider.getCurrentUserModel().getId();
+        Long userId = currentUserProvider.getCurrentUserModel().getId();
         return getAccessiblePortals(userId).stream()
             .map(p -> new PortalInfoResponse(p.getId(), p.getName()))
             .toList();
@@ -300,7 +299,7 @@ public class PortalManageService {
     public PortalInfoResponse getPortalInfo(Long portalId) throws PortalException {
         Objects.requireNonNull(portalId, "portalId не должен быть null");
 
-        UUID userId = currentUserProvider.getCurrentUserModel().getId();
+        Long userId = currentUserProvider.getCurrentUserModel().getId();
         PortalModel portal = portalDomainService.getPortalById(portalId);
         return new PortalInfoResponse(portal.getId(),portal.getName(),portal.getDescription());
     }

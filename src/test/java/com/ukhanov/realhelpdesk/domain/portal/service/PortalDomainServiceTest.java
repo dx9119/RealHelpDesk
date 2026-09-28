@@ -24,7 +24,6 @@ import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -41,8 +40,8 @@ class PortalDomainServiceTest {
 
     private PortalDomainService service;
 
-    private static final UUID OWNER_ID = UUID.fromString("a99e4ebb-e9cc-48a0-8648-f6a4de67a293");
-    private static final UUID USER_ID  = UUID.fromString("dab77ff3-6ec8-48e9-870d-b83e559a302c");
+    private static final Long OWNER_ID = 11L;
+    private static final Long USER_ID  = 22L;
     private static final Long PORTAL_ID = 42L;
 
     @BeforeEach

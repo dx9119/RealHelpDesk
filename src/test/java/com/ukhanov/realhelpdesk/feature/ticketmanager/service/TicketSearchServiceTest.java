@@ -44,7 +44,7 @@ class TicketSearchServiceTest {
 
     private TicketSearchService service;
 
-    private static final UUID USER_ID = UUID.fromString("a1d0e754-6d93-4de0-a7e6-eb89cc324ac4");
+    private static final Long USER_ID = 77L;
     private static final Instant START_DATE = LocalDateTime.of(2025, 1, 1, 0, 0).toInstant(ZoneOffset.UTC);
     private static final Instant END_DATE = LocalDateTime.of(2025, 12, 31, 23, 59).toInstant(ZoneOffset.UTC);
     private static final Pageable PAGEABLE = PageRequest.of(0, 10);

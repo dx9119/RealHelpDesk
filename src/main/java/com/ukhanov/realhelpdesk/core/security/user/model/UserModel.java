@@ -6,15 +6,14 @@ import jakarta.persistence.*;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.UUID;
 
 @Entity
 @Table(name = "users")
 public class UserModel {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
     private Long externalId = 0L; //ID пользователя от внешних интеграций (телеграмм бот, например).
 
     @Column(nullable = false)
@@ -32,9 +31,9 @@ public class UserModel {
     @Column(unique = true, nullable = false)
     private String email;
 
-    private UUID verifyEmailToken;
+    private Long verifyEmailToken;
 
-    private UUID recoveryPasswdToken;
+    private Long recoveryPasswdToken;
 
     private boolean isEmailVerified = false;
 
@@ -83,7 +82,7 @@ public class UserModel {
             '}';
     }
 
-    public UUID getId() {
+    public Long getId() {
         return id;
     }
 
@@ -95,19 +94,19 @@ public class UserModel {
         isEmailVerified = emailVerified;
     }
 
-    public UUID getVerifyEmailToken() {
+    public Long getVerifyEmailToken() {
         return verifyEmailToken;
     }
 
-    public UUID getRecoveryPasswdToken() {
+    public Long getRecoveryPasswdToken() {
         return recoveryPasswdToken;
     }
 
-    public void setRecoveryPasswdToken(UUID recoveryPasswdToken) {
+    public void setRecoveryPasswdToken(Long recoveryPasswdToken) {
         this.recoveryPasswdToken = recoveryPasswdToken;
     }
 
-    public void setVerifyEmailToken(UUID verifyEmailToken) {
+    public void setVerifyEmailToken(Long verifyEmailToken) {
         this.verifyEmailToken = verifyEmailToken;
     }
 
@@ -124,7 +123,7 @@ public class UserModel {
         this.userPlatformSource = userPlatformSource;
     }
 
-    public void setId(UUID id) {
+    public void setId(Long id) {
         this.id = id;
     }
 

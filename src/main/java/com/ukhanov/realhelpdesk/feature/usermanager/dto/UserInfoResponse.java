@@ -5,11 +5,10 @@ import com.ukhanov.realhelpdesk.core.security.user.model.UserRole;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserStatus;
 
 import java.time.Instant;
-import java.util.UUID;
 
 public class UserInfoResponse {
 
-  private UUID id;
+  private Long id;
   private Long externalId;
   private String firstName;
   private String lastName;
@@ -21,20 +20,20 @@ public class UserInfoResponse {
   private UserStatus userStatus;
   private UserPlatformSource userPlatformSource;
   private Instant createdAt;
-  private UUID verifyEmailToken;
+  private Long verifyEmailToken;
 
-  public UUID getVerifyEmailToken() {
+  public Long getVerifyEmailToken() {
     return verifyEmailToken;
   }
 
-  public void setVerifyEmailToken(UUID verifyEmailToken) {
+  public void setVerifyEmailToken(Long verifyEmailToken) {
     this.verifyEmailToken = verifyEmailToken;
   }
 
   public UserInfoResponse() {
   }
 
-  public void setId(UUID id) {
+  public void setId(Long id) {
     this.id = id;
   }
 
@@ -83,7 +82,7 @@ public class UserInfoResponse {
   }
 
 
-  public UUID getId() {
+  public Long getId() {
     return id;
   }
 

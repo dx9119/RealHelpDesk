@@ -20,7 +20,6 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 
 
 @Service
@@ -43,7 +42,7 @@ public class TicketSearchService {
             String search, Instant startDate, Instant endDate, TicketStatus ticketStatus,
             TicketPriority ticketPriority, boolean isMyTickets, Pageable pageable) {
 
-        UUID userId = currentUserProvider.getCurrentUserId();
+        Long userId = currentUserProvider.getCurrentUserId();
 
         logger.debug("Запрос на поиск тикетов. Пользователь: {}, Поиск: '{}', Статус: {}, Приоритет: {}, Только мои: {}, Дата от: {}, Дата до: {}",
                 userId, search, ticketStatus, ticketPriority, isMyTickets, startDate, endDate);
@@ -62,7 +61,7 @@ public class TicketSearchService {
         return ticketRepository.findAll(spec, pageable).map(TicketResponse::new);
     }
 
-    private Set<Long> getAccessiblePortalIds(UUID userId) {
+    private Set<Long> getAccessiblePortalIds(Long userId) {
         logger.debug("Получение доступных порталов для пользователя: {}", userId);
 
         List<PortalModel> ownedPortals = portalRepository.findAllByOwnerIdOrderByCreatedAtDesc(userId);

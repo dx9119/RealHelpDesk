@@ -11,7 +11,6 @@ import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.UUID;
 
 import com.ukhanov.realhelpdesk.feature.ticketmanager.service.TicketManageService;
 import org.slf4j.Logger;
@@ -35,7 +34,7 @@ public class AccessValidationService {
 
   public boolean hasPortalAccess(Long portalId) throws PortalException {
     PortalModel portal = portalDomainService.getPortalById(portalId);
-    UUID currentUserId = currentUserProvider.getCurrentUserModel().getId();
+    Long currentUserId = currentUserProvider.getCurrentUserModel().getId();
 
     boolean isOwner = portal.getOwner().getId().equals(currentUserId);
     boolean isAllowedUser = portal.getAllowedUserIds().contains(currentUserId);
@@ -50,7 +49,7 @@ public class AccessValidationService {
   }
   public boolean hasPortalOwner(Long portalId) throws PortalException {
     PortalModel portal = portalDomainService.getPortalById(portalId);
-    UUID currentUserId = currentUserProvider.getCurrentUserModel().getId();
+    Long currentUserId = currentUserProvider.getCurrentUserModel().getId();
 
     boolean isOwner = portal.getOwner().getId().equals(currentUserId);
 
@@ -66,7 +65,7 @@ public class AccessValidationService {
   // доверенные пользователи. Публичный доступ (isPublic) права управления не даёт.
   public boolean hasPortalManageAccess(Long portalId) throws PortalException {
     PortalModel portal = portalDomainService.getPortalById(portalId);
-    UUID currentUserId = currentUserProvider.getCurrentUserModel().getId();
+    Long currentUserId = currentUserProvider.getCurrentUserModel().getId();
 
     boolean isOwner = portal.getOwner().getId().equals(currentUserId);
     boolean isAllowedUser = portal.getAllowedUserIds() != null

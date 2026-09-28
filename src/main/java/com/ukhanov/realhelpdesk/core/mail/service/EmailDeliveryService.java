@@ -17,7 +17,6 @@ import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -105,7 +104,7 @@ public class EmailDeliveryService {
 
   public void initNotifyPortalUsers(PortalModel portal, String subject, String message, NotificationEvent sourceEvent)
           throws MessagingException, UnsupportedEncodingException {
-    Set<UUID> portalUsers = new HashSet<>(Arrays.asList(
+    Set<Long> portalUsers = new HashSet<>(Arrays.asList(
             portal.getOwner().getId()
     ));
     // Проверяем, что есть внешние пользователи
@@ -122,17 +121,17 @@ public class EmailDeliveryService {
 
   }
 
-  public void sendPortalUsersNotification(Set<UUID> userIds, String subject, String text, NotificationEvent sourceEvent)
+  public void sendPortalUsersNotification(Set<Long> userIds, String subject, String text, NotificationEvent sourceEvent)
           throws MessagingException, EmailAccessDeniedException, UnsupportedEncodingException {
 
-    for (UUID userId : userIds) {
+    for (Long userId : userIds) {
       UserModel user = userDomainService.getUserById(userId);
       sendEmail(user.getEmail(), subject, text, sourceEvent);
     }
 
   }
 
-  public void confirmEmail(UUID token) throws EmailAccessDeniedException {
+  public void confirmEmail(Long token) throws EmailAccessDeniedException {
     UserModel user = currentUserProvider.getCurrentUserModel();
     if(!user.getVerifyEmailToken().equals(token)) {
       throw new EmailAccessDeniedException("Код подтверждения права владения почтой не верный");

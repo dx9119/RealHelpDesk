@@ -6,7 +6,6 @@ import org.springframework.util.StringUtils;
 
 import java.time.Instant;
 import java.util.Set;
-import java.util.UUID;
 
 public class TicketSpecification {
 
@@ -23,7 +22,7 @@ public class TicketSpecification {
     }
 
     // Фильтр: тикеты, созданные текущим пользователем
-    public static Specification<TicketModel> onlyMy(UUID userId) {
+    public static Specification<TicketModel> onlyMy(Long userId) {
         return (root, query, cb) ->
                 cb.equal(root.get("author").get("id"), userId);
     }
@@ -73,7 +72,7 @@ public class TicketSpecification {
             TicketStatus ticketStatus,
             TicketPriority ticketPriority,
             Boolean isMyTickets,
-            UUID currentUserId,
+            Long currentUserId,
             Set<Long> accessiblePortalIds) {
 
         // Если нет доступных порталов — возвращаем пустой результат

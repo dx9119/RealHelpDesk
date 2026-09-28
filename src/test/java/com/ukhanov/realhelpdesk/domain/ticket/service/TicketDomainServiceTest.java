@@ -24,7 +24,6 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -42,7 +41,7 @@ class TicketDomainServiceTest {
 
     private static final Long TICKET_ID = 123L;
     private static final Long PORTAL_ID = 456L;
-    private static final UUID USER_ID = UUID.fromString("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
+    private static final Long USER_ID = 77L;
 
     @BeforeEach
     void setUp() {

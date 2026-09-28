@@ -4,7 +4,6 @@ import com.ukhanov.realhelpdesk.domain.ticket.model.TicketLiveStatus;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -34,7 +33,7 @@ public interface TicketRepository extends JpaRepository<TicketModel, Long>, JpaS
 
     @EntityGraph(attributePaths = {"assignedUser", "author", "portal"})
     Page<TicketModel> findAllByAuthorIdAndTicketLiveStatus(
-            @Param("authorId") UUID authorId,
+            @Param("authorId") Long authorId,
             TicketLiveStatus ticketLiveStatus,
             Pageable pageable
     );

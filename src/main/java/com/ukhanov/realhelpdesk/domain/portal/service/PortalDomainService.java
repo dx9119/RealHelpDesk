@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 
 @Service
 public class PortalDomainService {
@@ -25,13 +24,13 @@ public class PortalDomainService {
         this.portalRepository = Objects.requireNonNull(portalRepository, "portalRepository не должен быть null");
     }
 
-    public List<PortalModel> getPortalsByOwnerId(UUID ownerId) {
+    public List<PortalModel> getPortalsByOwnerId(Long ownerId) {
         Objects.requireNonNull(ownerId, "ownerId не должен быть null");
         logger.debug("Получение всех порталов владельца с ID: {}", ownerId);
         return portalRepository.findAllByOwnerIdOrderByCreatedAtDesc(ownerId);
     }
 
-    public Page<PortalModel> getPortalsPageByOwnerId(UUID ownerId, Pageable pageable) {
+    public Page<PortalModel> getPortalsPageByOwnerId(Long ownerId, Pageable pageable) {
         Objects.requireNonNull(ownerId, "ownerId не должен быть null");
         logger.debug("Получение порталов владельца с ID: {} с пагинацией", ownerId);
         return portalRepository.findAllByOwnerIdOrderByCreatedAtDesc(ownerId, pageable);
@@ -51,12 +50,12 @@ public class PortalDomainService {
         return portalRepository.save(portal);
     }
 
-    public boolean isPortalExistByName(UUID ownerId, String portalName) {
+    public boolean isPortalExistByName(Long ownerId, String portalName) {
         Objects.requireNonNull(portalName, "portalName не должен быть null");
         return portalRepository.existsByOwnerIdAndNameAndIsDeletedFalse(ownerId, portalName);
     }
 
-    public Page<PortalModel> getPortalPageAccessByUser(UUID userId, Pageable pageable) {
+    public Page<PortalModel> getPortalPageAccessByUser(Long userId, Pageable pageable) {
         Objects.requireNonNull(userId, "userId не должен быть null");
         logger.debug("Получение доступных порталов для пользователя с ID: {} с пагинацией", userId);
         return portalRepository.findAccessibleByUserId(userId, pageable);
@@ -70,13 +69,13 @@ public class PortalDomainService {
         return true;
     }
 
-    public List<PortalModel> getAllSharedPortals(UUID userId) {
+    public List<PortalModel> getAllSharedPortals(Long userId) {
         Objects.requireNonNull(userId, "userId не должен быть null");
         logger.info("Получение всех доступных порталов для пользователя с ID: {}", userId);
         return portalRepository.findAllAccessibleByUserId(userId);
     }
 
-    public List<Long> getPublicPortalsByUserActivity(UUID userId){
+    public List<Long> getPublicPortalsByUserActivity(Long userId){
         Objects.requireNonNull(userId, "userId не должен быть null");
         logger.info("Получение публичных порталов по активности пользователя с ID: {}", userId);
         return portalRepository.findPublicPortalIdsWithUserTickets(userId);

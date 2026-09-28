@@ -19,8 +19,8 @@ import com.ukhanov.realhelpdesk.feature.usermanager.dto.UserInfoResponse;
 import com.ukhanov.realhelpdesk.feature.usermanager.mapper.UserMapper;
 
 import java.io.UnsupportedEncodingException;
+import java.security.SecureRandom;
 import java.util.Objects;
-import java.util.UUID;
 
 import jakarta.mail.MessagingException;
 import jakarta.transaction.Transactional;
@@ -33,6 +33,7 @@ import org.springframework.stereotype.Service;
 public class UserManageService {
 
   private static final Logger logger = LoggerFactory.getLogger(UserManageService.class);
+  private static final SecureRandom RANDOM = new SecureRandom();
 
   private final CurrentUserProvider currentUserProvider;
   private final UserDomainService userDomainService;
@@ -90,7 +91,7 @@ public class UserManageService {
 
     UserModel user = userDomainService.getUserByEmail(request.getEmail());
 
-    UUID recoverPasswdToken = UUID.randomUUID();
+    Long recoverPasswdToken = RANDOM.nextLong();
     user.setRecoveryPasswdToken(recoverPasswdToken);
 
     userDomainService.saveUser(user);
@@ -104,7 +105,7 @@ public class UserManageService {
   }
 
 
-  public void setNewPasswd(UUID code, NewPasswdRequest request) throws TokenException {
+  public void setNewPasswd(Long code, NewPasswdRequest request) throws TokenException {
     Objects.requireNonNull(code, "Код не должен быть null");
     Objects.requireNonNull(request, "Запрос не должен быть null");
 
@@ -115,7 +116,7 @@ public class UserManageService {
     setTokenService.addNewRefreshToken(user); // нужен хотя бы один активный refresh токен для логина
 
     user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-    user.setRecoveryPasswdToken(UUID.randomUUID());
+    user.setRecoveryPasswdToken(RANDOM.nextLong());
 
     RefreshTokenModel token = getTokenService.getActiveRefreshToken(user);
     token.setStatus(TokenStatus.PASSWD_CHANGE);

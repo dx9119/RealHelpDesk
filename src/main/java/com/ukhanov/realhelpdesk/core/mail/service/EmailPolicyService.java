@@ -9,7 +9,6 @@ import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -49,7 +48,7 @@ public class EmailPolicyService {
     return stopListEmail == sourceEvent;
   }
 
-  public void deleteFromStopList(UUID token) {
+  public void deleteFromStopList(Long token) {
     Objects.requireNonNull(token, "Token должен иметь значение");
 
     UserModel user = currentUserProvider.getCurrentUserModel();

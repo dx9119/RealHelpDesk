@@ -11,7 +11,6 @@ import org.hibernate.annotations.Where;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.UUID;
 
 @Entity
 @Table(
@@ -39,7 +38,7 @@ public class PortalModel {
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "portal_access", joinColumns = @JoinColumn(name = "portal_id"))
     @Column(name = "allowed_user_id")
-    private Set<UUID> allowedUserIds;
+    private Set<Long> allowedUserIds;
 
     @OneToMany(mappedBy = "portal", cascade = CascadeType.ALL, orphanRemoval = false, fetch = FetchType.LAZY)
     private Set<TicketModel> tickets = new HashSet<>();
@@ -110,7 +109,7 @@ public class PortalModel {
         return owner;
     }
 
-    public Set<UUID> getAllowedUserIds() {
+    public Set<Long> getAllowedUserIds() {
         return allowedUserIds;
     }
 
@@ -122,7 +121,7 @@ public class PortalModel {
         this.timeDelete = timeDelete;
     }
 
-    public void setAllowedUserIds(Set<UUID> allowedUserIds) {
+    public void setAllowedUserIds(Set<Long> allowedUserIds) {
         this.allowedUserIds = allowedUserIds;
     }
 

@@ -1,20 +1,19 @@
 package com.ukhanov.realhelpdesk.feature.portalmanager.dto;
 
-import java.util.UUID;
 
 public class UserInfo {
 
-  private UUID id;
+  private Long id;
   private String firstName;
   private String lastName;
   private String middleName;
   private String email;
 
-  public UUID getId() {
+  public Long getId() {
     return id;
   }
 
-  public void setId(UUID id) {
+  public void setId(Long id) {
     this.id = id;
   }
 

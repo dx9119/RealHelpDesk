@@ -7,7 +7,6 @@ import com.ukhanov.realhelpdesk.domain.ticket.repository.TicketRepository;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 import jakarta.persistence.PersistenceException;
 import java.util.Set;
-import java.util.UUID;
 
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
@@ -69,7 +68,7 @@ public class TicketDomainService {
         return ticketRepository.findAllByPortalIdAndTicketLiveStatus(portalId, pageable, TicketLiveStatus.ACTIVE);
     }
 
-    public Page<TicketModel> getTicketsPageByUserId(UUID userId, Pageable pageable) {
+    public Page<TicketModel> getTicketsPageByUserId(Long userId, Pageable pageable) {
         Objects.requireNonNull(userId, "userId не должен быть null");
         logger.debug("Получение заявок с пагинацией для пользователя с ID: {}", userId);
         return ticketRepository.findAllByAuthorIdAndTicketLiveStatus(userId, TicketLiveStatus.ACTIVE, pageable);

@@ -56,7 +56,7 @@ class TicketManageServiceTest {
 
     private static final Long TICKET_ID = 42L;
     private static final Long PORTAL_ID = 100L;
-    private static final UUID USER_ID = UUID.randomUUID();
+    private static final Long USER_ID = 77L;
     private static final Pageable DEFAULT_PAGEABLE = PageRequest.of(0, 10);
 
     @BeforeEach

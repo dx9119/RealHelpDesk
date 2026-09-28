@@ -5,7 +5,6 @@ import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import jakarta.persistence.*;
 
 import java.time.Instant;
-import java.util.UUID;
 
 @Entity
 public class TicketModel {
@@ -41,7 +40,7 @@ public class TicketModel {
     @Enumerated(EnumType.STRING)
     private TicketLiveStatus ticketLiveStatus= TicketLiveStatus.ACTIVE;
 
-    private UUID whoDelete;
+    private Long whoDelete;
 
     private Instant timeDelete;
 
@@ -119,11 +118,11 @@ public class TicketModel {
         this.timeDelete = timeDelete;
     }
 
-    public UUID getWhoDelete() {
+    public Long getWhoDelete() {
         return whoDelete;
     }
 
-    public void setWhoDelete(UUID whoDelete) {
+    public void setWhoDelete(Long whoDelete) {
         this.whoDelete = whoDelete;
     }
 

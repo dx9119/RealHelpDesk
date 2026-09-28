@@ -15,7 +15,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.UUID;
 
 @Service
 public class TicketAccessValidationService {
@@ -34,7 +33,7 @@ public class TicketAccessValidationService {
     }
 
     public boolean hasTicketAccess(Long portalId, Long ticketId) throws PortalException, TicketException {
-        UUID currentUserId = currentUserProvider.getCurrentUserModel().getId();
+        Long currentUserId = currentUserProvider.getCurrentUserModel().getId();
 
         PortalModel portal = portalDomainService.getPortalById(portalId);
         TicketModel ticket = ticketDomainService.findTicketById(ticketId);
@@ -51,7 +50,7 @@ public class TicketAccessValidationService {
         }
 
         if (status == TicketAccessStatus.CREATOR_AND_PORTAL_USERS) {
-            Set<UUID> allowedUsers = new HashSet<>(portal.getAllowedUserIds());
+            Set<Long> allowedUsers = new HashSet<>(portal.getAllowedUserIds());
             allowedUsers.add(portal.getOwner().getId());
             allowedUsers.add(ticket.getAuthor().getId());
             return allowedUsers.contains(currentUserId);
@@ -72,10 +71,10 @@ public class TicketAccessValidationService {
             return false;
         }
 
-        Set<UUID> allowedUsers = new HashSet<>(portal.getAllowedUserIds());
+        Set<Long> allowedUsers = new HashSet<>(portal.getAllowedUserIds());
         allowedUsers.add(portal.getOwner().getId());
         allowedUsers.add(ticket.getAuthor().getId());
-        UUID currentUserId = user.getId();
+        Long currentUserId = user.getId();
 
         //Изменить статус заявки может либо автор заявки, либо владельцы портала.
         return allowedUsers.contains(currentUserId);

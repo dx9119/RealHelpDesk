@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -107,9 +106,11 @@ class AccessValidationServiceTest {
         assertThat(service.hasPortalManageAccess(PORTAL_ID)).isTrue();
     }
 
+    private long userSeq;
+
     private UserModel user() {
         UserModel userModel = new UserModel();
-        userModel.setId(UUID.randomUUID());
+        userModel.setId(++userSeq);
         return userModel;
     }
 }

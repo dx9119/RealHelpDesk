@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.UnsupportedEncodingException;
 import java.util.Map;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/user/")
@@ -55,7 +54,7 @@ public class UserController {
     @PostMapping("/passwd-reset/confirm")
     @RateLimit(requests = 5, windowSeconds = 600)
   public ResponseEntity<Map<String,String>> newPasswdSet (@Valid
-                                                          @RequestParam UUID code,
+                                                          @RequestParam Long code,
                                                           @RequestBody NewPasswdRequest request) throws TokenException {
     userManageService.setNewPasswd(code,request);
     Map<String,String> responce = Map.of("Статус","Успех");

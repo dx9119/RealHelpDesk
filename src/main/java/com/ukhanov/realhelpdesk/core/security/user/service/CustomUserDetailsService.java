@@ -6,7 +6,6 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.util.UUID;
 
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
@@ -22,7 +21,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         return new SecurityUser(user);
     }
 
-    public SecurityUser loadUserById(UUID id) {
+    public SecurityUser loadUserById(Long id) {
         UserModel user = userDomainService.getUserById(id);
         return new SecurityUser(user);
     }

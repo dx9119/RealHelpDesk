@@ -26,7 +26,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
@@ -145,7 +144,7 @@ class UserManageServiceTest {
 
     @Test
     void setNewPasswd_shouldUpdatePasswordAndInvalidateOldTokens() throws Exception {
-        UUID code = UUID.randomUUID();
+        Long code = 55L;
         UserModel user = createDefaultUser();
         user.setRecoveryPasswdToken(code);
 
@@ -177,7 +176,7 @@ class UserManageServiceTest {
 
     @Test
     void setNewPasswd_shouldThrowWhenTokenNotFound() {
-        UUID wrongCode = UUID.randomUUID();
+        Long wrongCode = 66L;
         when(userDomainService.getUserByRecoveryPasswdToken(wrongCode))
                 .thenThrow(new EntityNotFoundException("Token not found"));
 
@@ -189,7 +188,7 @@ class UserManageServiceTest {
 
     @Test
     void setNewPasswd_shouldThrowNpe_whenRequestIsNull() {
-        assertThatThrownBy(() -> service.setNewPasswd(UUID.randomUUID(), null))
+        assertThatThrownBy(() -> service.setNewPasswd(55L, null))
                 .isInstanceOf(NullPointerException.class);
     }
 
@@ -205,7 +204,7 @@ class UserManageServiceTest {
 
     private UserModel createDefaultUser() {
         UserModel user = new UserModel();
-        user.setId(UUID.randomUUID());
+        user.setId(77L);
         user.setEmail("email@example.com");
         user.setFirstName("firstName");
         user.setLastName("lastName");
@@ -215,7 +214,7 @@ class UserManageServiceTest {
         user.setUserStatus(UserStatus.ACTIVE);
         user.setUserRole(UserRole.ROLE_NONE);
         user.setUserExternalSource(UserPlatformSource.LOCAL);
-        user.setRecoveryPasswdToken(UUID.randomUUID());
+        user.setRecoveryPasswdToken(88L);
         return user;
     }
 }
