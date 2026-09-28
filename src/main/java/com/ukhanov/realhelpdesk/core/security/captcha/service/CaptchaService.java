@@ -4,6 +4,7 @@ import com.google.code.kaptcha.impl.DefaultKaptcha;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
 import com.ukhanov.realhelpdesk.core.security.captcha.dto.DtoCaptchaProperties;
 import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaException;
+import com.ukhanov.realhelpdesk.core.security.captcha.utils.CaptchaStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -14,8 +15,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-
-import static com.ukhanov.realhelpdesk.core.security.captcha.utils.CaptchaStorage.captchaMap;
 
 
 @Service
@@ -32,8 +31,8 @@ public class CaptchaService {
 
     public String generateCaptchaText(String CapId) {
         String captchaText = captchaProducer.createText();
-        captchaMap.put(CapId, captchaText);
-        logger.info("Сгенерирован код капчи: "+captchaText);
+        CaptchaStorage.put(CapId, captchaText);
+        logger.info("Сгенерирована капча для capId: {}", CapId);
         return captchaText;
     }
 
@@ -47,21 +46,24 @@ public class CaptchaService {
     }
 
     public String getEncodedCaptchaText(String CapId) {
-        String captchaText = captchaMap.get(CapId);
+        String captchaText = CaptchaStorage.get(CapId);
         return Base64.getEncoder()
                 .encodeToString(captchaText.getBytes(StandardCharsets.UTF_8));
     }
 
     public void captVerificationResult(String captchaId, String captCode) throws CaptchaException {
-        String expectedCode = captchaMap.get(captchaId);
-
-        if (expectedCode == null || !expectedCode.equalsIgnoreCase(captCode)) {
-            if (captchaProperties.captchaEnabled() == true) {
-                throw new CaptchaException("Провал прохождения капчи");
+        if (!Boolean.TRUE.equals(captchaProperties.captchaEnabled())) {
+            if (captchaId != null) {
+                CaptchaStorage.remove(captchaId);
             }
+            return;
         }
 
-        captchaMap.remove(captchaId);
+        String expectedCode = captchaId == null ? null : CaptchaStorage.remove(captchaId);
+
+        if (expectedCode == null || captCode == null || !expectedCode.equalsIgnoreCase(captCode)) {
+            throw new CaptchaException("Провал прохождения капчи");
+        }
     }
 
 

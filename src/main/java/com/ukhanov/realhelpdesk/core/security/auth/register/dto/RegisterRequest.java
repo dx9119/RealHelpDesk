@@ -16,8 +16,7 @@ public class RegisterRequest {
     @Size(min = 2, max = 50, message = "Фамилия должна быть не менее 2 символов и не более 50")
     private String lastName;
 
-    @NotBlank(message = "Наличие капчи обязательно")
-    @Size(min = 2, max = 50, message = "Капча не может быть более 50 символов")
+    @Size(max = 50, message = "Капча не может быть более 50 символов")
     private String capCode;
 
     @NotBlank(message = "Поле Email обязательно для заполнения")

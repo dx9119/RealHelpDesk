@@ -54,8 +54,8 @@ public class EmailPolicyController {
 
   @GetMapping("/code")
   public ResponseEntity<String> getCode(
-          @RequestParam("capId") String capId,
-          @RequestParam("capCode") String capCode
+          @RequestParam(value = "capId", required = false) String capId,
+          @RequestParam(value = "capCode", required = false) String capCode
   ) throws MessagingException, CaptchaException, UnsupportedEncodingException {
     captchaService.captVerificationResult(capId, capCode);
     emailDeliveryService.sendConfirmCode();

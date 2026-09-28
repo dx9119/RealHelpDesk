@@ -54,7 +54,7 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<Map<String, String>> registration(
             @Valid @RequestBody RegisterRequest registerRequest,
-            @RequestParam String capId)
+            @RequestParam(required = false) String capId)
             throws RegistrationException, MessagingException, EmailAccessDeniedException, CaptchaException, UnsupportedEncodingException {
 
         TokensResponse tokens = registrationService.processRegistration(registerRequest, capId);
