@@ -24,6 +24,8 @@
         <hibernate.validator.version>9.0.0.CR1</hibernate.validator.version>
         <telegrambots.version>6.9.7.1</telegrambots.version>
         <mockito.version>5.21.0</mockito.version>
+        <!-- 1.15.x из BOM не знает class file 69 (Java 25), с Mockito 5.21.0 -->
+        <byte-buddy.version>1.17.7</byte-buddy.version>
         <maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
     </properties>
 
