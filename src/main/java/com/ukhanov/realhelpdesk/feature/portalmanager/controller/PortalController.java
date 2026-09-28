@@ -97,7 +97,7 @@ public class PortalController {
         return ResponseEntity.ok("Успех");
     }
 
-    @PreAuthorize("@accessValidationService.hasPortalAccess(#portalId)")
+    @PreAuthorize("@accessValidationService.hasPortalManageAccess(#portalId)")
     @GetMapping("/shared/{portalId}")
     public ResponseEntity<PortalSettingsResponse> getGrantAccess(@PathVariable @NotNull Long portalId) throws PortalException {
         return ResponseEntity.ok(portalManageService.getPortalSettings(portalId));
@@ -125,7 +125,7 @@ public class PortalController {
         return ResponseEntity.ok(portalManageService.getPortalInfo(portalId));
     }
 
-    @PreAuthorize("@accessValidationService.hasPortalAccess(#portalId)")
+    @PreAuthorize("@accessValidationService.hasPortalManageAccess(#portalId)")
     @PostMapping("/info/update/{portalId}")
     public ResponseEntity<PortalInfoResponse> updatePortalInfo(
         @PathVariable @NotNull Long portalId,

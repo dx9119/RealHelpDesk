@@ -48,7 +48,6 @@ public class AccessValidationService {
 
     return true;
   }
-
   public boolean hasPortalOwner(Long portalId) throws PortalException {
     PortalModel portal = portalDomainService.getPortalById(portalId);
     UUID currentUserId = currentUserProvider.getCurrentUserModel().getId();
@@ -63,8 +62,22 @@ public class AccessValidationService {
     return true;
   }
 
+  // Управление порталом (переименование, список участников): владелец или
+  // доверенные пользователи. Публичный доступ (isPublic) права управления не даёт.
+  public boolean hasPortalManageAccess(Long portalId) throws PortalException {
+    PortalModel portal = portalDomainService.getPortalById(portalId);
+    UUID currentUserId = currentUserProvider.getCurrentUserModel().getId();
 
+    boolean isOwner = portal.getOwner().getId().equals(currentUserId);
+    boolean isAllowedUser = portal.getAllowedUserIds() != null
+        && portal.getAllowedUserIds().contains(currentUserId);
 
+    if (!isOwner && !isAllowedUser) {
+      logger.info("Пользователь {} не имеет прав управления порталом {}", currentUserId, portalId);
+      return false;
+    }
 
+    return true;
+  }
 
 }
