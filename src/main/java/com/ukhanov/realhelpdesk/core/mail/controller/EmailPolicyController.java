@@ -7,6 +7,7 @@ import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailPolicyService;
 import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaException;
 import com.ukhanov.realhelpdesk.core.security.captcha.service.CaptchaService;
+import com.ukhanov.realhelpdesk.core.security.ratelimit.annotation.RateLimit;
 import jakarta.mail.MessagingException;
 
 import java.io.UnsupportedEncodingException;
@@ -53,6 +54,7 @@ public class EmailPolicyController {
   }
 
   @GetMapping("/code")
+  @RateLimit(requests = 3, windowSeconds = 600)
   public ResponseEntity<String> getCode(
           @RequestParam(value = "capId", required = false) String capId,
           @RequestParam(value = "capCode", required = false) String capCode

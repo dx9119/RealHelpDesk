@@ -1,5 +1,6 @@
 package com.ukhanov.realhelpdesk.feature.usermanager.controller;
 
+import com.ukhanov.realhelpdesk.core.security.ratelimit.annotation.RateLimit;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
 import com.ukhanov.realhelpdesk.feature.usermanager.dto.NewPasswdRequest;
 import com.ukhanov.realhelpdesk.feature.usermanager.dto.RecoveryRequest;
@@ -42,6 +43,7 @@ public class UserController {
   }
 
   @PostMapping("/passwd-reset/request")
+  @RateLimit(requests = 3, windowSeconds = 600)
   public ResponseEntity<Map<String,String>> passwdResetLink(@Valid
                                                         @RequestBody RecoveryRequest request) throws MessagingException, UnsupportedEncodingException {
     userManageService.sendResetLink(request);
@@ -51,6 +53,7 @@ public class UserController {
   }
 
     @PostMapping("/passwd-reset/confirm")
+    @RateLimit(requests = 5, windowSeconds = 600)
   public ResponseEntity<Map<String,String>> newPasswdSet (@Valid
                                                           @RequestParam UUID code,
                                                           @RequestBody NewPasswdRequest request) throws TokenException {

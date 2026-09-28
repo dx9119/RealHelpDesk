@@ -57,6 +57,23 @@ https://example.com:8443/api/v1/auth/register?capId=abc123xyz9
 3. После регистрации будет получен jwt токен, Postman его запомнит сам.
 4. Profit!
 
+## Рейт-лимиты
+
+Счетчик идет по IP и эндпоинту и работает одинаково при включенной и выключенной капче. При превышении — ответ `429` с заголовком `Retry-After`.
+
+| Эндпоинт | Лимит |
+|---|---|
+| `GET /api/v1/captcha` | 30 за 60 сек |
+| `POST /api/v1/auth/register` | 10 за 5 мин |
+| `POST /api/v1/auth/login` | 10 за 5 мин |
+| `POST /api/v1/user/passwd-reset/request` | 3 за 10 мин |
+| `POST /api/v1/user/passwd-reset/confirm` | 5 за 10 мин |
+| `GET /api/v1/email-policy/code` | 3 за 10 мин |
+
+Новый лимит — аннотация `@RateLimit(requests = ..., windowSeconds = ...)` на методе контроллера. Счетчики хранятся в памяти приложения и сбрасываются при рестарте.
+
+За прокси (nginx и т.п.) задайте `TRUST_PROXY_HEADERS=true`, иначе все пользователи будут считаться одним IP самого прокси. Без прокси держите `false` — иначе заголовок `X-Forwarded-For` можно подделать и обойти лимит.
+
 ## Тестирование
 
 - `postman_collection.json` - Коллекция для импорта в Postman.

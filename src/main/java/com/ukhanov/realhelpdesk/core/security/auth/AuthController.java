@@ -8,6 +8,7 @@ import com.ukhanov.realhelpdesk.core.security.auth.logout.service.LogoutService;
 import com.ukhanov.realhelpdesk.core.security.auth.register.dto.RegisterRequest;
 import com.ukhanov.realhelpdesk.core.security.auth.register.exception.RegistrationException;
 import com.ukhanov.realhelpdesk.core.security.auth.register.service.RegistrationService;
+import com.ukhanov.realhelpdesk.core.security.ratelimit.annotation.RateLimit;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.AuthorizationResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenStatusResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokensResponse;
@@ -52,6 +53,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
+    @RateLimit(requests = 10, windowSeconds = 300)
     public ResponseEntity<Map<String, String>> registration(
             @Valid @RequestBody RegisterRequest registerRequest,
             @RequestParam(required = false) String capId)
@@ -88,6 +90,7 @@ public class AuthController {
 
 
     @PostMapping("/login")
+    @RateLimit(requests = 10, windowSeconds = 300)
     public ResponseEntity<Map<String, String>> login(
             @Valid
             @RequestBody LoginRequest loginRequest) throws TokenException {

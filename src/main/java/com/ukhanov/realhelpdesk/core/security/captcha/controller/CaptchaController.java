@@ -1,5 +1,6 @@
 package com.ukhanov.realhelpdesk.core.security.captcha.controller;
 
+import com.ukhanov.realhelpdesk.core.security.ratelimit.annotation.RateLimit;
 import com.ukhanov.realhelpdesk.core.security.captcha.service.CaptchaService;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.MediaType;
@@ -19,6 +20,7 @@ public class CaptchaController {
     }
 
     @GetMapping
+    @RateLimit(requests = 30, windowSeconds = 60)
     public ResponseEntity<byte[]> getCaptcha(
             @RequestParam
             @Size(max = 10) String capId
