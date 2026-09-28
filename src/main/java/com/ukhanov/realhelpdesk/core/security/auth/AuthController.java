@@ -90,8 +90,7 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<Map<String, String>> login(
             @Valid
-            @RequestBody LoginRequest loginRequest,
-            @CookieValue(value = "captcha", defaultValue = "") String captchaCookie) throws TokenException {
+            @RequestBody LoginRequest loginRequest) throws TokenException {
         TokensResponse tokens = loginService.processLogin(loginRequest);
 
         ResponseCookie accessCookie = ResponseCookie.from("accessToken", tokens.getAccessToken())

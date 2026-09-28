@@ -13,8 +13,6 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 
 
 @Service
@@ -43,12 +41,6 @@ public class CaptchaService {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ImageIO.write(captchaImage, "jpg", baos);
         return baos.toByteArray();
-    }
-
-    public String getEncodedCaptchaText(String CapId) {
-        String captchaText = CaptchaStorage.get(CapId);
-        return Base64.getEncoder()
-                .encodeToString(captchaText.getBytes(StandardCharsets.UTF_8));
     }
 
     public void captVerificationResult(String captchaId, String captCode) throws CaptchaException {
