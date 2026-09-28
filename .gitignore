@@ -44,6 +44,9 @@ application-dev.properties
 *.pem
 ssl/
 
+# Локальные секреты (шаблон хранится в .env.example)
+.env
+
 # Файлы Docker (если не коммитите образы)
 # Dockerfile.local
 # docker-compose.override.yml
