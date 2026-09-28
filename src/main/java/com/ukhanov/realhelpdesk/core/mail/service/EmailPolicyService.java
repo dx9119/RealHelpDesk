@@ -21,10 +21,9 @@ public class EmailPolicyService {
 
   private static final Logger logger = LoggerFactory.getLogger(EmailPolicyService.class);
 
-  public EmailPolicyService(UnsubscribedEmailRepository repository, CurrentUserProvider currentUserProvider,
-      CurrentUserProvider currentUserProvider1) {
+  public EmailPolicyService(UnsubscribedEmailRepository repository, CurrentUserProvider currentUserProvider) {
     this.repository = repository;
-    this.currentUserProvider = currentUserProvider1;
+    this.currentUserProvider = currentUserProvider;
   }
 
   public boolean isStopList(String email, NotificationEvent sourceEvent) {
@@ -34,24 +33,20 @@ public class EmailPolicyService {
         .map(UnsubscribedEmail::getMuteEvent)
         .orElse(null);
 
-    // источник события откуда отправляется письмо, если событие совпадает с событием которое в стоп листе, то письмо не отправляется
-    if (stopListEmail == sourceEvent) {
-      return true;
-    }
-    // если в стоп листе стоит событие всех новых заявок и сообщений, то письмо не отправляется
-    if (stopListEmail == NotificationEvent.NEW_TICKET_OR_MESSAGE){
-      return true;
-    }
-    if (stopListEmail == NotificationEvent.CHANGE_TICKET){
-      return true;
-    }
-
-
-    // нет ограничений на отправку писем
-    if (stopListEmail == NotificationEvent.NONE) {
+    // ограничений нет: письмо отправляется
+    if (stopListEmail == null || stopListEmail == NotificationEvent.NONE) {
       return false;
     }
-    return false;
+
+    // «тишина» по новым заявкам и сообщениям глушит только их,
+    // остальные события (в том числе восстановление пароля) продолжают уходить
+    if (stopListEmail == NotificationEvent.NEW_TICKET_OR_MESSAGE) {
+      return sourceEvent == NotificationEvent.NEW_TICKET
+          || sourceEvent == NotificationEvent.NEW_MESSAGE;
+    }
+
+    // глушится только выбранное событие
+    return stopListEmail == sourceEvent;
   }
 
   public void deleteFromStopList(UUID token) {
