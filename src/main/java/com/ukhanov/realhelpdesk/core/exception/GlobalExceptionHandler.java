@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mail.MailException;
@@ -51,6 +52,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleAuthorizationDeniedException(AuthorizationDeniedException ex) {
         logger.warn("Доступ запрещен: {}", ex.getMessage());
         return buildResponse(HttpStatus.FORBIDDEN, "Доступ запрещен");
+    }
+
+    @ExceptionHandler(PropertyReferenceException.class)
+    public ResponseEntity<Map<String, String>> handlePropertyReferenceException(PropertyReferenceException ex) {
+        logger.warn("Недопустимое поле сортировки: {}", ex.getPropertyName());
+        return buildResponse(HttpStatus.BAD_REQUEST, "Недопустимое поле сортировки: " + ex.getPropertyName());
     }
 
     @ExceptionHandler(Exception.class)

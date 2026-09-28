@@ -53,6 +53,8 @@ public class PortalManageService {
 
     private static final Logger logger = LoggerFactory.getLogger(PortalManageService.class);
 
+    private static final Set<String> SORTABLE_PORTAL_FIELDS = Set.of("createdAt", "name");
+
 
     private final CurrentUserProvider currentUserProvider;
     private final PortalDomainService portalDomainService;
@@ -139,7 +141,7 @@ public class PortalManageService {
 
     public PageResponse<PortalResponse> getPagePortalsByOwner(int page, int size, String sortBy, String order) {
         UserModel userModel = currentUserProvider.getCurrentUserModel();
-        PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order);
+        PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order, SORTABLE_PORTAL_FIELDS);
 
         Page<PortalModel> portalPage = portalDomainService.getPortalsPageByOwnerId(userModel.getId(), pageRequest);
         Page<PortalResponse> mappedPage = portalPage.map(PortalMapper::toResponse);
@@ -149,7 +151,7 @@ public class PortalManageService {
 
     public PageResponse<PortalResponse> getPagePortalsByAccess(int page, int size, String sortBy, String order) {
         UserModel userModel = currentUserProvider.getCurrentUserModel();
-        PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order);
+        PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order, SORTABLE_PORTAL_FIELDS);
 
         Page<PortalModel> portalPage = portalDomainService.getPortalPageAccessByUser(userModel.getId(), pageRequest);
         Page<PortalResponse> mappedPage = portalPage.map(PortalMapper::toResponse);

@@ -139,7 +139,7 @@ class TicketManageServiceTest {
     @DisplayName("getPageTickets → успех")
     void getPageTickets_success() throws TicketException, PortalException {
         PageRequest pageRequest = PageRequest.of(0, 10);
-        when(mockPaginationAdapter.buildPageRequest(0, 10, "title", "asc"))
+        when(mockPaginationAdapter.buildPageRequest(0, 10, "title", "asc", any()))
                 .thenReturn(pageRequest);
 
         TicketModel ticketModel = defaultTicket(1L);

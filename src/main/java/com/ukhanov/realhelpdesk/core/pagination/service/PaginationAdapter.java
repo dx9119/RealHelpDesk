@@ -2,6 +2,7 @@ package com.ukhanov.realhelpdesk.core.pagination.service;
 
 
 import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
+import com.ukhanov.realhelpdesk.core.pagination.exception.PaginationException;
 import com.ukhanov.realhelpdesk.core.pagination.mapper.PageResponseMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +12,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.Objects;
+import java.util.Set;
+import java.util.TreeSet;
 
 @Service
 public class PaginationAdapter {
@@ -29,9 +32,16 @@ public class PaginationAdapter {
     return pageResponseMapper.map(page);
   }
 
-  public PageRequest buildPageRequest(int page, int size, String sortBy, String order) {
+  public PageRequest buildPageRequest(int page, int size, String sortBy, String order, Set<String> allowedSortFields) {
     Objects.requireNonNull(sortBy, "Параметр sortBy не должен быть null");
     Objects.requireNonNull(order, "Параметр order не должен быть null");
+    Objects.requireNonNull(allowedSortFields, "allowedSortFields не должен быть null");
+
+    if (!allowedSortFields.contains(sortBy)) {
+      throw new PaginationException(
+          "Недопустимое поле сортировки \"" + sortBy + "\". Допустимые поля: "
+              + String.join(", ", new TreeSet<>(allowedSortFields)));
+    }
 
     Sort sort = resolveSortDirection(sortBy, order);
     return PageRequest.of(page, size, sort);

@@ -38,6 +38,8 @@ import org.springframework.stereotype.Service;
 public class TicketManageService {
     private static final Logger logger = LoggerFactory.getLogger(TicketManageService.class);
 
+    private static final Set<String> SORTABLE_TICKET_FIELDS = Set.of("createdAt", "title", "ticketStatus", "ticketPriority");
+
     private final TicketDomainService ticketDomainService;
     private final CurrentUserProvider currentUserProvider;
     private final PortalDomainService portalDomainService;
@@ -116,7 +118,7 @@ public class TicketManageService {
         Objects.requireNonNull(portalId, "portalId не должен быть null");
         logger.debug("Запрос на получение тикетов — портал ID: {}, страница: {}, размер: {}, сортировка: {}, порядок: {}", portalId, page, size, sortBy, order);
 
-        PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order);
+        PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order, SORTABLE_TICKET_FIELDS);
         Page<TicketModel> ticketPage = ticketDomainService.getTicketsPageByPortalId(portalId, pageRequest);
 
         Page<TicketResponseOld> mappedPage = ticketPage.map(TicketMapper::toResponse);
@@ -130,7 +132,7 @@ public class TicketManageService {
 
         logger.debug("Запрос на получение тикетов по автору — страница: {}, размер: {}, сортировка: {}, порядок: {}", page, size, sortBy, order);
 
-        PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order);
+        PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order, SORTABLE_TICKET_FIELDS);
         UserModel user = currentUserProvider.getCurrentUserModel();
 
         Page<TicketModel> ticketPage = ticketDomainService.getTicketsPageByUserId(user.getId(), pageRequest);
@@ -146,7 +148,7 @@ public class TicketManageService {
         Objects.requireNonNull(ids, "ids не должен быть null");
         logger.debug("Запрос на получение тикетов по ID — количество: {}, страница: {}, размер: {}, сортировка: {}, порядок: {}", ids.size(), page, size, sortBy, order);
 
-        PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order);
+        PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order, SORTABLE_TICKET_FIELDS);
         Page<TicketModel> ticketPage = ticketDomainService.getTicketsByIds(ids, pageRequest);
 
         Page<TicketResponseOld> mappedPage = ticketPage.map(TicketMapper::toResponse);
