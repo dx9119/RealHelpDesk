@@ -57,7 +57,9 @@ public class PortalModel {
 
     @PrePersist
     public void setCreatedAt() {
-        this.createdAt = Instant.now();
+        if (this.createdAt == null) {
+            this.createdAt = Instant.now();
+        }
     }
 
     public void setCreatedAt(Instant createdAt) {
