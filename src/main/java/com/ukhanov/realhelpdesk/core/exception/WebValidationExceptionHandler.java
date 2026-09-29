@@ -10,6 +10,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -40,6 +41,24 @@ public class WebValidationExceptionHandler {
         responseBody.put("Ошибка", "Некорректный запрос");
         responseBody.put("Описание", "Не верный логин или пароль");
         responseBody.put("Подробнее про ошибки", validationErrors);
+        responseBody.put("Путь", request.getDescription(false).replace("uri=", ""));
+
+        return new ResponseEntity<>(responseBody, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, Object>> handleTypeMismatch(MethodArgumentTypeMismatchException ex, WebRequest request) {
+        logger.warn("Некорректное значение параметра '{}': {}", ex.getName(), ex.getValue());
+
+        Map<String, Object> responseBody = new HashMap<>();
+        responseBody.put("Время", Instant.now().toString());
+        responseBody.put("HTTP статус", HttpStatus.BAD_REQUEST.value());
+        responseBody.put("Ошибка", "Некорректный параметр запроса");
+        responseBody.put("Параметр", ex.getName());
+        responseBody.put("Значение", String.valueOf(ex.getValue()));
+        if (ex.getRequiredType() != null) {
+            responseBody.put("Ожидаемый тип", ex.getRequiredType().getSimpleName());
+        }
         responseBody.put("Путь", request.getDescription(false).replace("uri=", ""));
 
         return new ResponseEntity<>(responseBody, HttpStatus.BAD_REQUEST);
