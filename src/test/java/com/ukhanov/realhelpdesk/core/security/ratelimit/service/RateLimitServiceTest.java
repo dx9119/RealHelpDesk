@@ -1,9 +1,9 @@
 package com.ukhanov.realhelpdesk.core.security.ratelimit.service;
 
+import java.time.Duration;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
-import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -18,14 +18,14 @@ class RateLimitServiceTest {
     }
 
     @Test
-    void запросыВПределахЛимитаПропускаются() {
+    void requestsWithinLimit_passThrough() {
         for (int i = 1; i <= 3; i++) {
             assertTrue(service.check("key", 3, Duration.ofMinutes(1)).allowed(), "запрос " + i);
         }
     }
 
     @Test
-    void ЧетвертыйЗапросБлокируетсяСRetryAfter() {
+    void fourthRequest_blockedWithRetryAfter() {
         service.check("key", 3, Duration.ofMinutes(1));
         service.check("key", 3, Duration.ofMinutes(1));
         service.check("key", 3, Duration.ofMinutes(1));
@@ -38,7 +38,7 @@ class RateLimitServiceTest {
     }
 
     @Test
-    void РазныеКлючиНеЗависятДругОтДруга() {
+    void differentKeys_areIndependent() {
         for (int i = 1; i <= 3; i++) {
             service.check("ip1", 3, Duration.ofMinutes(1));
         }
@@ -48,7 +48,7 @@ class RateLimitServiceTest {
     }
 
     @Test
-    void СоСпособомЗапросаКлючиНеЗависят() {
+    void sameRequestMethod_keysAreIndependent() {
         for (int i = 1; i <= 2; i++) {
             service.check("ip|POST /api/v1/auth/login", 2, Duration.ofMinutes(1));
         }
@@ -58,7 +58,7 @@ class RateLimitServiceTest {
     }
 
     @Test
-    void СтрокоОкнаСбрасывается() throws InterruptedException {
+    void slidingWindow_resets() throws InterruptedException {
         assertTrue(service.check("key", 1, Duration.ofMillis(30)).allowed());
         assertFalse(service.check("key", 1, Duration.ofMillis(30)).allowed());
 
@@ -68,7 +68,7 @@ class RateLimitServiceTest {
     }
 
     @Test
-    void ResetОчищаетСчетчики() {
+    void reset_clearsCounters() {
         for (int i = 1; i <= 2; i++) {
             service.check("key", 2, Duration.ofMinutes(1));
         }

@@ -1,32 +1,22 @@
 package com.ukhanov.realhelpdesk.core.config;
 
-import com.ukhanov.realhelpdesk.core.filter.JwtAuthFilter;
-import com.ukhanov.realhelpdesk.core.filter.LoggingFilter;
-import com.ukhanov.realhelpdesk.core.security.user.service.CustomUserDetailsService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod; // Correct import for HttpMethod
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
-import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
-import org.springframework.util.AntPathMatcher;
-import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.Arrays;
-import java.util.List; // For List.of()
+import com.ukhanov.realhelpdesk.core.filter.JwtAuthFilter;
+import com.ukhanov.realhelpdesk.core.filter.LoggingFilter;
+
+// For List.of()
 
 @Configuration
 @EnableWebSecurity
@@ -37,13 +27,12 @@ public class WebSecurityConfiguration {
     private final LoggingFilter loggingFilter;
     private final CorsConfigurationSource corsConfigurationSource;
 
-    public WebSecurityConfiguration(JwtAuthFilter jwtAuthFilter,
-        LoggingFilter loggingFilter, CorsConfigurationSource corsConfigurationSource) {
+    public WebSecurityConfiguration(JwtAuthFilter jwtAuthFilter, LoggingFilter loggingFilter,
+            CorsConfigurationSource corsConfigurationSource) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.loggingFilter = loggingFilter;
-      this.corsConfigurationSource = corsConfigurationSource;
+        this.corsConfigurationSource = corsConfigurationSource;
     }
-
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -54,21 +43,20 @@ public class WebSecurityConfiguration {
         http.cors(cors -> cors.configurationSource(corsConfigurationSource));
         // Доступ
         http.authorizeHttpRequests(authorize -> authorize
-            // 1. Разрешаем все OPTIONS запросы БЕЗ АУТЕНТИКАЦИИ для Preflight запросов
-            .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                // 1. Разрешаем все OPTIONS запросы БЕЗ АУТЕНТИКАЦИИ для Preflight запросов
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-            // 2. Разрешаем доступ к публичным URL
-            // Эти пути не будут требовать JWT токена
-            .requestMatchers(WhiteUrlConfig.WHITE_LIST_URLS.toArray(String[]::new)).permitAll()
+                // 2. Разрешаем доступ к публичным URL
+                // Эти пути не будут требовать JWT токена
+                .requestMatchers(WhiteUrlConfig.WHITE_LIST_URLS.toArray(String[]::new)).permitAll()
 
-            // 3. Все остальные запросы требуют аутентификации.
-            .anyRequest().authenticated());
+                // 3. Все остальные запросы требуют аутентификации.
+                .anyRequest().authenticated());
 
         http.headers(Customizer.withDefaults());
         http.anonymous(AbstractHttpConfigurer::disable);
         http.csrf(AbstractHttpConfigurer::disable);
-        http.sessionManagement(sessionManagement -> sessionManagement
-            .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+        http.sessionManagement(sessionManagement -> sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
         return http.build();
     }

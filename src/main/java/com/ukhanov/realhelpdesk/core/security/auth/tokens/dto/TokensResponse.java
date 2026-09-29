@@ -19,7 +19,6 @@ public class TokensResponse {
         return new Builder();
     }
 
-
     public static class Builder {
         private String accessToken;
         private String refreshToken;
@@ -71,10 +70,7 @@ public class TokensResponse {
 
     @Override
     public String toString() {
-        return "TokensResponse{" +
-                "accessToken='" + "***" + '\'' +
-                ", refreshToken='" + "***" + '\'' +
-                ", message='" + message + '\'' +
-                '}';
+        return "TokensResponse{" + "accessToken='" + "***" + '\'' + ", refreshToken='" + "***" + '\'' + ", message='" + message + '\''
+                + '}';
     }
 }

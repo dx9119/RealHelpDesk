@@ -1,17 +1,19 @@
 package com.ukhanov.realhelpdesk.domain.portal.service;
 
-import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
-import com.ukhanov.realhelpdesk.domain.portal.repository.PortalRepository;
-import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
+import java.util.List;
+import java.util.Objects;
+
 import jakarta.transaction.Transactional;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.Objects;
+import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
+import com.ukhanov.realhelpdesk.domain.portal.repository.PortalRepository;
+import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 
 @Service
 public class PortalDomainService {
@@ -39,8 +41,7 @@ public class PortalDomainService {
     public PortalModel getPortalById(Long portalId) throws PortalException {
         Objects.requireNonNull(portalId, "portalId must not be null");
         logger.debug("Получен портал ID: {}", portalId);
-        return portalRepository.findById(portalId)
-                .orElseThrow(() -> new PortalException("Портал с ID " + portalId + " не найден"));
+        return portalRepository.findById(portalId).orElseThrow(() -> new PortalException("Портал с ID " + portalId + " не найден"));
     }
 
     @Transactional
@@ -75,7 +76,7 @@ public class PortalDomainService {
         return portalRepository.findAllAccessibleByUserId(userId);
     }
 
-    public List<Long> getPublicPortalsByUserActivity(Long userId){
+    public List<Long> getPublicPortalsByUserActivity(Long userId) {
         Objects.requireNonNull(userId, "userId не должен быть null");
         logger.info("Получение публичных порталов по активности пользователя с ID: {}", userId);
         return portalRepository.findPublicPortalIdsWithUserTickets(userId);

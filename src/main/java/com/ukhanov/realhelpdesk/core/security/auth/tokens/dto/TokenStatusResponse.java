@@ -1,10 +1,10 @@
 package com.ukhanov.realhelpdesk.core.security.auth.tokens.dto;
 
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenStatus;
-
 import java.time.Instant;
 
-public class TokenStatusResponse {
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenStatus;
+
+public final class TokenStatusResponse {
 
     private TokenStatus tokenStatus;
     private Instant createdAt;

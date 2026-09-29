@@ -1,17 +1,18 @@
 package com.ukhanov.realhelpdesk.core.filter;
 
+import java.io.IOException;
+import java.security.SecureRandom;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-
-import java.io.IOException;
-import java.security.SecureRandom;
 
 @Component
 public class LoggingFilter extends OncePerRequestFilter {
@@ -25,9 +26,7 @@ public class LoggingFilter extends OncePerRequestFilter {
     public static final String URI_REQUEST = "uriRequest";
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain filterChain)
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
         String requestId = request.getHeader("X-Request-ID");
@@ -39,21 +38,17 @@ public class LoggingFilter extends OncePerRequestFilter {
         MDC.put(CLIENT_IP, getClientIpAddress(request));
         MDC.put(URI_REQUEST, getFullUrl(request));
 
-        logger.info("Входящий запрос: [{}]",
-                request.getMethod());
+        logger.info("Входящий запрос: [{}]", request.getMethod());
 
         try {
             filterChain.doFilter(request, response);
 
-            logger.info("Исходящий запрос: [{}] HTTP статус: [{}]",
-                    request.getMethod(),
-                    response.getStatus());
+            logger.info("Исходящий запрос: [{}] HTTP статус: [{}]", request.getMethod(), response.getStatus());
 
         } finally {
             MDC.clear();
         }
     }
-
 
     private String getClientIpAddress(HttpServletRequest request) {
         String ip = request.getHeader("X-Forwarded-For");

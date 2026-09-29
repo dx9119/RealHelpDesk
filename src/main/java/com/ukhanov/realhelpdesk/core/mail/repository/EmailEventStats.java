@@ -6,4 +6,3 @@ public interface EmailEventStats {
     NotificationEvent getEvent();
     Long getCount();
 }
-

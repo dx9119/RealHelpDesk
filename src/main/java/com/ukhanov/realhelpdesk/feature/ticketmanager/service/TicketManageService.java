@@ -1,8 +1,24 @@
 package com.ukhanov.realhelpdesk.feature.ticketmanager.service;
 
+import java.io.UnsupportedEncodingException;
+import java.time.Instant;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+
+import jakarta.mail.MessagingException;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+
 import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
+import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
+import com.ukhanov.realhelpdesk.core.pagination.service.PaginationAdapter;
 import com.ukhanov.realhelpdesk.core.security.accesscontrol.TicketAccessValidationService;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
@@ -14,25 +30,12 @@ import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 import com.ukhanov.realhelpdesk.domain.ticket.repository.TicketRepository;
 import com.ukhanov.realhelpdesk.domain.ticket.service.TicketDomainService;
-import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
-import com.ukhanov.realhelpdesk.core.pagination.service.PaginationAdapter;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketRequest;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketResponse;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponseOld;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.mapper.TicketMapper;
-import jakarta.mail.MessagingException;
-
-import java.io.UnsupportedEncodingException;
-import java.time.Instant;
-import java.util.*;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Service;
 
 @Service
 public class TicketManageService {
@@ -49,18 +52,15 @@ public class TicketManageService {
 
     private final TicketRepository ticketRepository;
 
-    public TicketManageService(TicketDomainService ticketDomainService,
-                               CurrentUserProvider currentUserProvider,
-                               PortalDomainService portalDomainService,
-                               PaginationAdapter paginationAdapter, EmailDeliveryService emailDeliveryService,
-                               TicketAccessValidationService ticketAccessValidationService,
-                               TicketRepository ticketRepository) {
+    public TicketManageService(TicketDomainService ticketDomainService, CurrentUserProvider currentUserProvider,
+            PortalDomainService portalDomainService, PaginationAdapter paginationAdapter, EmailDeliveryService emailDeliveryService,
+            TicketAccessValidationService ticketAccessValidationService, TicketRepository ticketRepository) {
         this.ticketDomainService = ticketDomainService;
         this.currentUserProvider = currentUserProvider;
         this.portalDomainService = portalDomainService;
-      this.paginationAdapter = paginationAdapter;
-      this.emailDeliveryService = emailDeliveryService;
-      this.ticketAccessValidationService = ticketAccessValidationService;
+        this.paginationAdapter = paginationAdapter;
+        this.emailDeliveryService = emailDeliveryService;
+        this.ticketAccessValidationService = ticketAccessValidationService;
         this.ticketRepository = ticketRepository;
     }
 
@@ -86,16 +86,9 @@ public class TicketManageService {
         TicketModel ticket = TicketMapper.fromRequest(request, user, portal);
         TicketModel saved = ticketDomainService.saveTicket(ticket);
 
-
         // Отправляем письмо с оповещением о создании заявки всем пользователям портала
-        emailDeliveryService.initNotifyPortalUsers(
-            portal,
-            EmailTemplates.ticketCreatedSubject(ticket.getId()),
-            EmailTemplates.ticketCreatedBody(ticket.getId(), portal.getId()),
-            NotificationEvent.NEW_TICKET
-        );
-
-
+        emailDeliveryService.initNotifyPortalUsers(portal, EmailTemplates.ticketCreatedSubject(ticket.getId()),
+                EmailTemplates.ticketCreatedBody(ticket.getId(), portal.getId()), NotificationEvent.NEW_TICKET);
 
         return new CreateTicketResponse("Тикет создан с ID: " + saved.getId());
 
@@ -107,16 +100,15 @@ public class TicketManageService {
 
         List<TicketModel> tickets = ticketDomainService.getTicketsByPortalId(portalId);
 
-        return tickets.stream()
-                .map(TicketMapper::toResponse)
-                .toList();
+        return tickets.stream().map(TicketMapper::toResponse).toList();
     }
 
     public PageResponse<TicketResponseOld> getPageTickets(Long portalId, int page, int size, String sortBy, String order)
             throws TicketException, PortalException {
 
         Objects.requireNonNull(portalId, "portalId не должен быть null");
-        logger.debug("Запрос на получение тикетов — портал ID: {}, страница: {}, размер: {}, сортировка: {}, порядок: {}", portalId, page, size, sortBy, order);
+        logger.debug("Запрос на получение тикетов — портал ID: {}, страница: {}, размер: {}, сортировка: {}, порядок: {}", portalId, page,
+                size, sortBy, order);
 
         PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order, SORTABLE_TICKET_FIELDS);
         Page<TicketModel> ticketPage = ticketDomainService.getTicketsPageByPortalId(portalId, pageRequest);
@@ -125,12 +117,11 @@ public class TicketManageService {
         return paginationAdapter.mapToResponse(mappedPage, sortBy, order);
     }
 
-
-
     public PageResponse<TicketResponseOld> getPageTicketsByAutor(int page, int size, String sortBy, String order)
             throws TicketException, PortalException {
 
-        logger.debug("Запрос на получение тикетов по автору — страница: {}, размер: {}, сортировка: {}, порядок: {}", page, size, sortBy, order);
+        logger.debug("Запрос на получение тикетов по автору — страница: {}, размер: {}, сортировка: {}, порядок: {}", page, size, sortBy,
+                order);
 
         PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order, SORTABLE_TICKET_FIELDS);
         UserModel user = currentUserProvider.getCurrentUserModel();
@@ -141,12 +132,11 @@ public class TicketManageService {
         return paginationAdapter.mapToResponse(mappedPage, sortBy, order);
     }
 
-
-
     public PageResponse<TicketResponseOld> getPageTicketsByIds(Set<Long> ids, int page, int size, String sortBy, String order)
             throws TicketException, PortalException {
         Objects.requireNonNull(ids, "ids не должен быть null");
-        logger.debug("Запрос на получение тикетов по ID — количество: {}, страница: {}, размер: {}, сортировка: {}, порядок: {}", ids.size(), page, size, sortBy, order);
+        logger.debug("Запрос на получение тикетов по ID — количество: {}, страница: {}, размер: {}, сортировка: {}, порядок: {}",
+                ids.size(), page, size, sortBy, order);
 
         PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order, SORTABLE_TICKET_FIELDS);
         Page<TicketModel> ticketPage = ticketDomainService.getTicketsByIds(ids, pageRequest);
@@ -154,7 +144,6 @@ public class TicketManageService {
         Page<TicketResponseOld> mappedPage = ticketPage.map(TicketMapper::toResponse);
         return paginationAdapter.mapToResponse(mappedPage, sortBy, order);
     }
-
 
     public Set<Long> getIdTicketNoAnswer(Long portalId) {
         Objects.requireNonNull(portalId, "portalId не должен быть null");
@@ -165,7 +154,6 @@ public class TicketManageService {
         return ticketIds;
     }
 
-
     public Set<Long> getIdTicketWithStatus(Long portalId, TicketStatus status) {
         Objects.requireNonNull(portalId, "portalId не должен быть null");
         Objects.requireNonNull(status, "status не должен быть null");
@@ -174,7 +162,6 @@ public class TicketManageService {
 
         return ticketDomainService.getIdTicketWithStatus(portalId, status);
     }
-
 
     public void setTicketStatus(Long portalId, Long ticketId, TicketStatus status)
             throws TicketException, PortalException, MessagingException, UnsupportedEncodingException {
@@ -194,16 +181,11 @@ public class TicketManageService {
         ticket.setTicketStatus(status);
         TicketModel ticketSaved = ticketDomainService.saveTicket(ticket);
 
-
         // Отправляем письмо
-        emailDeliveryService.initNotifyPortalUsers(
-                portalDomainService.getPortalById(portalId),
-                EmailTemplates.updateStatusTicketSubject(ticketSaved.getId(),status),
-                EmailTemplates.updateStatusTicketBody(ticketSaved.getId(),portalId),
-                NotificationEvent.CHANGE_TICKET
-        );
+        emailDeliveryService.initNotifyPortalUsers(portalDomainService.getPortalById(portalId),
+                EmailTemplates.updateStatusTicketSubject(ticketSaved.getId(), status),
+                EmailTemplates.updateStatusTicketBody(ticketSaved.getId(), portalId), NotificationEvent.CHANGE_TICKET);
     }
-
 
     public void setTicketPriority(Long portalId, Long ticketId, TicketPriority priority)
             throws TicketException, PortalException, MessagingException, UnsupportedEncodingException {
@@ -212,7 +194,8 @@ public class TicketManageService {
         Objects.requireNonNull(ticketId, "ticketId не должен быть null");
         Objects.requireNonNull(priority, "priority не должен быть null");
 
-        logger.debug("Запрос на обновление приоритета тикета. Портал ID: {}, Тикет ID: {}, Новый приоритет: {}", portalId, ticketId, priority);
+        logger.debug("Запрос на обновление приоритета тикета. Портал ID: {}, Тикет ID: {}, Новый приоритет: {}", portalId, ticketId,
+                priority);
 
         TicketModel ticket = ticketDomainService.findTicketById(ticketId);
 
@@ -225,18 +208,14 @@ public class TicketManageService {
         PortalModel portal = portalDomainService.getPortalById(portalId);
 
         // Отправляем письмо
-        emailDeliveryService.initNotifyPortalUsers(
-                portal,
-                EmailTemplates.updatePriorityTicketSubject(ticketSaved.getId(),priority),
-                EmailTemplates.updatePriorityTicketBody(ticketSaved.getId(),portal.getId()),
-                NotificationEvent.CHANGE_TICKET
-        );
+        emailDeliveryService.initNotifyPortalUsers(portal, EmailTemplates.updatePriorityTicketSubject(ticketSaved.getId(), priority),
+                EmailTemplates.updatePriorityTicketBody(ticketSaved.getId(), portal.getId()), NotificationEvent.CHANGE_TICKET);
     }
 
-
-    public void deleteTicket (Long ticketID, Long portalId) throws TicketException, PortalException, MessagingException, UnsupportedEncodingException {
-        Objects.requireNonNull(ticketID,"ticketID не должен быть null");
-        Objects.requireNonNull(portalId,"portalId не должен быть null");
+    public void deleteTicket(Long ticketID, Long portalId)
+            throws TicketException, PortalException, MessagingException, UnsupportedEncodingException {
+        Objects.requireNonNull(ticketID, "ticketID не должен быть null");
+        Objects.requireNonNull(portalId, "portalId не должен быть null");
 
         if (!ticketAccessValidationService.hasTicketChange(portalId, ticketID)) {
             throw new TicketException("Вы не можете удалять данную заявку");
@@ -251,30 +230,9 @@ public class TicketManageService {
         TicketModel ticketSaved = ticketRepository.save(ticket);
 
         // Отправляем письмо
-        emailDeliveryService.initNotifyPortalUsers(
-                portalDomainService.getPortalById(portalId),
-                EmailTemplates.deletedTicketSubject(ticketID),
-                EmailTemplates.deletedTicketBody(ticketID,user.getEmail()),
-                NotificationEvent.TICKET_DELETED
-        );
+        emailDeliveryService.initNotifyPortalUsers(portalDomainService.getPortalById(portalId),
+                EmailTemplates.deletedTicketSubject(ticketID), EmailTemplates.deletedTicketBody(ticketID, user.getEmail()),
+                NotificationEvent.TICKET_DELETED);
     }
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

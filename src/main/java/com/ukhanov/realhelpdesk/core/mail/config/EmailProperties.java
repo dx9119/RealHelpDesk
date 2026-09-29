@@ -6,23 +6,22 @@ import org.springframework.stereotype.Component;
 @Component
 @ConfigurationProperties(prefix = "email")
 public class EmailProperties {
-  private String notify;
-  private String from;
+    private String notify;
+    private String from;
 
-  public String getNotify() {
-    return notify;
-  }
+    public String getNotify() {
+        return notify;
+    }
 
-  public void setNotify(String notify) {
-    this.notify = notify;
-  }
+    public void setNotify(String notify) {
+        this.notify = notify;
+    }
 
-  public String getFrom() {
-    return from;
-  }
+    public String getFrom() {
+        return from;
+    }
 
-  public void setFrom(String from) {
-    this.from = from;
-  }
+    public void setFrom(String from) {
+        this.from = from;
+    }
 }
-

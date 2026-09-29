@@ -1,11 +1,24 @@
 package com.ukhanov.realhelpdesk.core.security.user.model;
 
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.RefreshTokenModel;
-import jakarta.persistence.*;
-
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
+import jakarta.persistence.Version;
+
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.RefreshTokenModel;
 
 @Entity
 @Table(name = "users")
@@ -14,7 +27,7 @@ public class UserModel {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private Long externalId = 0L; //ID пользователя от внешних интеграций (телеграмм бот, например).
+    private Long externalId = 0L; // ID пользователя от внешних интеграций (телеграмм бот, например).
 
     @Column(nullable = false)
     private String firstName;
@@ -26,7 +39,7 @@ public class UserModel {
     private String middleName; // Отчество пользователя
 
     @Column(nullable = true, length = 5000)
-    String AdditionalInfo;
+    String additionalInfo;
 
     @Column(unique = true, nullable = false)
     private String email;
@@ -76,16 +89,9 @@ public class UserModel {
 
     @Override
     public String toString() {
-        return "UserModel{" +
-            "createdAt=" + createdAt +
-            ", userRole=" + userRole +
-            ", id=" + id +
-            ", firstName='" + firstName + '\'' +
-            ", lastName='" + lastName + '\'' +
-            ", middleName='" + middleName + '\'' +
-            ", email='" + email + '\'' +
-            ", userStatus=" + userStatus +
-            '}';
+        return "UserModel{" + "createdAt=" + createdAt + ", userRole=" + userRole + ", id=" + id + ", firstName='" + firstName + '\''
+                + ", lastName='" + lastName + '\'' + ", middleName='" + middleName + '\'' + ", email='" + email + '\'' + ", userStatus="
+                + userStatus + '}';
     }
 
     public Long getId() {
@@ -117,15 +123,14 @@ public class UserModel {
     }
 
     public void setAdditionalInfo(String additionalInfo) {
-        AdditionalInfo = additionalInfo;
+        this.additionalInfo = additionalInfo;
     }
 
     public UserPlatformSource getUserExternalSource() {
         return userPlatformSource;
     }
 
-    public void setUserExternalSource(
-        UserPlatformSource userPlatformSource) {
+    public void setUserExternalSource(UserPlatformSource userPlatformSource) {
         this.userPlatformSource = userPlatformSource;
     }
 
@@ -166,7 +171,7 @@ public class UserModel {
     }
 
     public String getAdditionalInfo() {
-        return AdditionalInfo;
+        return additionalInfo;
     }
 
     public UserPlatformSource getUserPlatformSource() {
@@ -201,8 +206,8 @@ public class UserModel {
         this.userRole = userRole;
     }
 
-    public String getFullName(){
-        return this.firstName+" "+ this.lastName+" "+ this.middleName;
+    public String getFullName() {
+        return this.firstName + " " + this.lastName + " " + this.middleName;
     }
 
     public UserStatus getUserStatus() {
@@ -234,19 +239,19 @@ public class UserModel {
         this.externalId = externalId;
     }
 
-  public Integer getPortalCuntLimit() {
-    return portalCuntLimit;
-  }
+    public Integer getPortalCuntLimit() {
+        return portalCuntLimit;
+    }
 
-  public void setPortalCuntLimit(Integer portalCuntLimit) {
-    this.portalCuntLimit = portalCuntLimit;
-  }
+    public void setPortalCuntLimit(Integer portalCuntLimit) {
+        this.portalCuntLimit = portalCuntLimit;
+    }
 
-  public Integer getPortalSharedUsersCountLimit() {
-    return portalSharedUsersCountLimit;
-  }
+    public Integer getPortalSharedUsersCountLimit() {
+        return portalSharedUsersCountLimit;
+    }
 
-  public void setPortalSharedUsersCountLimit(Integer portalSharedUsersCountLimit) {
-    this.portalSharedUsersCountLimit = portalSharedUsersCountLimit;
-  }
+    public void setPortalSharedUsersCountLimit(Integer portalSharedUsersCountLimit) {
+        this.portalSharedUsersCountLimit = portalSharedUsersCountLimit;
+    }
 }

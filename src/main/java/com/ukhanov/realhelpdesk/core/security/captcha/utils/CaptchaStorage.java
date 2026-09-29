@@ -8,7 +8,7 @@ public final class CaptchaStorage {
 
     static long ttlMillis = java.util.concurrent.TimeUnit.MINUTES.toMillis(5);
 
-    private static final Map<String, Entry> captchaMap = new ConcurrentHashMap<>();
+    private static final Map<String, Entry> CAPTCHA_MAP = new ConcurrentHashMap<>();
 
     private record Entry(String code, long expiresAt) {
     }
@@ -18,23 +18,23 @@ public final class CaptchaStorage {
 
     public static void put(String capId, String code) {
         purgeExpired();
-        captchaMap.put(capId, new Entry(code, System.currentTimeMillis() + ttlMillis));
+        CAPTCHA_MAP.put(capId, new Entry(code, System.currentTimeMillis() + ttlMillis));
     }
 
     public static String get(String capId) {
-        Entry entry = captchaMap.get(capId);
+        Entry entry = CAPTCHA_MAP.get(capId);
         if (entry == null) {
             return null;
         }
         if (isExpired(entry)) {
-            captchaMap.remove(capId);
+            CAPTCHA_MAP.remove(capId);
             return null;
         }
         return entry.code();
     }
 
     public static String remove(String capId) {
-        Entry entry = captchaMap.remove(capId);
+        Entry entry = CAPTCHA_MAP.remove(capId);
         return entry == null || isExpired(entry) ? null : entry.code();
     }
 
@@ -44,7 +44,7 @@ public final class CaptchaStorage {
 
     private static void purgeExpired() {
         long now = System.currentTimeMillis();
-        Iterator<Map.Entry<String, Entry>> iterator = captchaMap.entrySet().iterator();
+        Iterator<Map.Entry<String, Entry>> iterator = CAPTCHA_MAP.entrySet().iterator();
         while (iterator.hasNext()) {
             if (now > iterator.next().getValue().expiresAt()) {
                 iterator.remove();

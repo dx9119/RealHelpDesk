@@ -4,20 +4,20 @@ import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 
 public class EmailInfoResponse {
 
-  public EmailInfoResponse() {
-  }
+    public EmailInfoResponse() {
+    }
 
-  private NotificationEvent muteLevel;
+    private NotificationEvent muteLevel;
 
-  public EmailInfoResponse(NotificationEvent muteLevel) {
-    this.muteLevel = muteLevel;
-  }
+    public EmailInfoResponse(NotificationEvent muteLevel) {
+        this.muteLevel = muteLevel;
+    }
 
-  public NotificationEvent getMuteLevel() {
-    return muteLevel;
-  }
+    public NotificationEvent getMuteLevel() {
+        return muteLevel;
+    }
 
-  public void setMuteLevel(NotificationEvent muteLevel) {
-    this.muteLevel = muteLevel;
-  }
+    public void setMuteLevel(NotificationEvent muteLevel) {
+        this.muteLevel = muteLevel;
+    }
 }

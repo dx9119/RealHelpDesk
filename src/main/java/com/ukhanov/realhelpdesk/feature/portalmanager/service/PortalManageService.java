@@ -1,8 +1,31 @@
 package com.ukhanov.realhelpdesk.feature.portalmanager.service;
 
+import java.io.UnsupportedEncodingException;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
+
+import jakarta.mail.MessagingException;
+import jakarta.persistence.OptimisticLockException;
+import jakarta.transaction.Transactional;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+
 import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
+import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
+import com.ukhanov.realhelpdesk.core.pagination.service.PaginationAdapter;
 import com.ukhanov.realhelpdesk.core.security.accesscontrol.AccessValidationService;
 import com.ukhanov.realhelpdesk.core.security.limiter.exception.LimitException;
 import com.ukhanov.realhelpdesk.core.security.limiter.service.LimitService;
@@ -22,30 +45,7 @@ import com.ukhanov.realhelpdesk.feature.portalmanager.dto.UpdatePortalInfoReques
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.UserInfo;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.portalmanager.mapper.PortalMapper;
-import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
-import com.ukhanov.realhelpdesk.core.pagination.service.PaginationAdapter;
-
-import java.io.UnsupportedEncodingException;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Stream;
-
 import com.ukhanov.realhelpdesk.feature.usermanager.exception.UserManageException;
-import jakarta.mail.MessagingException;
-import jakarta.persistence.OptimisticLockException;
-import jakarta.transaction.Transactional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.stereotype.Service;
-
-import java.util.List;
-import java.util.Objects;
 
 @Service
 public class PortalManageService {
@@ -53,7 +53,6 @@ public class PortalManageService {
     private static final Logger logger = LoggerFactory.getLogger(PortalManageService.class);
 
     private static final Set<String> SORTABLE_PORTAL_FIELDS = Set.of("createdAt", "name");
-
 
     private final CurrentUserProvider currentUserProvider;
     private final PortalDomainService portalDomainService;
@@ -64,20 +63,16 @@ public class PortalManageService {
     private final UserDomainService userDomainService;
     private final EmailDeliveryService emailDeliveryService;
 
-    public PortalManageService(
-            CurrentUserProvider currentUserProvider,
-            PortalDomainService portalDomainService,
-            PaginationAdapter paginationAdapter, PortalUtilsService portalUtilsService,
-            AccessValidationService accessValidationService, LimitService limitService,
-            UserDomainService userDomainService, EmailDeliveryService emailDeliveryService)
-    {
+    public PortalManageService(CurrentUserProvider currentUserProvider, PortalDomainService portalDomainService,
+            PaginationAdapter paginationAdapter, PortalUtilsService portalUtilsService, AccessValidationService accessValidationService,
+            LimitService limitService, UserDomainService userDomainService, EmailDeliveryService emailDeliveryService) {
         this.currentUserProvider = currentUserProvider;
         this.portalDomainService = portalDomainService;
         this.paginationAdapter = paginationAdapter;
         this.portalUtilsService = portalUtilsService;
         this.accessValidationService = accessValidationService;
-      this.limitService = limitService;
-      this.userDomainService = userDomainService;
+        this.limitService = limitService;
+        this.userDomainService = userDomainService;
         this.emailDeliveryService = emailDeliveryService;
     }
 
@@ -86,19 +81,18 @@ public class PortalManageService {
         logger.debug("Получен запрос на создание портала: {}", request);
         Objects.requireNonNull(request, "Запрос на создание портала не должен быть null");
 
-
         UserModel userModel = currentUserProvider.getCurrentUserModel();
         PortalModel portal = PortalMapper.toEntity(request, userModel);
 
-        if(!userModel.isEmailVerified()){
+        if (!userModel.isEmailVerified()) {
             throw new UserManageException("Подтвердите ваш адрес электронной почты, далее вы сможете создать портал");
         }
 
-        if(limitService.hasUserReachedPortalLimit(userModel)){
+        if (limitService.hasUserReachedPortalLimit(userModel)) {
             throw new LimitException("Пользователь достиг лимита на количество порталов");
         }
 
-        if(portalDomainService.isPortalExistByName(portal.getOwner().getId(), portal.getName())) {
+        if (portalDomainService.isPortalExistByName(portal.getOwner().getId(), portal.getName())) {
             throw new PortalException("Портал с именем '" + portal.getName() + "' уже существует");
         }
 
@@ -108,34 +102,24 @@ public class PortalManageService {
         logger.info("Портал создан для пользователя {} с именем '{}'", userModel.getId(), portal.getName());
 
         // Отправляем письмо
-        emailDeliveryService.initNotifyPortalUsers(
-                portal,
-                EmailTemplates.portalCreatedSubject(savePortal.getId()),
-                EmailTemplates.portalCreatedBody(savePortal.getId()),
-                NotificationEvent.NEW_PORTAL
-        );
+        emailDeliveryService.initNotifyPortalUsers(portal, EmailTemplates.portalCreatedSubject(savePortal.getId()),
+                EmailTemplates.portalCreatedBody(savePortal.getId()), NotificationEvent.NEW_PORTAL);
 
-        return new CreatePortalResponse("Портал создан, id:"+savePortal.getId().toString());
+        return new CreatePortalResponse("Портал создан, id:" + savePortal.getId().toString());
     }
 
     public List<PortalResponse> getAllPortals() {
         logger.debug("Получен запрос на получение всех порталов");
 
         UserModel userModel = currentUserProvider.getCurrentUserModel();
-        return portalDomainService.getPortalsByOwnerId(userModel.getId())
-                .stream()
-                .map(PortalMapper::toResponse)
-                .toList();
+        return portalDomainService.getPortalsByOwnerId(userModel.getId()).stream().map(PortalMapper::toResponse).toList();
     }
 
     public List<Long> getAllPortalIds() {
         logger.debug("Получен запрос на получение всех порталов и отображение их ID");
 
         UserModel userModel = currentUserProvider.getCurrentUserModel();
-        return portalDomainService.getPortalsByOwnerId(userModel.getId())
-                .stream()
-                .map(PortalModel::getId)
-                .toList();
+        return portalDomainService.getPortalsByOwnerId(userModel.getId()).stream().map(PortalModel::getId).toList();
     }
 
     public PageResponse<PortalResponse> getPagePortalsByOwner(int page, int size, String sortBy, String order) {
@@ -177,9 +161,8 @@ public class PortalManageService {
         return portalModel.isPublic();
     }
 
-    //todo добавить валидацию id
-    public void addUserForPortal(Long portalId, Set<Long> newAccessUserId)
-        throws PortalException, LimitException {
+    // todo добавить валидацию id
+    public void addUserForPortal(Long portalId, Set<Long> newAccessUserId) throws PortalException, LimitException {
         Objects.requireNonNull(portalId, "portalId не должен быть null");
         Objects.requireNonNull(newAccessUserId, "newAccessUserId не должен быть null");
 
@@ -215,7 +198,7 @@ public class PortalManageService {
                 userInfo.setEmail(user.getEmail());
 
                 userInfoList.add(userInfo);
-            } catch (UsernameNotFoundException e){
+            } catch (UsernameNotFoundException e) {
                 UserInfo userInfo = new UserInfo();
                 userInfo.setId(userId);
                 userInfo.setFirstName("Пользователь не существует");
@@ -226,10 +209,7 @@ public class PortalManageService {
             }
         }
 
-      return new PortalSettingsResponse(
-          userInfoList,
-          portal.isPublic()
-      );
+        return new PortalSettingsResponse(userInfoList, portal.isPublic());
     }
 
     @Transactional
@@ -248,12 +228,8 @@ public class PortalManageService {
                     deletedIds.add(id);
 
                     // Отправляем письмо
-                    emailDeliveryService.initNotifyPortalUsers(
-                            portal,
-                            EmailTemplates.deletedPortalSubject(portal.getId()),
-                            EmailTemplates.deletedPortalBody(portal.getId(), user.getEmail()),
-                            NotificationEvent.PORTAL_DELETED
-                    );
+                    emailDeliveryService.initNotifyPortalUsers(portal, EmailTemplates.deletedPortalSubject(portal.getId()),
+                            EmailTemplates.deletedPortalBody(portal.getId(), user.getEmail()), NotificationEvent.PORTAL_DELETED);
                 }
             } catch (Exception e) {
                 logger.debug("Не удалось удалить портал с ID: {}", id, e);
@@ -263,13 +239,10 @@ public class PortalManageService {
         return new DeleteResult(deletedIds.size(), deletedIds);
     }
 
-
     private List<PortalModel> getAccessiblePortals(Long userId) {
-        return Stream.concat(
-                portalDomainService.getPortalsByOwnerId(userId).stream(),
-                portalDomainService.getAllSharedPortals(userId).stream()
-            )
-            .toList();
+        return Stream
+                .concat(portalDomainService.getPortalsByOwnerId(userId).stream(), portalDomainService.getAllSharedPortals(userId).stream())
+                .toList();
     }
 
     public List<Long> getUserActivityInPublicPortals() {
@@ -279,31 +252,21 @@ public class PortalManageService {
 
     public List<Long> mapAccessiblePortalsToIds() {
         Long userId = currentUserProvider.getCurrentUserModel().getId();
-        return new ArrayList<>(
-                getAccessiblePortals(userId).stream()
-                        .map(PortalModel::getId)
-                        .toList()
-        );
+        return new ArrayList<>(getAccessiblePortals(userId).stream().map(PortalModel::getId).toList());
     }
-
 
     public List<PortalInfoResponse> mapAccessiblePortalsToInfo() {
         Long userId = currentUserProvider.getCurrentUserModel().getId();
-        return getAccessiblePortals(userId).stream()
-            .map(p -> new PortalInfoResponse(p.getId(), p.getName()))
-            .toList();
+        return getAccessiblePortals(userId).stream().map(p -> new PortalInfoResponse(p.getId(), p.getName())).toList();
     }
-
-
 
     public PortalInfoResponse getPortalInfo(Long portalId) throws PortalException {
         Objects.requireNonNull(portalId, "portalId не должен быть null");
 
         Long userId = currentUserProvider.getCurrentUserModel().getId();
         PortalModel portal = portalDomainService.getPortalById(portalId);
-        return new PortalInfoResponse(portal.getId(),portal.getName(),portal.getDescription());
+        return new PortalInfoResponse(portal.getId(), portal.getName(), portal.getDescription());
     }
-
 
     @Transactional
     public PortalInfoResponse updatePortalInfo(Long portalId, UpdatePortalInfoRequest request) throws PortalException {
@@ -317,10 +280,10 @@ public class PortalManageService {
             portalDomainService.savePortal(portal);
             logger.info("Портал {} обновлён: имя — {}, описание — {}", portal.getId(), portal.getName(), portal.getDescription());
             return new PortalInfoResponse(portal.getId(), portal.getName(), portal.getDescription());
-        } catch (OptimisticLockException e){
+        } catch (OptimisticLockException e) {
             logger.warn("Конфликт при обновлении портала {}: данные уже были изменены другим пользователем", portalId);
-            throw new PortalException("Данные портала были недавно изменены другим пользователем. Обновите страницу - получите актуальные данные и попробуйте снова.");
+            throw new PortalException("Данные портала были недавно изменены другим пользователем. "
+                    + "Обновите страницу - получите актуальные данные и попробуйте снова.");
         }
     }
 }
-

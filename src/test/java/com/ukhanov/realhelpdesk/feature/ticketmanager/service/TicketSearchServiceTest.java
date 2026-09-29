@@ -1,19 +1,17 @@
 package com.ukhanov.realhelpdesk.feature.ticketmanager.service;
 
-import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
-import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
-import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
-import com.ukhanov.realhelpdesk.domain.portal.repository.PortalRepository;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
-import com.ukhanov.realhelpdesk.domain.ticket.repository.TicketRepository;
-import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponse;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.*;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -23,25 +21,39 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.util.*;
+import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
+import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
+import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
+import com.ukhanov.realhelpdesk.domain.portal.repository.PortalRepository;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
+import com.ukhanov.realhelpdesk.domain.ticket.repository.TicketRepository;
+import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponse;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("Тесты сервиса TicketSearchService")
 class TicketSearchServiceTest {
 
-    @Mock private TicketRepository mockTicketRepository;
-    @Mock private PortalRepository mockPortalRepository;
-    @Mock private CurrentUserProvider mockCurrentUserProvider;
+    @Mock
+    private TicketRepository mockTicketRepository;
+    @Mock
+    private PortalRepository mockPortalRepository;
+    @Mock
+    private CurrentUserProvider mockCurrentUserProvider;
 
-    @Captor private ArgumentCaptor<Specification<TicketModel>> specCaptor;
+    @Captor
+    private ArgumentCaptor<Specification<TicketModel>> specCaptor;
 
     private TicketSearchService service;
 
@@ -80,15 +92,8 @@ class TicketSearchServiceTest {
         when(mockTicketRepository.findAll(any(Specification.class), eq(PAGEABLE))).thenReturn(page);
 
         // when
-        Page<TicketResponse> result = service.searchTickets(
-                "test search",
-                START_DATE,
-                END_DATE,
-                TicketStatus.OPEN,
-                TicketPriority.HIGH,
-                true,
-                PAGEABLE
-        );
+        Page<TicketResponse> result = service.searchTickets("test search", START_DATE, END_DATE, TicketStatus.OPEN, TicketPriority.HIGH,
+                true, PAGEABLE);
 
         // then
         assertThat(result.getContent()).hasSize(1);
@@ -119,22 +124,16 @@ class TicketSearchServiceTest {
     @DisplayName("searchTickets → owned порталы пустые, но есть allowed → поиск продолжается")
     void searchTickets_ownedEmptyButAllowedExists_searchContinues() {
         // given
-        when(mockPortalRepository.findAllByOwnerIdOrderByCreatedAtDesc(USER_ID))
-                .thenReturn(List.of()); // owned пустые
+        when(mockPortalRepository.findAllByOwnerIdOrderByCreatedAtDesc(USER_ID)).thenReturn(List.of()); // owned пустые
 
-        when(mockPortalRepository.findAllAccessibleByUserId(USER_ID))
-                .thenReturn(List.of(createPortal(5L))); // allowed есть
+        when(mockPortalRepository.findAllAccessibleByUserId(USER_ID)).thenReturn(List.of(createPortal(5L))); // allowed есть
 
-        when(mockPortalRepository.findPublicPortalIdsWithUserTickets(USER_ID))
-                .thenReturn(List.of());
+        when(mockPortalRepository.findPublicPortalIdsWithUserTickets(USER_ID)).thenReturn(List.of());
 
-        when(mockTicketRepository.findAll(any(Specification.class), eq(PAGEABLE)))
-                .thenReturn(Page.empty(PAGEABLE));
+        when(mockTicketRepository.findAll(any(Specification.class), eq(PAGEABLE))).thenReturn(Page.empty(PAGEABLE));
 
         // when
-        Page<TicketResponse> result = service.searchTickets(
-                null, null, null, null, null, false, PAGEABLE
-        );
+        Page<TicketResponse> result = service.searchTickets(null, null, null, null, null, false, PAGEABLE);
 
         // then
         assertThat(result).isEmpty();
@@ -146,19 +145,15 @@ class TicketSearchServiceTest {
     @DisplayName("searchTickets → все доступные порталы пустые → сразу возвращает пустую страницу")
     void searchTickets_noAccessiblePortalsAtAll_returnsEmptyWithoutQuery() {
         // given
-        when(mockPortalRepository.findAllByOwnerIdOrderByCreatedAtDesc(USER_ID))
-                .thenReturn(List.of());
+        when(mockPortalRepository.findAllByOwnerIdOrderByCreatedAtDesc(USER_ID)).thenReturn(List.of());
 
-        when(mockPortalRepository.findAllAccessibleByUserId(USER_ID))
-                .thenReturn(List.of());
+        when(mockPortalRepository.findAllAccessibleByUserId(USER_ID)).thenReturn(List.of());
 
-        when(mockPortalRepository.findPublicPortalIdsWithUserTickets(USER_ID))
-                .thenReturn(List.of());
+        when(mockPortalRepository.findPublicPortalIdsWithUserTickets(USER_ID)).thenReturn(List.of());
 
         // when
-        Page<TicketResponse> result = service.searchTickets(
-                "любой поиск", START_DATE, END_DATE, TicketStatus.OPEN, TicketPriority.HIGH, false, PAGEABLE
-        );
+        Page<TicketResponse> result = service.searchTickets("любой поиск", START_DATE, END_DATE, TicketStatus.OPEN, TicketPriority.HIGH,
+                false, PAGEABLE);
 
         // then
         assertThat(result).isEmpty();
@@ -170,16 +165,12 @@ class TicketSearchServiceTest {
     @DisplayName("searchTickets → все фильтры null, но есть порталы → ищет без ограничений")
     void searchTickets_allFiltersNull_butHasPortals_performsSearch() {
         // given
-        when(mockPortalRepository.findAllByOwnerIdOrderByCreatedAtDesc(USER_ID))
-                .thenReturn(List.of(createPortal(1L)));
+        when(mockPortalRepository.findAllByOwnerIdOrderByCreatedAtDesc(USER_ID)).thenReturn(List.of(createPortal(1L)));
 
-        when(mockTicketRepository.findAll(any(Specification.class), eq(PAGEABLE)))
-                .thenReturn(Page.empty(PAGEABLE));
+        when(mockTicketRepository.findAll(any(Specification.class), eq(PAGEABLE))).thenReturn(Page.empty(PAGEABLE));
 
         // when
-        Page<TicketResponse> result = service.searchTickets(
-                null, null, null, null, null, false, PAGEABLE
-        );
+        Page<TicketResponse> result = service.searchTickets(null, null, null, null, null, false, PAGEABLE);
 
         // then
         assertThat(result).isEmpty();
@@ -191,11 +182,9 @@ class TicketSearchServiceTest {
     @DisplayName("searchTickets → isMyTickets=true → фильтрует только по автору")
     void searchTickets_isMyTicketsTrue_addsAuthorFilter() {
         // given
-        when(mockPortalRepository.findAllByOwnerIdOrderByCreatedAtDesc(USER_ID))
-                .thenReturn(List.of(createPortal(1L)));
+        when(mockPortalRepository.findAllByOwnerIdOrderByCreatedAtDesc(USER_ID)).thenReturn(List.of(createPortal(1L)));
 
-        when(mockTicketRepository.findAll(any(Specification.class), eq(PAGEABLE)))
-                .thenReturn(Page.empty(PAGEABLE));
+        when(mockTicketRepository.findAll(any(Specification.class), eq(PAGEABLE))).thenReturn(Page.empty(PAGEABLE));
 
         // when
         service.searchTickets("bug", null, null, null, null, true, PAGEABLE);
@@ -203,7 +192,6 @@ class TicketSearchServiceTest {
         // then
         verify(mockTicketRepository).findAll(specCaptor.capture(), eq(PAGEABLE));
     }
-
 
     // ────────────────────────────────────────────────
     // Маппинг и параметры поиска
@@ -213,8 +201,7 @@ class TicketSearchServiceTest {
     @DisplayName("searchTickets → маппит модель заявки в TicketResponse")
     void searchTickets_mapsModelToResponse() {
         // given
-        when(mockPortalRepository.findAllByOwnerIdOrderByCreatedAtDesc(USER_ID))
-                .thenReturn(List.of(createPortal(9L)));
+        when(mockPortalRepository.findAllByOwnerIdOrderByCreatedAtDesc(USER_ID)).thenReturn(List.of(createPortal(9L)));
 
         PortalModel portal = createPortal(9L);
         portal.setName("Портал Х");
@@ -230,12 +217,10 @@ class TicketSearchServiceTest {
         ticket.setPortal(portal);
         ticket.setCreatedAt(createdAt);
 
-        when(mockTicketRepository.findAll(any(Specification.class), eq(PAGEABLE)))
-                .thenReturn(new PageImpl<>(List.of(ticket), PAGEABLE, 1));
+        when(mockTicketRepository.findAll(any(Specification.class), eq(PAGEABLE))).thenReturn(new PageImpl<>(List.of(ticket), PAGEABLE, 1));
 
         // when
-        Page<TicketResponse> result = service.searchTickets(
-                "доступ", null, null, null, null, false, PAGEABLE);
+        Page<TicketResponse> result = service.searchTickets("доступ", null, null, null, null, false, PAGEABLE);
 
         // then
         assertThat(result.getContent()).hasSize(1);
@@ -253,8 +238,7 @@ class TicketSearchServiceTest {
     @DisplayName("searchTickets → заявка без автора и портала → null-поля в ответе")
     void searchTickets_ticketWithoutAuthorAndPortal_mapsNulls() {
         // given
-        when(mockPortalRepository.findAllByOwnerIdOrderByCreatedAtDesc(USER_ID))
-                .thenReturn(List.of(createPortal(1L)));
+        when(mockPortalRepository.findAllByOwnerIdOrderByCreatedAtDesc(USER_ID)).thenReturn(List.of(createPortal(1L)));
 
         when(mockTicketRepository.findAll(any(Specification.class), eq(PAGEABLE)))
                 .thenReturn(new PageImpl<>(List.of(createTicket(101L)), PAGEABLE, 1));
@@ -276,8 +260,7 @@ class TicketSearchServiceTest {
         when(mockPortalRepository.findAllByOwnerIdOrderByCreatedAtDesc(USER_ID)).thenReturn(List.of());
         when(mockPortalRepository.findAllAccessibleByUserId(USER_ID)).thenReturn(List.of(createPortal(5L)));
         when(mockPortalRepository.findPublicPortalIdsWithUserTickets(USER_ID)).thenReturn(List.of());
-        when(mockTicketRepository.findAll(any(Specification.class), eq(PAGEABLE)))
-                .thenReturn(Page.empty(PAGEABLE));
+        when(mockTicketRepository.findAll(any(Specification.class), eq(PAGEABLE))).thenReturn(Page.empty(PAGEABLE));
 
         // when
         service.searchTickets("поиск", null, null, null, null, false, PAGEABLE);
@@ -295,16 +278,13 @@ class TicketSearchServiceTest {
         // given
         Pageable secondPage = PageRequest.of(1, 2);
 
-        when(mockPortalRepository.findAllByOwnerIdOrderByCreatedAtDesc(USER_ID))
-                .thenReturn(List.of(createPortal(1L)));
+        when(mockPortalRepository.findAllByOwnerIdOrderByCreatedAtDesc(USER_ID)).thenReturn(List.of(createPortal(1L)));
 
         when(mockTicketRepository.findAll(any(Specification.class), eq(secondPage)))
-                .thenReturn(new PageImpl<>(
-                        List.of(createTicket(201L), createTicket(202L)), secondPage, 5));
+                .thenReturn(new PageImpl<>(List.of(createTicket(201L), createTicket(202L)), secondPage, 5));
 
         // when
-        Page<TicketResponse> result = service.searchTickets(
-                null, null, null, null, null, false, secondPage);
+        Page<TicketResponse> result = service.searchTickets(null, null, null, null, null, false, secondPage);
 
         // then
         assertThat(result.getContent()).hasSize(2);

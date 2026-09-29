@@ -1,5 +1,16 @@
 package com.ukhanov.realhelpdesk.core.security.auth.tokens.service;
 
+import java.time.Instant;
+import java.util.Date;
+import java.util.Objects;
+import java.util.UUID;
+
+import javax.crypto.SecretKey;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
 import com.ukhanov.realhelpdesk.core.config.JwtConfig;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenBearerResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.RefreshTokenModel;
@@ -7,16 +18,8 @@ import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenStatus;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.utils.JwtClaims;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.utils.TokenHasher;
 import com.ukhanov.realhelpdesk.core.security.user.SecurityUser;
-import io.jsonwebtoken.Jwts;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
 
-import javax.crypto.SecretKey;
-import java.time.Instant;
-import java.util.Date;
-import java.util.Objects;
-import java.util.UUID;
+import io.jsonwebtoken.Jwts;
 
 @Service
 public class GenTokenService {
@@ -35,20 +38,13 @@ public class GenTokenService {
         Instant dateNow = Instant.now();
         Instant expiry = dateNow.plusSeconds(jwtConfig.getAccessTokenExp() * 60L);
 
-        String token = Jwts.builder()
-                .issuer(jwtConfig.getIssuer())
-                .subject(securityUser.getId())
+        String token = Jwts.builder().issuer(jwtConfig.getIssuer()).subject(securityUser.getId())
                 // jti гарантирует уникальность: два токена, выданные в одну секунду, иначе байт-в-байт одинаковы
-                .id(UUID.randomUUID().toString())
-                .expiration(Date.from(expiry))
-                .issuedAt(Date.from(dateNow))
+                .id(UUID.randomUUID().toString()).expiration(Date.from(expiry)).issuedAt(Date.from(dateNow))
                 .claim(JwtClaims.TYPE, JwtClaims.TYPE_ACCESS)
                 .claim(JwtClaims.TOKEN_VERSION, securityUser.getOriginalUser().getTokenVersion())
-                .claim(JwtClaims.ROLE, securityUser.getRule())
-                .claim("aud", jwtConfig.getAudience()) //вместо audience().add
-                .signWith((SecretKey) jwtConfig.getJwtKey())
-                .compact();
-
+                .claim(JwtClaims.ROLE, securityUser.getRule()).claim("aud", jwtConfig.getAudience()) // вместо audience().add
+                .signWith((SecretKey) jwtConfig.getJwtKey()).compact();
 
         TokenBearerResponse accessTokenModel = new TokenBearerResponse();
         accessTokenModel.setToken(token);
@@ -61,16 +57,10 @@ public class GenTokenService {
         Instant now = Instant.now();
         Instant expiry = now.plusSeconds(jwtConfig.getRefreshExpiration() * 60L);
 
-        String token = Jwts.builder()
-                .issuer(jwtConfig.getIssuer())
-                .subject(securityUser.getId())
+        String token = Jwts.builder().issuer(jwtConfig.getIssuer()).subject(securityUser.getId())
                 // Уникальный id обязателен: в БД хеш токена хранится с unique-ограничением
-                .id(UUID.randomUUID().toString())
-                .audience().add(jwtConfig.getAudience()).and()
-                .expiration(Date.from(expiry))
-                .issuedAt(Date.from(now))
-                .claim(JwtClaims.TYPE, JwtClaims.TYPE_REFRESH)
-                .signWith((SecretKey) jwtConfig.getJwtKey())
+                .id(UUID.randomUUID().toString()).audience().add(jwtConfig.getAudience()).and().expiration(Date.from(expiry))
+                .issuedAt(Date.from(now)).claim(JwtClaims.TYPE, JwtClaims.TYPE_REFRESH).signWith((SecretKey) jwtConfig.getJwtKey())
                 .compact();
 
         RefreshTokenModel jwtRefreshTokenModel = new RefreshTokenModel();

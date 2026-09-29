@@ -1,5 +1,15 @@
 package com.ukhanov.realhelpdesk.feature.usermanager.service;
 
+import jakarta.persistence.EntityNotFoundException;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.RefreshTokenModel;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenStatus;
@@ -16,21 +26,17 @@ import com.ukhanov.realhelpdesk.feature.usermanager.dto.RecoveryRequest;
 import com.ukhanov.realhelpdesk.feature.usermanager.dto.UserInfoRequest;
 import com.ukhanov.realhelpdesk.feature.usermanager.dto.UserInfoResponse;
 import com.ukhanov.realhelpdesk.feature.usermanager.mapper.UserMapper;
-import jakarta.persistence.EntityNotFoundException;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.crypto.password.PasswordEncoder;
-
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.argThat;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class UserManageServiceTest {
 
@@ -52,10 +58,8 @@ class UserManageServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new UserManageService(
-                currentUserProvider, userDomainService, emailDeliveryService,
-                passwordEncoder, getTokenService, saveTokenService
-        );
+        service = new UserManageService(currentUserProvider, userDomainService, emailDeliveryService, passwordEncoder, getTokenService,
+                saveTokenService);
     }
 
     // ────────────────────────────────────────────────────────────────
@@ -63,7 +67,7 @@ class UserManageServiceTest {
     // ────────────────────────────────────────────────────────────────
 
     @Test
-    void getUserInfo_shouldReturnMappedCurrentUser() {
+    void getUserInfo_returnsMappedCurrentUser() {
         UserModel user = createDefaultUser();
         when(currentUserProvider.getCurrentUserModel()).thenReturn(user);
 
@@ -71,8 +75,7 @@ class UserManageServiceTest {
 
         assertThat(response.getFirstName()).isEqualTo("firstName");
         assertThat(response.getEmail()).isEqualTo("email@example.com");
-        assertThat(response).usingRecursiveComparison()
-             .isEqualTo(UserMapper.toResponse(user));
+        assertThat(response).usingRecursiveComparison().isEqualTo(UserMapper.toResponse(user));
 
         verifyNoInteractions(emailDeliveryService, passwordEncoder, getTokenService, saveTokenService);
     }
@@ -82,7 +85,7 @@ class UserManageServiceTest {
     // ────────────────────────────────────────────────────────────────
 
     @Test
-    void updateUserInfo_shouldUpdateFieldsAndReturnUpdatedUser() {
+    void updateUserInfo_success_updatesFieldsAndReturnsUpdatedUser() {
         UserModel existing = createDefaultUser();
         when(currentUserProvider.getCurrentUserModel()).thenReturn(existing);
 
@@ -98,42 +101,33 @@ class UserManageServiceTest {
         assertThat(response.getFirstName()).isEqualTo("NewFirst");
         assertThat(response.getLastName()).isEqualTo("NewLast");
 
-        verify(userDomainService).saveUser(argThat(u ->
-                "NewFirst".equals(u.getFirstName()) &&
-                        "NewLast".equals(u.getLastName()) &&
-                        "NewMiddle".equals(u.getMiddleName()) &&
-                        "NewInfo".equals(u.getAdditionalInfo())
-        ));
+        verify(userDomainService).saveUser(argThat(u -> "NewFirst".equals(u.getFirstName()) && "NewLast".equals(u.getLastName())
+                && "NewMiddle".equals(u.getMiddleName()) && "NewInfo".equals(u.getAdditionalInfo())));
     }
 
     @Test
-    void updateUserInfo_shouldThrowNpe_whenRequestIsNull() {
-        assertThatThrownBy(() -> service.updateUserInfo(null))
-                .isInstanceOf(NullPointerException.class);
+    void updateUserInfo_requestNull_throwsNpe() {
+        assertThatThrownBy(() -> service.updateUserInfo(null)).isInstanceOf(NullPointerException.class);
     }
 
     // ────────────────────────────────────────────────────────────────
     // sendResetLink
     // ────────────────────────────────────────────────────────────────
 
-
     @Test
-    void sendResetLink_shouldThrowWhenUserNotFound() {
-        when(userDomainService.getUserByEmail("unknown@example.com"))
-                .thenThrow(new EntityNotFoundException("User not found"));
+    void sendResetLink_userNotFound_throws() {
+        when(userDomainService.getUserByEmail("unknown@example.com")).thenThrow(new EntityNotFoundException("User not found"));
 
         RecoveryRequest request = new RecoveryRequest("unknown@example.com");
 
-        assertThatThrownBy(() -> service.sendResetLink(request))
-                .isInstanceOf(EntityNotFoundException.class);
+        assertThatThrownBy(() -> service.sendResetLink(request)).isInstanceOf(EntityNotFoundException.class);
 
         verifyNoMoreInteractions(emailDeliveryService);
     }
 
     @Test
-    void sendResetLink_shouldThrowNpe_whenRequestIsNull() {
-        assertThatThrownBy(() -> service.sendResetLink(null))
-                .isInstanceOf(NullPointerException.class);
+    void sendResetLink_requestNull_throwsNpe() {
+        assertThatThrownBy(() -> service.sendResetLink(null)).isInstanceOf(NullPointerException.class);
     }
 
     // ────────────────────────────────────────────────────────────────
@@ -141,7 +135,7 @@ class UserManageServiceTest {
     // ────────────────────────────────────────────────────────────────
 
     @Test
-    void setNewPasswd_shouldUpdatePasswordAndInvalidateOldTokens() throws Exception {
+    void setNewPasswd_success_updatesPasswordAndInvalidatesOldTokens() throws Exception {
         Long code = 55L;
         UserModel user = createDefaultUser();
         user.setRecoveryPasswdToken(code);
@@ -174,33 +168,28 @@ class UserManageServiceTest {
         // Отзываются ВСЕ активные refresh-токены, а не только последний
         ArgumentCaptor<RefreshTokenModel> tokenCaptor = ArgumentCaptor.forClass(RefreshTokenModel.class);
         verify(saveTokenService, times(2)).saveRefreshToken(tokenCaptor.capture());
-        org.assertj.core.api.Assertions.assertThat(tokenCaptor.getAllValues())
-                .hasSize(2)
+        org.assertj.core.api.Assertions.assertThat(tokenCaptor.getAllValues()).hasSize(2)
                 .allMatch(token -> token.getStatus() == TokenStatus.PASSWD_CHANGE);
     }
 
     @Test
-    void setNewPasswd_shouldThrowWhenTokenNotFound() {
+    void setNewPasswd_tokenNotFound_throws() {
         Long wrongCode = 66L;
-        when(userDomainService.getUserByRecoveryPasswdToken(wrongCode))
-                .thenThrow(new EntityNotFoundException("Token not found"));
+        when(userDomainService.getUserByRecoveryPasswdToken(wrongCode)).thenThrow(new EntityNotFoundException("Token not found"));
 
-        assertThatThrownBy(() -> service.setNewPasswd(wrongCode, new NewPasswdRequest("pass")))
-                .isInstanceOf(EntityNotFoundException.class);
+        assertThatThrownBy(() -> service.setNewPasswd(wrongCode, new NewPasswdRequest("pass"))).isInstanceOf(EntityNotFoundException.class);
 
         verifyNoInteractions(saveTokenService, passwordEncoder);
     }
 
     @Test
-    void setNewPasswd_shouldThrowNpe_whenRequestIsNull() {
-        assertThatThrownBy(() -> service.setNewPasswd(55L, null))
-                .isInstanceOf(NullPointerException.class);
+    void setNewPasswd_requestNull_throwsNpe() {
+        assertThatThrownBy(() -> service.setNewPasswd(55L, null)).isInstanceOf(NullPointerException.class);
     }
 
     @Test
-    void setNewPasswd_shouldThrowNpe_whenCodeIsNull() {
-        assertThatThrownBy(() -> service.setNewPasswd(null, new NewPasswdRequest("pass")))
-                .isInstanceOf(NullPointerException.class);
+    void setNewPasswd_codeNull_throwsNpe() {
+        assertThatThrownBy(() -> service.setNewPasswd(null, new NewPasswdRequest("pass"))).isInstanceOf(NullPointerException.class);
     }
 
     // ────────────────────────────────────────────────────────────────

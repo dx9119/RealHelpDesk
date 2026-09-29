@@ -1,13 +1,14 @@
 package com.ukhanov.realhelpdesk.feature.messagemanager.mapper;
 
+import java.util.Objects;
+
+import org.springframework.stereotype.Component;
+
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.message.model.MessageModel;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 import com.ukhanov.realhelpdesk.feature.messagemanager.dto.CreateMessageRequest;
 import com.ukhanov.realhelpdesk.feature.messagemanager.dto.MessageResponse;
-import org.springframework.stereotype.Component;
-
-import java.util.Objects;
 
 @Component
 public class MessageMapper {
@@ -32,9 +33,8 @@ public class MessageMapper {
         response.setMessageText(model.getMessageText());
         response.setCreatedAt(model.getCreatedAt());
         response.setTicketId(model.getTicket() != null ? model.getTicket().getId() : null);
-        response.setAuthorFullName(model.getAuthor() != null
-                ? model.getAuthor().getLastName() + " " + model.getAuthor().getFirstName()
-                : "Неизвестный автор");
+        response.setAuthorFullName(
+                model.getAuthor() != null ? model.getAuthor().getLastName() + " " + model.getAuthor().getFirstName() : "Неизвестный автор");
         return response;
     }
 

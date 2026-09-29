@@ -1,132 +1,131 @@
 package com.ukhanov.realhelpdesk.feature.usermanager.dto;
 
+import java.time.Instant;
+
 import com.ukhanov.realhelpdesk.core.security.user.model.UserPlatformSource;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserRole;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserStatus;
 
-import java.time.Instant;
-
 public class UserInfoResponse {
 
-  private Long id;
-  private Long externalId;
-  private String firstName;
-  private String lastName;
-  private String middleName;
-  private String additionalInfo;
-  private String email;
-  private boolean isEmailVerified;
-  private UserRole userRole;
-  private UserStatus userStatus;
-  private UserPlatformSource userPlatformSource;
-  private Instant createdAt;
-  private Long verifyEmailToken;
+    private Long id;
+    private Long externalId;
+    private String firstName;
+    private String lastName;
+    private String middleName;
+    private String additionalInfo;
+    private String email;
+    private boolean isEmailVerified;
+    private UserRole userRole;
+    private UserStatus userStatus;
+    private UserPlatformSource userPlatformSource;
+    private Instant createdAt;
+    private Long verifyEmailToken;
 
-  public Long getVerifyEmailToken() {
-    return verifyEmailToken;
-  }
+    public Long getVerifyEmailToken() {
+        return verifyEmailToken;
+    }
 
-  public void setVerifyEmailToken(Long verifyEmailToken) {
-    this.verifyEmailToken = verifyEmailToken;
-  }
+    public void setVerifyEmailToken(Long verifyEmailToken) {
+        this.verifyEmailToken = verifyEmailToken;
+    }
 
-  public UserInfoResponse() {
-  }
+    public UserInfoResponse() {
+    }
 
-  public void setId(Long id) {
-    this.id = id;
-  }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-  public void setExternalId(Long externalId) {
-    this.externalId = externalId;
-  }
+    public void setExternalId(Long externalId) {
+        this.externalId = externalId;
+    }
 
-  public void setFirstName(String firstName) {
-    this.firstName = firstName;
-  }
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
 
-  public void setLastName(String lastName) {
-    this.lastName = lastName;
-  }
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
 
-  public void setMiddleName(String middleName) {
-    this.middleName = middleName;
-  }
+    public void setMiddleName(String middleName) {
+        this.middleName = middleName;
+    }
 
-  public void setAdditionalInfo(String additionalInfo) {
-    this.additionalInfo = additionalInfo;
-  }
+    public void setAdditionalInfo(String additionalInfo) {
+        this.additionalInfo = additionalInfo;
+    }
 
-  public void setEmail(String email) {
-    this.email = email;
-  }
+    public void setEmail(String email) {
+        this.email = email;
+    }
 
-  public void setEmailVerified(boolean emailVerified) {
-    isEmailVerified = emailVerified;
-  }
+    public void setEmailVerified(boolean emailVerified) {
+        isEmailVerified = emailVerified;
+    }
 
-  public void setUserRole(UserRole userRole) {
-    this.userRole = userRole;
-  }
+    public void setUserRole(UserRole userRole) {
+        this.userRole = userRole;
+    }
 
-  public void setUserStatus(UserStatus userStatus) {
-    this.userStatus = userStatus;
-  }
+    public void setUserStatus(UserStatus userStatus) {
+        this.userStatus = userStatus;
+    }
 
-  public void setUserPlatformSource(UserPlatformSource userPlatformSource) {
-    this.userPlatformSource = userPlatformSource;
-  }
+    public void setUserPlatformSource(UserPlatformSource userPlatformSource) {
+        this.userPlatformSource = userPlatformSource;
+    }
 
-  public void setCreatedAt(Instant createdAt) {
-    this.createdAt = createdAt;
-  }
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
 
+    public Long getId() {
+        return id;
+    }
 
-  public Long getId() {
-    return id;
-  }
+    public Long getExternalId() {
+        return externalId;
+    }
 
-  public Long getExternalId() {
-    return externalId;
-  }
+    public String getFirstName() {
+        return firstName;
+    }
 
-  public String getFirstName() {
-    return firstName;
-  }
+    public String getLastName() {
+        return lastName;
+    }
 
-  public String getLastName() {
-    return lastName;
-  }
+    public String getMiddleName() {
+        return middleName;
+    }
 
-  public String getMiddleName() {
-    return middleName;
-  }
+    public String getAdditionalInfo() {
+        return additionalInfo;
+    }
 
-  public String getAdditionalInfo() {
-    return additionalInfo;
-  }
+    public String getEmail() {
+        return email;
+    }
 
-  public String getEmail() {
-    return email;
-  }
+    public boolean isEmailVerified() {
+        return isEmailVerified;
+    }
 
-  public boolean isEmailVerified() {
-    return isEmailVerified;
-  }
+    public UserRole getUserRole() {
+        return userRole;
+    }
 
-  public UserRole getUserRole() {
-    return userRole;
-  }
+    public UserStatus getUserStatus() {
+        return userStatus;
+    }
 
-  public UserStatus getUserStatus() {
-    return userStatus;
-  }
+    public UserPlatformSource getUserPlatformSource() {
+        return userPlatformSource;
+    }
 
-  public UserPlatformSource getUserPlatformSource() {
-    return userPlatformSource;
-  }
-
-  public Instant getCreatedAt() {
-    return createdAt;
-  }
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
 }

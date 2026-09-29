@@ -1,10 +1,10 @@
 package com.ukhanov.realhelpdesk.feature.usermanager.dto;
 
-import com.ukhanov.realhelpdesk.core.annotation.NoHtml;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
+import com.ukhanov.realhelpdesk.core.annotation.NoHtml;
 
 public class RecoveryRequest {
 

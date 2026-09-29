@@ -1,5 +1,16 @@
 package com.ukhanov.realhelpdesk.core.mail.controller;
 
+import java.io.UnsupportedEncodingException;
+
+import jakarta.mail.MessagingException;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.ukhanov.realhelpdesk.core.mail.dto.EmailInfoResponse;
 import com.ukhanov.realhelpdesk.core.mail.exception.EmailAccessDeniedException;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
@@ -8,59 +19,48 @@ import com.ukhanov.realhelpdesk.core.mail.service.EmailPolicyService;
 import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaException;
 import com.ukhanov.realhelpdesk.core.security.captcha.service.CaptchaService;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.annotation.RateLimit;
-import jakarta.mail.MessagingException;
-
-import java.io.UnsupportedEncodingException;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/email")
 public class EmailPolicyController {
 
-  private final EmailDeliveryService emailDeliveryService;
-  private final EmailPolicyService emailPolicyService;
-  private final CaptchaService captchaService;
+    private final EmailDeliveryService emailDeliveryService;
+    private final EmailPolicyService emailPolicyService;
+    private final CaptchaService captchaService;
 
-  public EmailPolicyController(EmailDeliveryService emailDeliveryService, EmailPolicyService emailPolicyService, CaptchaService captchaService) {
-    this.emailDeliveryService = emailDeliveryService;
-    this.emailPolicyService = emailPolicyService;
-    this.captchaService = captchaService;
-  }
+    public EmailPolicyController(EmailDeliveryService emailDeliveryService, EmailPolicyService emailPolicyService,
+            CaptchaService captchaService) {
+        this.emailDeliveryService = emailDeliveryService;
+        this.emailPolicyService = emailPolicyService;
+        this.captchaService = captchaService;
+    }
 
-  @GetMapping("/confirm")
-  public ResponseEntity<String> confirmEmail(
-          @RequestParam("token") Long token
-  ) throws EmailAccessDeniedException {
-    emailDeliveryService.confirmEmail(token);
-    return ResponseEntity.ok("Успешно");
-  }
+    @GetMapping("/confirm")
+    public ResponseEntity<String> confirmEmail(@RequestParam("token") Long token) throws EmailAccessDeniedException {
+        emailDeliveryService.confirmEmail(token);
+        return ResponseEntity.ok("Успешно");
+    }
 
-  @GetMapping("/info")
-  public ResponseEntity<EmailInfoResponse> getInfo(){
-    EmailInfoResponse response = emailPolicyService.getEmailInfo();
-    return ResponseEntity.ok(response);
-  }
+    @GetMapping("/info")
+    public ResponseEntity<EmailInfoResponse> getInfo() {
+        EmailInfoResponse response = emailPolicyService.getEmailInfo();
+        return ResponseEntity.ok(response);
+    }
 
-  @PostMapping("/notify-set")
-  public ResponseEntity<String> stopNotify(@RequestParam NotificationEvent level) {
-    emailPolicyService.addToStopList(level);
-    return ResponseEntity.ok("Успешно");
-  }
+    @PostMapping("/notify-set")
+    public ResponseEntity<String> stopNotify(@RequestParam NotificationEvent level) {
+        emailPolicyService.addToStopList(level);
+        return ResponseEntity.ok("Успешно");
+    }
 
-  @GetMapping("/code")
-  @RateLimit(requests = 3, windowSeconds = 600)
-  public ResponseEntity<String> getCode(
-          @RequestParam(value = "capId", required = false) String capId,
-          @RequestParam(value = "capCode", required = false) String capCode
-  ) throws MessagingException, CaptchaException, UnsupportedEncodingException {
-    captchaService.captVerificationResult(capId, capCode);
-    emailDeliveryService.sendConfirmCode();
-    return ResponseEntity.ok("Успешно");
-  }
+    @GetMapping("/code")
+    @RateLimit(requests = 3, windowSeconds = 600)
+    public ResponseEntity<String> getCode(@RequestParam(value = "capId", required = false) String capId,
+            @RequestParam(value = "capCode", required = false) String capCode)
+            throws MessagingException, CaptchaException, UnsupportedEncodingException {
+        captchaService.captVerificationResult(capId, capCode);
+        emailDeliveryService.sendConfirmCode();
+        return ResponseEntity.ok("Успешно");
+    }
 
 }

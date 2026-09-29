@@ -1,11 +1,11 @@
 package com.ukhanov.realhelpdesk.core.security.user.service;
 
-import com.ukhanov.realhelpdesk.core.security.user.SecurityUser;
-import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+import com.ukhanov.realhelpdesk.core.security.user.SecurityUser;
+import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 
 @Service
 public class CustomUserDetailsService implements UserDetailsService {

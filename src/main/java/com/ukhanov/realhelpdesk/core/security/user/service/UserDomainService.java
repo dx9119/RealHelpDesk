@@ -1,14 +1,15 @@
 package com.ukhanov.realhelpdesk.core.security.user.service;
 
-import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
-import com.ukhanov.realhelpdesk.core.security.user.repository.UserDetailsProjection;
-import com.ukhanov.realhelpdesk.core.security.user.repository.UserRepository;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketLiveStatus;
+import java.util.Objects;
+
 import jakarta.transaction.Transactional;
+
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.util.Objects;
+import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
+import com.ukhanov.realhelpdesk.core.security.user.repository.UserDetailsProjection;
+import com.ukhanov.realhelpdesk.core.security.user.repository.UserRepository;
 
 @Service
 public class UserDomainService {
@@ -21,7 +22,6 @@ public class UserDomainService {
 
     private UserModel resolveUserByIdentifier(String identifier, boolean isEmail) {
         Objects.requireNonNull(identifier, "Идентификатор не может быть null");
-
 
         if (isEmail) {
             return userRepository.findByEmail(identifier)
@@ -59,11 +59,11 @@ public class UserDomainService {
         Objects.requireNonNull(userId, "ID пользователя не может быть null");
 
         return userRepository.findProjectedById(userId)
-            .orElseThrow(() -> new UsernameNotFoundException("Не найден пользователь с ID: " + userId));
+                .orElseThrow(() -> new UsernameNotFoundException("Не найден пользователь с ID: " + userId));
     }
 
-    public UserModel getUserByRecoveryPasswdToken (Long code){
-        Objects.requireNonNull(code,"Код обязателен");
+    public UserModel getUserByRecoveryPasswdToken(Long code) {
+        Objects.requireNonNull(code, "Код обязателен");
 
         return userRepository.findByRecoveryPasswdToken(code)
                 .orElseThrow(() -> new UsernameNotFoundException("Неизвестный код восстановления" + code));

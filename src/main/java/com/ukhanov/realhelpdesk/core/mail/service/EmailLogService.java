@@ -1,13 +1,15 @@
 package com.ukhanov.realhelpdesk.core.mail.service;
 
+import java.time.LocalDateTime;
+import java.util.Objects;
+
+import jakarta.transaction.Transactional;
+
+import org.springframework.stereotype.Service;
+
 import com.ukhanov.realhelpdesk.core.mail.model.EmailLog;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.repository.EmailLogRepository;
-import jakarta.transaction.Transactional;
-import org.springframework.stereotype.Service;
-
-import java.time.LocalDateTime;
-import java.util.Objects;
 
 @Service
 public class EmailLogService {
@@ -18,7 +20,6 @@ public class EmailLogService {
         this.emailLogRepository = emailLogRepository;
     }
 
-
     public long countEmailsSentToByEventInLast24Hours(String email, NotificationEvent event) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime from = now.minusHours(24);
@@ -26,8 +27,8 @@ public class EmailLogService {
     }
 
     @Transactional
-    public void add(EmailLog emailLog){
-        Objects.requireNonNull(emailLog,"emailLog не может быть пустым");
+    public void add(EmailLog emailLog) {
+        Objects.requireNonNull(emailLog, "emailLog не может быть пустым");
         emailLogRepository.save(emailLog);
     }
 }

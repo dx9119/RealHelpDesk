@@ -1,5 +1,12 @@
 package com.ukhanov.realhelpdesk.core.security.accesscontrol;
 
+import java.util.HashSet;
+import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
@@ -9,12 +16,6 @@ import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 import com.ukhanov.realhelpdesk.domain.ticket.service.TicketDomainService;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-
-import java.util.HashSet;
-import java.util.Set;
 
 @Service
 public class TicketAccessValidationService {
@@ -24,9 +25,8 @@ public class TicketAccessValidationService {
 
     private static final Logger logger = LoggerFactory.getLogger(TicketAccessValidationService.class);
 
-    public TicketAccessValidationService(PortalDomainService portalDomainService,
-                                         CurrentUserProvider currentUserProvider,
-                                         TicketDomainService ticketDomainService) {
+    public TicketAccessValidationService(PortalDomainService portalDomainService, CurrentUserProvider currentUserProvider,
+            TicketDomainService ticketDomainService) {
         this.portalDomainService = portalDomainService;
         this.currentUserProvider = currentUserProvider;
         this.ticketDomainService = ticketDomainService;
@@ -76,7 +76,7 @@ public class TicketAccessValidationService {
         allowedUsers.add(ticket.getAuthor().getId());
         Long currentUserId = user.getId();
 
-        //Изменить статус заявки может либо автор заявки, либо владельцы портала.
+        // Изменить статус заявки может либо автор заявки, либо владельцы портала.
         return allowedUsers.contains(currentUserId);
     }
 

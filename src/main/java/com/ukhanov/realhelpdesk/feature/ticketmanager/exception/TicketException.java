@@ -1,6 +1,5 @@
 package com.ukhanov.realhelpdesk.feature.ticketmanager.exception;
 
-
 public class TicketException extends Exception {
     public TicketException(String message, Throwable cause) {
         super(message, cause);

@@ -1,23 +1,31 @@
 package com.ukhanov.realhelpdesk.domain.portal.model;
 
-import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
-import jakarta.persistence.*;
-import org.hibernate.annotations.Filter;
-import org.hibernate.annotations.FilterDef;
-import org.hibernate.annotations.ParamDef;
-
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Version;
+
+import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
+
 @Entity
-@Table(
-    name = "portals",
-    uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"owner_id", "name"})
-    }
-)
+@Table(name = "portals", uniqueConstraints = {@UniqueConstraint(columnNames = {"owner_id", "name"})})
 public class PortalModel {
 
     @Id

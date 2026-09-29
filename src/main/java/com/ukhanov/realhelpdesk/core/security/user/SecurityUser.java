@@ -1,15 +1,18 @@
 package com.ukhanov.realhelpdesk.core.security.user;
 
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.RefreshTokenModel;
-import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
-import com.ukhanov.realhelpdesk.core.security.user.model.UserStatus;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Optional;
+import java.util.Set;
+
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import java.util.*;
-
-
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.RefreshTokenModel;
+import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
+import com.ukhanov.realhelpdesk.core.security.user.model.UserStatus;
 public class SecurityUser implements UserDetails {
     private final UserModel user;
 
@@ -39,8 +42,7 @@ public class SecurityUser implements UserDetails {
     }
 
     public Optional<String> getLatestJwtRefreshToken() {
-        return this.user
-                .getJwtTokenRefresh() // Получаем список всех refresh-токенов, связанных с пользователем
+        return this.user.getJwtTokenRefresh() // Получаем список всех refresh-токенов, связанных с пользователем
                 .stream() // список в потоки
                 .max(Comparator.comparing(RefreshTokenModel::getCreatedAt)) // Сравниваем refresh-токены по дате создания
                 .map(RefreshTokenModel::getToken); // Преобразуем найденный объект в строковое значение токена

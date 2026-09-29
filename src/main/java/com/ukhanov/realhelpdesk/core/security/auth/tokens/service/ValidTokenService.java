@@ -1,18 +1,20 @@
 package com.ukhanov.realhelpdesk.core.security.auth.tokens.service;
 
-import com.ukhanov.realhelpdesk.core.config.JwtConfig;
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenBearer;
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.utils.JwtClaims;
-import io.jsonwebtoken.Claims;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-
 import java.time.Instant;
 import java.util.Date;
 import java.util.Optional;
 import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import com.ukhanov.realhelpdesk.core.config.JwtConfig;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenBearer;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.utils.JwtClaims;
+
+import io.jsonwebtoken.Claims;
 
 @Service
 public class ValidTokenService {
@@ -22,7 +24,7 @@ public class ValidTokenService {
     private final JwtConfig jwtConfig;
     private final DecodeTokenService decodeTokenService;
 
-    public ValidTokenService(JwtConfig jwtConfig,DecodeTokenService getTokenService1) {
+    public ValidTokenService(JwtConfig jwtConfig, DecodeTokenService getTokenService1) {
         this.jwtConfig = jwtConfig;
         this.decodeTokenService = getTokenService1;
     }
@@ -37,18 +39,14 @@ public class ValidTokenService {
             throw new TokenException("Недопустимый тип токена", null);
         }
 
-        Instant expiration = Optional.ofNullable(claims.getExpiration())
-                .map(Date::toInstant)
+        Instant expiration = Optional.ofNullable(claims.getExpiration()).map(Date::toInstant)
                 .orElseThrow(() -> new TokenException("Отсутствует claim 'expiration'", null));
-
-
 
         Set<String> actual = claims.getAudience();
         if (!jwtConfig.getAudience().equals(actual)) {
             logger.debug("Недопустимое значение audience: {}", actual);
             throw new TokenException("Несовпадение значения audience", null);
         }
-
 
         if (expiration.isBefore(Instant.now())) {
             logger.debug("Срок действия токена истёк: {}", expiration);

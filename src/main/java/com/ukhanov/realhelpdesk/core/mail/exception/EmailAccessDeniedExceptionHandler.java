@@ -2,6 +2,7 @@ package com.ukhanov.realhelpdesk.core.mail.exception;
 
 import java.util.HashMap;
 import java.util.Map;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.annotation.Order;
@@ -17,8 +18,7 @@ public class EmailAccessDeniedExceptionHandler {
     private static final Logger logger = LoggerFactory.getLogger(EmailAccessDeniedExceptionHandler.class);
 
     @ExceptionHandler(EmailAccessDeniedException.class)
-    public ResponseEntity<Map<String, String>> handleEmailAccessDenied(
-        EmailAccessDeniedException ex, WebRequest request) {
+    public ResponseEntity<Map<String, String>> handleEmailAccessDenied(EmailAccessDeniedException ex, WebRequest request) {
         HttpStatus status = HttpStatus.CONFLICT;
 
         Map<String, String> error = new HashMap<>();

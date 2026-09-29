@@ -1,8 +1,12 @@
 package com.ukhanov.realhelpdesk.core.exception;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import jakarta.mail.MessagingException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
@@ -16,9 +20,6 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 @ControllerAdvice
 @Order(Ordered.LOWEST_PRECEDENCE)

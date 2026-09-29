@@ -1,22 +1,23 @@
 package com.ukhanov.realhelpdesk.domain.ticket.service;
 
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketLiveStatus;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
-import com.ukhanov.realhelpdesk.domain.ticket.repository.TicketRepository;
-import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
-import jakarta.persistence.PersistenceException;
+import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
+import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.Objects;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketLiveStatus;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
+import com.ukhanov.realhelpdesk.domain.ticket.repository.TicketRepository;
+import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 
 @Service
 public class TicketDomainService {
@@ -47,11 +48,10 @@ public class TicketDomainService {
     public TicketModel findTicketById(Long ticketId) throws TicketException {
         Objects.requireNonNull(ticketId, "ID заявки не должен быть null!");
 
-        TicketModel ticket = ticketRepository.findByIdAndTicketLiveStatus(ticketId, TicketLiveStatus.ACTIVE)
-                .orElseThrow(() -> {
-                    logger.warn("Заявка с ID {} не найдена!", ticketId);
-                    return new TicketException("Заявка не найдена!");
-                });
+        TicketModel ticket = ticketRepository.findByIdAndTicketLiveStatus(ticketId, TicketLiveStatus.ACTIVE).orElseThrow(() -> {
+            logger.warn("Заявка с ID {} не найдена!", ticketId);
+            return new TicketException("Заявка не найдена!");
+        });
 
         return ticket;
     }
@@ -59,7 +59,7 @@ public class TicketDomainService {
     public List<TicketModel> getTicketsByPortalId(Long portalId) {
         Objects.requireNonNull(portalId, "portalId не должен быть null");
         logger.debug("Получение всех заявок для портала с ID: {}", portalId);
-        return ticketRepository.findAllByPortalIdAndTicketLiveStatus(portalId,TicketLiveStatus.ACTIVE);
+        return ticketRepository.findAllByPortalIdAndTicketLiveStatus(portalId, TicketLiveStatus.ACTIVE);
     }
 
     public Page<TicketModel> getTicketsPageByPortalId(Long portalId, Pageable pageable) {
@@ -77,13 +77,13 @@ public class TicketDomainService {
     public Page<TicketModel> getTicketsByIds(Set<Long> ids, Pageable pageable) {
         Objects.requireNonNull(ids, "ids не должны быть null");
         logger.debug("Получение заявок с пагинацией по ID: {}", ids);
-        return ticketRepository.findByIdInAndTicketLiveStatus(ids,TicketLiveStatus.ACTIVE,pageable);
+        return ticketRepository.findByIdInAndTicketLiveStatus(ids, TicketLiveStatus.ACTIVE, pageable);
     }
 
     public Set<Long> getIdTicketWithNoAnswer(Long portalId) {
         Objects.requireNonNull(portalId, "portalId не должен быть null");
         logger.debug("Получение ID заявок без ответа для портала с ID: {}", portalId);
-        return ticketRepository.findOpenTicketIdsWithoutMessagesByPortalIdAndLiveStatus(portalId,TicketLiveStatus.ACTIVE);
+        return ticketRepository.findOpenTicketIdsWithoutMessagesByPortalIdAndLiveStatus(portalId, TicketLiveStatus.ACTIVE);
     }
 
     public Set<Long> getIdTicketWithStatus(Long portalId, TicketStatus status) {

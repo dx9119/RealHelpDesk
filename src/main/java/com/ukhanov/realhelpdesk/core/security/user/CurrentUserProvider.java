@@ -1,14 +1,15 @@
 package com.ukhanov.realhelpdesk.core.security.user;
 
-import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
-import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
+import java.util.Objects;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
-import java.util.Objects;
+import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
+import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
 
 // Провайдер текущего пользователя
 @Component

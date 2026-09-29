@@ -1,19 +1,19 @@
 package com.ukhanov.realhelpdesk.core.security.captcha.service;
 
-import com.google.code.kaptcha.impl.DefaultKaptcha;
-import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
-import com.ukhanov.realhelpdesk.core.security.captcha.dto.DtoCaptchaProperties;
-import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaException;
-import com.ukhanov.realhelpdesk.core.security.captcha.utils.CaptchaStorage;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-
-import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
+import javax.imageio.ImageIO;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import com.google.code.kaptcha.impl.DefaultKaptcha;
+import com.ukhanov.realhelpdesk.core.security.captcha.dto.DtoCaptchaProperties;
+import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaException;
+import com.ukhanov.realhelpdesk.core.security.captcha.utils.CaptchaStorage;
 
 @Service
 public class CaptchaService {
@@ -27,17 +27,15 @@ public class CaptchaService {
         this.captchaProperties = captchaProperties;
     }
 
-    public String generateCaptchaText(String CapId) {
+    public String generateCaptchaText(String capId) {
         String captchaText = captchaProducer.createText();
-        CaptchaStorage.put(CapId, captchaText);
-        logger.info("Сгенерирована капча для capId: {}", CapId);
+        CaptchaStorage.put(capId, captchaText);
+        logger.info("Сгенерирована капча для capId: {}", capId);
         return captchaText;
     }
 
-    public byte[] getImageBytes(String CapId) throws IOException {
-        BufferedImage captchaImage = captchaProducer.createImage(
-                generateCaptchaText(CapId)
-        );
+    public byte[] getImageBytes(String capId) throws IOException {
+        BufferedImage captchaImage = captchaProducer.createImage(generateCaptchaText(capId));
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ImageIO.write(captchaImage, "jpg", baos);
         return baos.toByteArray();
@@ -57,6 +55,5 @@ public class CaptchaService {
             throw new CaptchaException("Провал прохождения капчи");
         }
     }
-
 
 }

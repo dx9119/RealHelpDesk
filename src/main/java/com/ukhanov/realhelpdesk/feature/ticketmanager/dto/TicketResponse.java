@@ -1,7 +1,7 @@
 package com.ukhanov.realhelpdesk.feature.ticketmanager.dto;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 import java.time.Instant;
 
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 
 public class TicketResponse {
 
@@ -35,14 +35,34 @@ public class TicketResponse {
     public void setPortalId(Long portalId) {
         this.portalId = portalId;
     }
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
-    public String getAuthorFullName() { return authorFullName; }
-    public void setAuthorFullName(String authorFullName) { this.authorFullName = authorFullName; }
-    public String getPortalName() { return portalName; }
-    public void setPortalName(String portalName) { this.portalName = portalName; }
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public Long getId() {
+        return id;
+    }
+    public void setId(Long id) {
+        this.id = id;
+    }
+    public String getTitle() {
+        return title;
+    }
+    public void setTitle(String title) {
+        this.title = title;
+    }
+    public String getAuthorFullName() {
+        return authorFullName;
+    }
+    public void setAuthorFullName(String authorFullName) {
+        this.authorFullName = authorFullName;
+    }
+    public String getPortalName() {
+        return portalName;
+    }
+    public void setPortalName(String portalName) {
+        this.portalName = portalName;
+    }
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
 }

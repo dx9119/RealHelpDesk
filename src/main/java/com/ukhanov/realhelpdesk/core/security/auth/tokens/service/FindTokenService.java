@@ -1,15 +1,16 @@
 package com.ukhanov.realhelpdesk.core.security.auth.tokens.service;
 
+import java.util.Objects;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.RefreshTokenModel;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenBearer;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.repository.JwtRefreshTokenRepository;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.utils.TokenHasher;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
-
-import java.util.Objects;
 
 @Service
 public class FindTokenService {
@@ -26,8 +27,7 @@ public class FindTokenService {
         Objects.requireNonNull(token, "Токен не может быть null!");
         Objects.requireNonNull(token.getToken(), "Значение токена не может быть null!");
 
-        RefreshTokenModel refreshTokenModel = jwtRefreshTokenRepository
-                .findByTokenRefresh(TokenHasher.sha256(token.getToken()))
+        RefreshTokenModel refreshTokenModel = jwtRefreshTokenRepository.findByTokenRefresh(TokenHasher.sha256(token.getToken()))
                 .orElseThrow(() -> {
                     logger.error("Токен обновления не найден");
                     return new TokenException("Токен обновления не найден", null);

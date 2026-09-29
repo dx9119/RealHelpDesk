@@ -1,7 +1,7 @@
 package com.ukhanov.realhelpdesk.core.config;
 
-import com.ukhanov.realhelpdesk.core.security.user.service.CustomUserDetailsService;
 import java.util.Arrays;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -15,56 +15,52 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.ukhanov.realhelpdesk.core.security.user.service.CustomUserDetailsService;
+
 @Configuration
 public class AppConfig {
 
-  private final CustomUserDetailsService customUserDetailsService;
+    private final CustomUserDetailsService customUserDetailsService;
 
-  public AppConfig(CustomUserDetailsService customUserDetailsService) {
-    this.customUserDetailsService = customUserDetailsService;
-  }
+    public AppConfig(CustomUserDetailsService customUserDetailsService) {
+        this.customUserDetailsService = customUserDetailsService;
+    }
 
-  @Bean
-  public AntPathMatcher antPathMatcher() {
-    return new AntPathMatcher();
-  }
+    @Bean
+    public AntPathMatcher antPathMatcher() {
+        return new AntPathMatcher();
+    }
 
-  // Шифрование пароля
-  @Bean
-  public PasswordEncoder passwordEncoder() {
-    return new BCryptPasswordEncoder();
-  }
+    // Шифрование пароля
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
 
-  // Выбор провайдера аутентификации
-  @Bean
-  public AuthenticationManager authenticationManager(HttpSecurity httpSecurity) throws Exception {
-    return httpSecurity.getSharedObject(AuthenticationManagerBuilder.class)
-        .authenticationProvider(authenticationProvider())
-        .build();
-  }
+    // Выбор провайдера аутентификации
+    @Bean
+    public AuthenticationManager authenticationManager(HttpSecurity httpSecurity) throws Exception {
+        return httpSecurity.getSharedObject(AuthenticationManagerBuilder.class).authenticationProvider(authenticationProvider()).build();
+    }
 
-  // Логика аутентификации(загрузка пользователя, проверка пароля)
-  @Bean
-  public DaoAuthenticationProvider authenticationProvider() {
-    final DaoAuthenticationProvider daoAuthenticationProvider = new DaoAuthenticationProvider(customUserDetailsService);
-    daoAuthenticationProvider.setPasswordEncoder(passwordEncoder());
-    return daoAuthenticationProvider;
-  }
+    // Логика аутентификации(загрузка пользователя, проверка пароля)
+    @Bean
+    public DaoAuthenticationProvider authenticationProvider() {
+        final DaoAuthenticationProvider daoAuthenticationProvider = new DaoAuthenticationProvider(customUserDetailsService);
+        daoAuthenticationProvider.setPasswordEncoder(passwordEncoder());
+        return daoAuthenticationProvider;
+    }
 
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(Arrays.asList("https://localhost.ru", "https://example.com"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
 
-  @Bean
-  public CorsConfigurationSource corsConfigurationSource() {
-    CorsConfiguration configuration = new CorsConfiguration();
-    configuration.setAllowedOrigins(Arrays.asList(
-        "https://localhost.ru",
-        "https://example.com"
-    ));
-    configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-    configuration.setAllowCredentials(true);
-    configuration.setMaxAge(3600L);
-
-    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-    source.registerCorsConfiguration("/**", configuration);
-    return source;
-  }
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
 }

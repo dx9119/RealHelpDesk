@@ -1,10 +1,11 @@
 package com.ukhanov.realhelpdesk.core.security.user.repository;
 
-import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import java.util.Optional;
+import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 
 @Repository
 public interface UserRepository extends JpaRepository<UserModel, Long> {

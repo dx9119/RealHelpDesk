@@ -7,9 +7,12 @@ public class NoHtmlValidator implements ConstraintValidator<NoHtml, String> {
 
     @Override
     public boolean isValid(String value, ConstraintValidatorContext context) {
-        if (value == null) return true;
+        if (value == null) {
+            return true;
+        }
 
         // Регулярка: пытаемся запретить HTML, JS и SQL в ДТО
-        return !value.matches("(?i).*(<script>|</script>|<.*?>|SELECT\\s|INSERT\\s|UPDATE\\s|DELETE\\s|--|\\/\\*|\\*\\/|DROP\\s|TRUNCATE\\s|EXEC\\s|UNION\\s).*");
+        return !value.matches("(?i).*(<script>|</script>|<.*?>|SELECT\\s|INSERT\\s|UPDATE\\s|DELETE\\s|"
+                + "--|\\/\\*|\\*\\/|DROP\\s|TRUNCATE\\s|EXEC\\s|UNION\\s).*");
     }
 }

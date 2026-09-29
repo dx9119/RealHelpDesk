@@ -1,12 +1,12 @@
 package com.ukhanov.realhelpdesk.domain.ticket.service;
 
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketAccessStatus;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketLiveStatus;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
-import com.ukhanov.realhelpdesk.domain.ticket.repository.TicketRepository;
-import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
+import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+
 import jakarta.persistence.PersistenceException;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,16 +20,21 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
-import java.time.Instant;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketAccessStatus;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketLiveStatus;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
+import com.ukhanov.realhelpdesk.domain.ticket.repository.TicketRepository;
+import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Тесты сервиса TicketDomainService")
 class TicketDomainServiceTest {
@@ -54,7 +59,7 @@ class TicketDomainServiceTest {
 
     @Test
     @DisplayName("saveTicket → сохраняет заявку и возвращает сохранённую сущность")
-    void saveTicket_shouldSaveAndReturnPersistedTicket() {
+    void saveTicket_returnsPersistedTicket() {
         // given
         TicketModel ticketToSave = createTicket(null, "Проблема с доступом", "Не могу войти");
         TicketModel savedTicket = createTicket(TICKET_ID, "Проблема с доступом", "Не могу войти");
@@ -66,9 +71,7 @@ class TicketDomainServiceTest {
         TicketModel result = service.saveTicket(ticketToSave);
 
         // then
-        assertThat(result)
-                .usingRecursiveComparison()
-                .isEqualTo(savedTicket);
+        assertThat(result).usingRecursiveComparison().isEqualTo(savedTicket);
 
         assertThat(result.getId()).isEqualTo(TICKET_ID);
         assertThat(result.getCreatedAt()).isNotNull();
@@ -79,23 +82,20 @@ class TicketDomainServiceTest {
 
     @Test
     @DisplayName("saveTicket → кидает NPE при null")
-    void saveTicket_nullTicket_shouldThrowNPE() {
-        assertThatThrownBy(() -> service.saveTicket(null))
-                .isInstanceOf(NullPointerException.class)
+    void saveTicket_nullTicket_throwsNPE() {
+        assertThatThrownBy(() -> service.saveTicket(null)).isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("Заявка не должна быть null");
     }
 
     @Test
     @DisplayName("saveTicket → кидает PersistenceException при ошибке сохранения")
-    void saveTicket_repositoryThrowsException_shouldWrapInPersistenceException() {
+    void saveTicket_repositoryThrows_wrapsInPersistenceException() {
         TicketModel ticket = createTicket(null, "Тест", "Описание");
 
         when(mockTicketRepository.save(any())).thenThrow(new RuntimeException("DB error"));
 
-        assertThatThrownBy(() -> service.saveTicket(ticket))
-                .isInstanceOf(PersistenceException.class)
-                .hasMessageContaining("Не удалось сохранить заявку")
-                .hasCauseInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> service.saveTicket(ticket)).isInstanceOf(PersistenceException.class)
+                .hasMessageContaining("Не удалось сохранить заявку").hasCauseInstanceOf(RuntimeException.class);
     }
 
     // ────────────────────────────────────────────────
@@ -104,7 +104,7 @@ class TicketDomainServiceTest {
 
     @Test
     @DisplayName("findTicketById → возвращает активную заявку по ID")
-    void findTicketById_shouldReturnActiveTicket() throws TicketException {
+    void findTicketById_returnsActiveTicket() throws TicketException {
         TicketModel expected = createTicket(TICKET_ID, "Тестовая заявка", "Описание");
         when(mockTicketRepository.findByIdAndTicketLiveStatus(TICKET_ID, TicketLiveStatus.ACTIVE))
                 .thenReturn(java.util.Optional.of(expected));
@@ -116,20 +116,17 @@ class TicketDomainServiceTest {
 
     @Test
     @DisplayName("findTicketById → кидает TicketException если заявка не найдена или не активна")
-    void findTicketById_notFoundOrInactive_shouldThrowTicketException() {
-        when(mockTicketRepository.findByIdAndTicketLiveStatus(TICKET_ID, TicketLiveStatus.ACTIVE))
-                .thenReturn(java.util.Optional.empty());
+    void findTicketById_notFoundOrInactive_throwsTicketException() {
+        when(mockTicketRepository.findByIdAndTicketLiveStatus(TICKET_ID, TicketLiveStatus.ACTIVE)).thenReturn(java.util.Optional.empty());
 
-        assertThatThrownBy(() -> service.findTicketById(TICKET_ID))
-                .isInstanceOf(TicketException.class)
+        assertThatThrownBy(() -> service.findTicketById(TICKET_ID)).isInstanceOf(TicketException.class)
                 .hasMessageContaining("Заявка не найдена");
     }
 
     @Test
     @DisplayName("findTicketById → null ID → NPE")
-    void findTicketById_nullId_shouldThrowNPE() {
-        assertThatThrownBy(() -> service.findTicketById(null))
-                .isInstanceOf(NullPointerException.class)
+    void findTicketById_nullId_throwsNPE() {
+        assertThatThrownBy(() -> service.findTicketById(null)).isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("ID заявки не должен быть null");
     }
 
@@ -139,25 +136,21 @@ class TicketDomainServiceTest {
 
     @Test
     @DisplayName("getTicketsByPortalId → возвращает активные заявки портала")
-    void getTicketsByPortalId_shouldReturnActiveTickets() {
+    void getTicketsByPortalId_returnsActiveTickets() {
         TicketModel t1 = createTicket(1L, "Заявка 1", "Текст 1");
         TicketModel t2 = createTicket(2L, "Заявка 2", "Текст 2");
 
-        when(mockTicketRepository.findAllByPortalIdAndTicketLiveStatus(PORTAL_ID, TicketLiveStatus.ACTIVE))
-                .thenReturn(List.of(t1, t2));
+        when(mockTicketRepository.findAllByPortalIdAndTicketLiveStatus(PORTAL_ID, TicketLiveStatus.ACTIVE)).thenReturn(List.of(t1, t2));
 
         List<TicketModel> result = service.getTicketsByPortalId(PORTAL_ID);
 
-        assertThat(result).hasSize(2)
-                .usingRecursiveFieldByFieldElementComparator()
-                .containsExactlyInAnyOrder(t1, t2);
+        assertThat(result).hasSize(2).usingRecursiveFieldByFieldElementComparator().containsExactlyInAnyOrder(t1, t2);
     }
 
     @Test
     @DisplayName("getTicketsByPortalId → null portalId → NPE")
-    void getTicketsByPortalId_null_shouldThrowNPE() {
-        assertThatThrownBy(() -> service.getTicketsByPortalId(null))
-                .isInstanceOf(NullPointerException.class);
+    void getTicketsByPortalId_null_throwsNPE() {
+        assertThatThrownBy(() -> service.getTicketsByPortalId(null)).isInstanceOf(NullPointerException.class);
     }
 
     // ────────────────────────────────────────────────
@@ -166,7 +159,7 @@ class TicketDomainServiceTest {
 
     @Test
     @DisplayName("getTicketsPageByPortalId → возвращает страницу активных заявок")
-    void getTicketsPageByPortalId_shouldReturnPagedActiveTickets() {
+    void getTicketsPageByPortalId_returnsPagedActiveTickets() {
         Pageable pageable = PageRequest.of(0, 10);
         TicketModel ticket = createTicket(TICKET_ID, "Тест", "Описание");
         Page<TicketModel> page = new PageImpl<>(List.of(ticket), pageable, 1);
@@ -182,7 +175,7 @@ class TicketDomainServiceTest {
 
     @Test
     @DisplayName("getTicketsPageByUserId → возвращает страницу заявок автора")
-    void getTicketsPageByUserId_shouldReturnPagedTicketsByAuthor() {
+    void getTicketsPageByUserId_returnsPagedTicketsByAuthor() {
         Pageable pageable = PageRequest.of(0, 20);
         Page<TicketModel> page = new PageImpl<>(Collections.emptyList(), pageable, 0);
 
@@ -196,7 +189,7 @@ class TicketDomainServiceTest {
 
     @Test
     @DisplayName("getTicketsByIds → возвращает страницу по списку ID")
-    void getTicketsByIds_shouldReturnTicketsByIds() {
+    void getTicketsByIds_returnsTicketsByIds() {
         Set<Long> ids = Set.of(10L, 20L, 30L);
         Pageable pageable = PageRequest.of(0, 5);
 

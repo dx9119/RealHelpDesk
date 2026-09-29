@@ -9,7 +9,6 @@ public class MessageResponse {
     private Long ticketId;
     private Instant createdAt;
 
-
     public Long getId() {
         return id;
     }

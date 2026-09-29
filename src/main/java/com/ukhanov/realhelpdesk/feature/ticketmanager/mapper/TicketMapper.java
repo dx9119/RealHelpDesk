@@ -1,5 +1,7 @@
 package com.ukhanov.realhelpdesk.feature.ticketmanager.mapper;
 
+import java.util.Objects;
+
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketAccessStatus;
@@ -9,9 +11,10 @@ import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketRequest;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponseOld;
 
-import java.util.Objects;
+public final class TicketMapper {
 
-public class TicketMapper {
+    private TicketMapper() {
+    }
 
     public static TicketModel fromRequest(CreateTicketRequest request, UserModel author, PortalModel portal) {
         TicketModel ticket = new TicketModel();
@@ -21,7 +24,8 @@ public class TicketMapper {
         ticket.setPortal(portal);
         ticket.setTicketPriority(request.getTicketPriority() != null ? request.getTicketPriority() : TicketPriority.NONE);
         ticket.setTicketStatus(TicketStatus.OPEN);
-        ticket.setAccessStatus(request.getTicketAccessStatus() != null ? request.getTicketAccessStatus() : TicketAccessStatus.CREATOR_AND_PORTAL_USERS);
+        ticket.setAccessStatus(
+                request.getTicketAccessStatus() != null ? request.getTicketAccessStatus() : TicketAccessStatus.CREATOR_AND_PORTAL_USERS);
         return ticket;
     }
 
@@ -32,22 +36,12 @@ public class TicketMapper {
                 ? model.getAuthor().getLastName() + " " + model.getAuthor().getFirstName()
                 : "Неизвестный автор";
 
-        String portalName = model.getPortal() != null
-                ? model.getPortal().getName()
-                : null;
+        String portalName = model.getPortal() != null ? model.getPortal().getName() : null;
 
-        return new TicketResponseOld.Builder()
-                .id(model.getId())
-                .title(model.getTitle())
-                .body(model.getBody())
-                .createdAt(model.getCreatedAt())
-                .ticketPriority(model.getTicketPriority())
-                .ticketStatus(model.getTicketStatus())
-                .authorFullName(authorName)
-                .portalName(portalName)
-                .portalId(model.getPortal().getId())
-                .ticketAccessStatus(model.getAccessStatus())
-                .build();
+        return new TicketResponseOld.Builder().id(model.getId()).title(model.getTitle()).body(model.getBody())
+                .createdAt(model.getCreatedAt()).ticketPriority(model.getTicketPriority()).ticketStatus(model.getTicketStatus())
+                .authorFullName(authorName).portalName(portalName).portalId(model.getPortal().getId())
+                .ticketAccessStatus(model.getAccessStatus()).build();
     }
 
 }

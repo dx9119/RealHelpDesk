@@ -1,10 +1,9 @@
 package com.ukhanov.realhelpdesk.domain.message.service;
 
-import com.ukhanov.realhelpdesk.domain.message.model.MessageModel;
-import com.ukhanov.realhelpdesk.domain.message.repository.MessageRepository;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketAccessStatus;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketLiveStatus;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
+import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,15 +11,19 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.Instant;
-import java.util.Collections;
-import java.util.List;
+import com.ukhanov.realhelpdesk.domain.message.model.MessageModel;
+import com.ukhanov.realhelpdesk.domain.message.repository.MessageRepository;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketAccessStatus;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketLiveStatus;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Тесты сервиса MessageDomainService")
 class MessageDomainServiceTest {
@@ -43,7 +46,7 @@ class MessageDomainServiceTest {
 
     @Test
     @DisplayName("saveMessage → должен вернуть сущность с присвоенным id")
-    void saveMessage_shouldReturnEntityWithGeneratedId() {
+    void saveMessage_returnsEntityWithGeneratedId() {
         // given
         TicketModel ticket = createTicket(TICKET_ID);
 
@@ -52,11 +55,10 @@ class MessageDomainServiceTest {
 
         // Объект, который симулирует, что вернул репозиторий после сохранения
         MessageModel savedFromRepo = createMessage(ticket, "Не могу войти в аккаунт");
-        savedFromRepo.setId(1007L);                    // ← только здесь можно setId
-        savedFromRepo.setCreatedAt(Instant.now());     // имитируем @PrePersist
+        savedFromRepo.setId(1007L); // ← только здесь можно setId
+        savedFromRepo.setCreatedAt(Instant.now()); // имитируем @PrePersist
 
-        when(mockMessageRepository.save(any(MessageModel.class)))
-                .thenReturn(savedFromRepo);
+        when(mockMessageRepository.save(any(MessageModel.class))).thenReturn(savedFromRepo);
 
         // when
         MessageModel result = service.saveMessage(messageToSave);
@@ -74,9 +76,8 @@ class MessageDomainServiceTest {
 
     @Test
     @DisplayName("saveMessage → кидает NPE при null")
-    void saveMessage_null_shouldThrowNPE() {
-        assertThatThrownBy(() -> service.saveMessage(null))
-                .isInstanceOf(NullPointerException.class)
+    void saveMessage_null_throwsNPE() {
+        assertThatThrownBy(() -> service.saveMessage(null)).isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("Сообщение не должно быть null");
     }
 
@@ -86,7 +87,7 @@ class MessageDomainServiceTest {
 
     @Test
     @DisplayName("getMessagesByTicketId → возвращает список сообщений")
-    void getMessagesByTicketId_shouldReturnMessages() {
+    void getMessagesByTicketId_returnsMessages() {
         // given
         TicketModel ticket = createTicket(TICKET_ID);
 
@@ -101,10 +102,7 @@ class MessageDomainServiceTest {
         List<MessageModel> result = service.getMessagesByTicketId(TICKET_ID);
 
         // then
-        assertThat(result)
-                .hasSize(2)
-                .usingRecursiveFieldByFieldElementComparatorIgnoringFields("createdAt", "version")
-                .isEqualTo(expected);
+        assertThat(result).hasSize(2).usingRecursiveFieldByFieldElementComparatorIgnoringFields("createdAt", "version").isEqualTo(expected);
 
         assertThat(result.get(0).getMessageText()).contains("оплатой");
         assertThat(result.get(1).getTicket()).isSameAs(ticket);
@@ -115,9 +113,8 @@ class MessageDomainServiceTest {
 
     @Test
     @DisplayName("getMessagesByTicketId → пустой список когда сообщений нет")
-    void getMessagesByTicketId_noMessages_shouldReturnEmpty() {
-        when(mockMessageRepository.findByTicketId(TICKET_ID))
-                .thenReturn(Collections.emptyList());
+    void getMessagesByTicketId_noMessages_returnsEmpty() {
+        when(mockMessageRepository.findByTicketId(TICKET_ID)).thenReturn(Collections.emptyList());
 
         List<MessageModel> result = service.getMessagesByTicketId(TICKET_ID);
 
@@ -128,9 +125,8 @@ class MessageDomainServiceTest {
 
     @Test
     @DisplayName("getMessagesByTicketId → null ticketId → NPE")
-    void getMessagesByTicketId_null_shouldThrowNPE() {
-        assertThatThrownBy(() -> service.getMessagesByTicketId(null))
-                .isInstanceOf(NullPointerException.class)
+    void getMessagesByTicketId_null_throwsNPE() {
+        assertThatThrownBy(() -> service.getMessagesByTicketId(null)).isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("Идентификатор заявки не должен быть null");
     }
 

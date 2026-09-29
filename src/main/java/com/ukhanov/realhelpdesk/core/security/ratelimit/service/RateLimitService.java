@@ -1,11 +1,11 @@
 package com.ukhanov.realhelpdesk.core.security.ratelimit.service;
 
-import org.springframework.stereotype.Service;
-
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import org.springframework.stereotype.Service;
 
 @Service
 public class RateLimitService {
@@ -25,8 +25,8 @@ public class RateLimitService {
         long windowMillis = window.toMillis();
         sweepExpired(now);
 
-        Window current = windows.compute(key, (k, existing) ->
-                existing == null || existing.expiresAt() <= now
+        Window current = windows.compute(key,
+                (k, existing) -> existing == null || existing.expiresAt() <= now
                         ? new Window(now + windowMillis, new AtomicInteger(0))
                         : existing);
 

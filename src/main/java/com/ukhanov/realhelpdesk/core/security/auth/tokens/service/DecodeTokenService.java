@@ -1,20 +1,24 @@
 package com.ukhanov.realhelpdesk.core.security.auth.tokens.service;
 
-import com.ukhanov.realhelpdesk.core.config.JwtConfig;
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenBearer;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.MalformedJwtException;
+import java.util.Objects;
+
+import javax.crypto.SecretKey;
+
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import javax.crypto.SecretKey;
-import java.util.Objects;
+import com.ukhanov.realhelpdesk.core.config.JwtConfig;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenBearer;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.MalformedJwtException;
 
 @Service
 public class DecodeTokenService {
@@ -34,10 +38,7 @@ public class DecodeTokenService {
             throw new MalformedJwtException("Токен отсутствует или пуст");
         }
 
-        Claims claims = Jwts.parser()
-                .verifyWith((SecretKey) jwtConfig.getJwtKey())
-                .build()
-                .parseSignedClaims(token.getToken())
+        Claims claims = Jwts.parser().verifyWith((SecretKey) jwtConfig.getJwtKey()).build().parseSignedClaims(token.getToken())
                 .getPayload();
 
         // Обязательные поля
@@ -48,8 +49,7 @@ public class DecodeTokenService {
         return claims;
     }
 
-    public String extractTokenFromCookies(HttpServletRequest request, String cookieName)
-        throws TokenException {
+    public String extractTokenFromCookies(HttpServletRequest request, String cookieName) throws TokenException {
         logger.debug("Начало извлечения cookie. Запрошенное имя: '{}'", cookieName);
 
         Cookie[] cookies = request.getCookies();

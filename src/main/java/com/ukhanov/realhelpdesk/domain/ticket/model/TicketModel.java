@@ -1,10 +1,22 @@
 package com.ukhanov.realhelpdesk.domain.ticket.model;
 
+import java.time.Instant;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Version;
+
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
-import jakarta.persistence.*;
-
-import java.time.Instant;
 
 @Entity
 public class TicketModel {
@@ -17,7 +29,7 @@ public class TicketModel {
     private String title;
 
     @Column(nullable = false, columnDefinition = "TEXT")
-    private String body; //Описание
+    private String body; // Описание
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assigned_user_id")
@@ -38,7 +50,7 @@ public class TicketModel {
     private TicketStatus ticketStatus = TicketStatus.OPEN;
 
     @Enumerated(EnumType.STRING)
-    private TicketLiveStatus ticketLiveStatus= TicketLiveStatus.ACTIVE;
+    private TicketLiveStatus ticketLiveStatus = TicketLiveStatus.ACTIVE;
 
     private Long whoDelete;
 
@@ -159,6 +171,5 @@ public class TicketModel {
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
     }
-
 
 }

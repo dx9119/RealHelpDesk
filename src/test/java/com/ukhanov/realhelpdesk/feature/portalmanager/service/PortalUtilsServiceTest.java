@@ -1,6 +1,9 @@
 package com.ukhanov.realhelpdesk.feature.portalmanager.service;
 
-import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -8,9 +11,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
@@ -54,15 +55,13 @@ class PortalUtilsServiceTest {
     void validateIdList_validIds_noException() {
         Set<Long> validSet = Set.of(1L, 42L, 9223372036854775807L);
 
-        assertThatNoException()
-                .isThrownBy(() -> service.validateIdList(validSet));
+        assertThatNoException().isThrownBy(() -> service.validateIdList(validSet));
     }
 
     @Test
     @DisplayName("validateIdList → null → должен бросить NPE")
     void validateIdList_nullSet_throwsNPE() {
-        assertThatThrownBy(() -> service.validateIdList(null))
-                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> service.validateIdList(null)).isInstanceOf(NullPointerException.class);
     }
 
     @Test
@@ -70,7 +69,6 @@ class PortalUtilsServiceTest {
     void validateIdList_nonPositiveId_throwsPortalException() {
         Set<Long> invalidSet = new HashSet<>(List.of(1L, -5L));
 
-        assertThatThrownBy(() -> service.validateIdList(invalidSet))
-                .isInstanceOf(PortalException.class);
+        assertThatThrownBy(() -> service.validateIdList(invalidSet)).isInstanceOf(PortalException.class);
     }
 }

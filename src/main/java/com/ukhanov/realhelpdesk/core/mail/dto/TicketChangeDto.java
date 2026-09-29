@@ -2,31 +2,29 @@ package com.ukhanov.realhelpdesk.core.mail.dto;
 
 public class TicketChangeDto {
 
-  private String subject;
+    private String subject;
 
-  private String message;
+    private String message;
 
-  public TicketChangeDto(String subject, String message) {
-    this.subject = subject;
-    this.message = message;
-  }
+    public TicketChangeDto(String subject, String message) {
+        this.subject = subject;
+        this.message = message;
+    }
 
-  public String getSubject() {
-    return subject;
-  }
+    public String getSubject() {
+        return subject;
+    }
 
-  public void setSubject(String subject) {
-    this.subject = subject;
-  }
+    public void setSubject(String subject) {
+        this.subject = subject;
+    }
 
-  public String getMessage() {
-    return message;
-  }
+    public String getMessage() {
+        return message;
+    }
 
-  public void setMessage(String message) {
-    this.message = message;
-  }
-
-
+    public void setMessage(String message) {
+        this.message = message;
+    }
 
 }

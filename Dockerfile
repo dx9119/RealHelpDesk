@@ -8,8 +8,9 @@ WORKDIR /app
 COPY pom.xml .
 RUN mvn -q dependency:go-offline
 
-# Сборка проекта
+# Сборка проекта (config — конфиги Spotless/Checkstyle, нужные на фазе validate)
 COPY src ./src
+COPY config ./config
 RUN mvn -q package -DskipTests
 
 # Переименовываем jar (в target лежит ещё *.jar.original)

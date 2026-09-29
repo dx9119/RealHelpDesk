@@ -1,9 +1,9 @@
 package com.ukhanov.realhelpdesk.feature.portalmanager.dto;
 
-import com.ukhanov.realhelpdesk.core.annotation.NoHtml;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+
+import com.ukhanov.realhelpdesk.core.annotation.NoHtml;
 
 public class CreatePortalRequest {
 

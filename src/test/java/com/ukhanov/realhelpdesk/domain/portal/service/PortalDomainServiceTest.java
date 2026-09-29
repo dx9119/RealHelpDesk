@@ -1,8 +1,10 @@
 package com.ukhanov.realhelpdesk.domain.portal.service;
 
-import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
-import com.ukhanov.realhelpdesk.domain.portal.repository.PortalRepository;
-import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
+import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,24 +15,17 @@ import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
+import com.ukhanov.realhelpdesk.domain.portal.repository.PortalRepository;
+import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
-
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Тесты сервиса PortalDomainService")
 class PortalDomainServiceTest {
@@ -41,7 +36,7 @@ class PortalDomainServiceTest {
     private PortalDomainService service;
 
     private static final Long OWNER_ID = 11L;
-    private static final Long USER_ID  = 22L;
+    private static final Long USER_ID = 22L;
     private static final Long PORTAL_ID = 42L;
 
     @BeforeEach
@@ -55,19 +50,15 @@ class PortalDomainServiceTest {
 
     @Test
     @DisplayName("getPortalsByOwnerId → возвращает отсортированный список порталов владельца")
-    void getPortalsByOwnerId_shouldReturnSortedList() {
+    void getPortalsByOwnerId_returnsSortedList() {
         PortalModel p1 = createPortal(100L, "Portal A");
-        PortalModel p2 = createPortal(50L,  "Portal B");
+        PortalModel p2 = createPortal(50L, "Portal B");
 
-        when(mockPortalRepository.findAllByOwnerIdOrderByCreatedAtDesc(OWNER_ID))
-                .thenReturn(List.of(p1, p2));
+        when(mockPortalRepository.findAllByOwnerIdOrderByCreatedAtDesc(OWNER_ID)).thenReturn(List.of(p1, p2));
 
         List<PortalModel> result = service.getPortalsByOwnerId(OWNER_ID);
 
-        assertThat(result)
-                .hasSize(2)
-                .extracting(PortalModel::getName)
-                .containsExactly("Portal A", "Portal B");
+        assertThat(result).hasSize(2).extracting(PortalModel::getName).containsExactly("Portal A", "Portal B");
 
         verify(mockPortalRepository).findAllByOwnerIdOrderByCreatedAtDesc(OWNER_ID);
     }
@@ -75,8 +66,7 @@ class PortalDomainServiceTest {
     @Test
     @DisplayName("getPortalsByOwnerId → пустой список когда ничего не найдено")
     void getPortalsByOwnerId_emptyResult() {
-        when(mockPortalRepository.findAllByOwnerIdOrderByCreatedAtDesc(OWNER_ID))
-                .thenReturn(Collections.emptyList());
+        when(mockPortalRepository.findAllByOwnerIdOrderByCreatedAtDesc(OWNER_ID)).thenReturn(Collections.emptyList());
 
         List<PortalModel> result = service.getPortalsByOwnerId(OWNER_ID);
 
@@ -87,9 +77,8 @@ class PortalDomainServiceTest {
     @NullAndEmptySource
     @ValueSource(strings = {"   "})
     @DisplayName("getPortalsByOwnerId → кидает NPE при null ownerId")
-    void getPortalsByOwnerId_nullOwnerId_shouldThrowNPE(String dummy) {
-        assertThatThrownBy(() -> service.getPortalsByOwnerId(null))
-                .isInstanceOf(NullPointerException.class)
+    void getPortalsByOwnerId_nullOwnerId_throwsNPE(String dummy) {
+        assertThatThrownBy(() -> service.getPortalsByOwnerId(null)).isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("ownerId не должен быть null");
     }
 
@@ -105,9 +94,7 @@ class PortalDomainServiceTest {
 
         PortalModel result = service.getPortalById(PORTAL_ID);
 
-        assertThat(result)
-                .usingRecursiveComparison()
-                .isEqualTo(expected);
+        assertThat(result).usingRecursiveComparison().isEqualTo(expected);
     }
 
     @Test
@@ -115,16 +102,14 @@ class PortalDomainServiceTest {
     void getPortalById_notFound() {
         when(mockPortalRepository.findById(PORTAL_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.getPortalById(PORTAL_ID))
-                .isInstanceOf(PortalException.class)
+        assertThatThrownBy(() -> service.getPortalById(PORTAL_ID)).isInstanceOf(PortalException.class)
                 .hasMessageContaining("Портал с ID " + PORTAL_ID + " не найден");
     }
 
     @Test
     @DisplayName("getPortalById → проверка на null portalId")
     void getPortalById_nullId() {
-        assertThatThrownBy(() -> service.getPortalById(null))
-                .isInstanceOf(NullPointerException.class)
+        assertThatThrownBy(() -> service.getPortalById(null)).isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("portalId must not be null");
     }
 
@@ -149,8 +134,7 @@ class PortalDomainServiceTest {
     @Test
     @DisplayName("savePortal → кидает NPE при null")
     void savePortal_null() {
-        assertThatThrownBy(() -> service.savePortal(null))
-                .isInstanceOf(NullPointerException.class)
+        assertThatThrownBy(() -> service.savePortal(null)).isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("portal не должен быть null");
     }
 
@@ -159,15 +143,9 @@ class PortalDomainServiceTest {
     // ────────────────────────────────────────────────
 
     @ParameterizedTest(name = "Имя \"{0}\" → существует = {1}")
-    @CsvSource({
-            "'',          false",
-            "' ',         false",
-            "Portal One,  true",
-            "Портал №2,   true"
-    })
+    @CsvSource({"'',          false", "' ',         false", "Portal One,  true", "Портал №2,   true"})
     void isPortalExistByName_variousNames(String name, boolean exists) {
-        when(mockPortalRepository.existsByOwnerIdAndNameAndIsDeletedFalse(OWNER_ID, name))
-                .thenReturn(exists);
+        when(mockPortalRepository.existsByOwnerIdAndNameAndIsDeletedFalse(OWNER_ID, name)).thenReturn(exists);
 
         boolean result = service.isPortalExistByName(OWNER_ID, name);
 
@@ -176,8 +154,7 @@ class PortalDomainServiceTest {
 
     @Test
     void isPortalExistByName_nullName() {
-        assertThatThrownBy(() -> service.isPortalExistByName(OWNER_ID, null))
-                .isInstanceOf(NullPointerException.class)
+        assertThatThrownBy(() -> service.isPortalExistByName(OWNER_ID, null)).isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("portalName не должен быть null");
     }
 
@@ -197,8 +174,7 @@ class PortalDomainServiceTest {
     @Test
     @DisplayName("deletePortalById → null id → NPE")
     void deletePortalById_null() {
-        assertThatThrownBy(() -> service.deletePortalById(null))
-                .isInstanceOf(NullPointerException.class)
+        assertThatThrownBy(() -> service.deletePortalById(null)).isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("portalId не должен быть null");
     }
 

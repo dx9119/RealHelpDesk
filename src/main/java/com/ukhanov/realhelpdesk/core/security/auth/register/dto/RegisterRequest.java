@@ -1,12 +1,10 @@
 package com.ukhanov.realhelpdesk.core.security.auth.register.dto;
 
-import com.ukhanov.realhelpdesk.core.security.user.model.UserPlatformSource;
 import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+
+import com.ukhanov.realhelpdesk.core.security.user.model.UserPlatformSource;
 
 public class RegisterRequest {
     @NotBlank(message = "Поле имени обязательно для заполнения")

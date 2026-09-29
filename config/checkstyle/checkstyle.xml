@@ -1,0 +1,94 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+        "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+        "https://checkstyle.org/dtds/configuration_1_3.dtd">
+
+<!--
+  Правила стиля RealHelpDesk.
+  Форматирование (отступы, переносы, пробелы) контролирует Spotless — здесь только то,
+  что он не проверяет: нейминг, импорты, дизайн, структура.
+-->
+<module name="Checker">
+    <property name="charset" value="UTF-8"/>
+    <property name="severity" value="error"/>
+    <property name="fileExtensions" value="java"/>
+
+    <module name="LineLength">
+        <property name="max" value="140"/>
+        <property name="ignorePattern"
+                  value="^package.*|^import.*|http://|https://|ftp://|^\s*\*"/>
+    </module>
+
+    <!-- Spring-классы (main-класс, @Configuration, @Component): должны иметь
+         публичный конструктор и не быть final — иначе CGLIB/контейнер не смогут их создать -->
+    <module name="SuppressionSingleFilter">
+        <property name="checks" value="HideUtilityClassConstructor"/>
+        <property name="files" value="(RealHelpDeskApplication|WhiteUrlConfig|UserMapper|PortalMapper)\.java"/>
+    </module>
+
+    <module name="TreeWalker">
+
+        <!-- Импорты: явные, без wildcard, без дублей и мусора -->
+        <module name="AvoidStarImport"/>
+        <module name="UnusedImports"/>
+        <module name="RedundantImport"/>
+
+        <!-- Нейминг: PascalCase типы, camelCase методы/поля (с _ для методов тестов), CONST_CASE константы -->
+        <module name="PackageName"/>
+        <module name="TypeName"/>
+        <module name="MethodName">
+            <property name="format" value="^[a-z][a-zA-Z0-9]*(_[a-zA-Z0-9]+)*$"/>
+        </module>
+        <!-- Исключение под конвенцию проекта: private static final Logger logger -->
+        <module name="ConstantName">
+            <property name="format" value="^([A-Z][A-Z0-9]*(_[A-Z0-9]+)*|logger)$"/>
+        </module>
+        <module name="LocalVariableName"/>
+        <module name="ParameterName"/>
+        <module name="MemberName"/>
+        <module name="LocalFinalVariableName"/>
+
+        <!-- Дизайн и модификаторы -->
+        <module name="FinalClass"/>
+        <module name="HideUtilityClassConstructor"/>
+        <module name="ModifierOrder"/>
+        <module name="RedundantModifier"/>
+        <module name="OuterTypeFilename"/>
+        <module name="OneTopLevelClass"/>
+
+        <!-- Структура кода -->
+        <module name="NeedBraces"/>
+        <module name="OneStatementPerLine"/>
+        <module name="MultipleVariableDeclarations"/>
+        <module name="EmptyStatement"/>
+        <module name="EmptyBlock">
+            <property name="option" value="TEXT"/>
+            <property name="tokens" value="LITERAL_TRY"/>
+        </module>
+        <module name="FallThrough"/>
+        <module name="MissingSwitchDefault"/>
+        <module name="SimplifyBooleanExpression"/>
+        <module name="SimplifyBooleanReturn"/>
+        <module name="StringLiteralEquality"/>
+        <module name="UpperEll"/>
+        <module name="ArrayTypeStyle"/>
+
+        <!-- Пробелы (базовые; полное форматирование — Spotless) -->
+        <module name="GenericWhitespace"/>
+        <module name="WhitespaceAfter">
+            <property name="tokens" value="COMMA, SEMI, TYPECAST"/>
+        </module>
+        <module name="WhitespaceAround">
+            <property name="allowEmptyTypes" value="false"/>
+            <property name="allowEmptyConstructors" value="false"/>
+            <property name="allowEmptyLambdas" value="false"/>
+            <property name="allowEmptyMethods" value="false"/>
+            <property name="allowEmptyLoops" value="false"/>
+        </module>
+
+        <!-- Наследование и equals/hashCode -->
+        <module name="EqualsHashCode"/>
+        <module name="SuperFinalize"/>
+
+    </module>
+</module>

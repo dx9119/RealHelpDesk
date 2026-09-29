@@ -1,5 +1,23 @@
 package com.ukhanov.realhelpdesk.feature.ticketmanager.service;
 
+import java.time.Instant;
+import java.util.List;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
 import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
@@ -9,7 +27,10 @@ import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import com.ukhanov.realhelpdesk.domain.portal.service.PortalDomainService;
-import com.ukhanov.realhelpdesk.domain.ticket.model.*;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketLiveStatus;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 import com.ukhanov.realhelpdesk.domain.ticket.repository.TicketRepository;
 import com.ukhanov.realhelpdesk.domain.ticket.service.TicketDomainService;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
@@ -17,40 +38,40 @@ import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketRequest;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketResponse;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponseOld;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.*;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 
-import java.time.Instant;
-import java.util.*;
-
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("Тесты сервиса TicketManageService")
 class TicketManageServiceTest {
 
-    @Mock private TicketDomainService mockTicketDomainService;
-    @Mock private CurrentUserProvider mockCurrentUserProvider;
-    @Mock private PortalDomainService mockPortalDomainService;
-    @Mock private PaginationAdapter mockPaginationAdapter;
-    @Mock private EmailDeliveryService mockEmailDeliveryService;
-    @Mock private TicketAccessValidationService mockTicketAccessValidationService;
-    @Mock private TicketRepository mockTicketRepository;
+    @Mock
+    private TicketDomainService mockTicketDomainService;
+    @Mock
+    private CurrentUserProvider mockCurrentUserProvider;
+    @Mock
+    private PortalDomainService mockPortalDomainService;
+    @Mock
+    private PaginationAdapter mockPaginationAdapter;
+    @Mock
+    private EmailDeliveryService mockEmailDeliveryService;
+    @Mock
+    private TicketAccessValidationService mockTicketAccessValidationService;
+    @Mock
+    private TicketRepository mockTicketRepository;
 
-    @Captor private ArgumentCaptor<TicketModel> ticketCaptor;
+    @Captor
+    private ArgumentCaptor<TicketModel> ticketCaptor;
 
     private TicketManageService service;
 
@@ -61,15 +82,8 @@ class TicketManageServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new TicketManageService(
-                mockTicketDomainService,
-                mockCurrentUserProvider,
-                mockPortalDomainService,
-                mockPaginationAdapter,
-                mockEmailDeliveryService,
-                mockTicketAccessValidationService,
-                mockTicketRepository
-        );
+        service = new TicketManageService(mockTicketDomainService, mockCurrentUserProvider, mockPortalDomainService, mockPaginationAdapter,
+                mockEmailDeliveryService, mockTicketAccessValidationService, mockTicketRepository);
 
         UserModel currentUser = new UserModel();
         currentUser.setId(USER_ID);
@@ -96,8 +110,7 @@ class TicketManageServiceTest {
     @Test
     @DisplayName("getTicketById → null id → NPE")
     void getTicketById_nullId_throwsNPE() {
-        assertThatThrownBy(() -> service.getTicketById(null))
-                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> service.getTicketById(null)).isInstanceOf(NullPointerException.class);
     }
 
     // ────────────────────────────────────────────────
@@ -123,12 +136,7 @@ class TicketManageServiceTest {
         verify(mockTicketDomainService).saveTicket(ticketCaptor.capture());
         assertThat(ticketCaptor.getValue().getTitle()).isEqualTo("New Issue");
 
-        verify(mockEmailDeliveryService).initNotifyPortalUsers(
-                eq(portal),
-                anyString(),
-                anyString(),
-                eq(NotificationEvent.NEW_TICKET)
-        );
+        verify(mockEmailDeliveryService).initNotifyPortalUsers(eq(portal), anyString(), anyString(), eq(NotificationEvent.NEW_TICKET));
     }
 
     // ────────────────────────────────────────────────
@@ -139,19 +147,14 @@ class TicketManageServiceTest {
     @DisplayName("getPageTickets → успех")
     void getPageTickets_success() throws TicketException, PortalException {
         PageRequest pageRequest = PageRequest.of(0, 10);
-        when(mockPaginationAdapter.buildPageRequest(eq(0), eq(10), eq("title"), eq("asc"), any()))
-                .thenReturn(pageRequest);
+        when(mockPaginationAdapter.buildPageRequest(eq(0), eq(10), eq("title"), eq("asc"), any())).thenReturn(pageRequest);
 
         TicketModel ticketModel = defaultTicket(1L);
         Page<TicketModel> ticketPage = new PageImpl<>(List.of(ticketModel), pageRequest, 1);
-        when(mockTicketDomainService.getTicketsPageByPortalId(PORTAL_ID, pageRequest))
-                .thenReturn(ticketPage);
+        when(mockTicketDomainService.getTicketsPageByPortalId(PORTAL_ID, pageRequest)).thenReturn(ticketPage);
 
         // Создаём маппинг вручную
-        TicketResponseOld dto = new TicketResponseOld.Builder()
-                .id(1L)
-                .title("Test Ticket")
-                .build();
+        TicketResponseOld dto = new TicketResponseOld.Builder().id(1L).title("Test Ticket").build();
 
         Page<TicketResponseOld> mappedPage = ticketPage.map(t -> dto); // имитируем map
 
@@ -163,19 +166,14 @@ class TicketManageServiceTest {
         expected.setContent(List.of(dto));
 
         // Стабим mapToResponse с mappedPage (имитируем, что map уже прошёл)
-        when(mockPaginationAdapter.<TicketResponseOld>mapToResponse(
-                any(Page.class), eq("title"), eq("asc")
-        )).thenReturn(expected);
+        when(mockPaginationAdapter.<TicketResponseOld>mapToResponse(any(Page.class), eq("title"), eq("asc"))).thenReturn(expected);
 
-        PageResponse<TicketResponseOld> result = service.getPageTickets(
-                PORTAL_ID, 0, 10, "title", "asc"
-        );
+        PageResponse<TicketResponseOld> result = service.getPageTickets(PORTAL_ID, 0, 10, "title", "asc");
 
         assertThat(result).isNotNull();
         assertThat(result.getTotalElements()).isEqualTo(1L);
         assertThat(result.getContent()).hasSize(1);
     }
-
 
     // ────────────────────────────────────────────────
     // Фабрики

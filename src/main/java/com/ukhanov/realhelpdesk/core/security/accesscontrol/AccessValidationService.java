@@ -1,82 +1,72 @@
 package com.ukhanov.realhelpdesk.core.security.accesscontrol;
 
-import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
-import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
-import com.ukhanov.realhelpdesk.domain.portal.service.PortalDomainService;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketAccessStatus;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
-import com.ukhanov.realhelpdesk.domain.ticket.service.TicketDomainService;
-import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
-
-import java.util.HashSet;
-import java.util.Set;
-
-import com.ukhanov.realhelpdesk.feature.ticketmanager.service.TicketManageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
+import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
+import com.ukhanov.realhelpdesk.domain.portal.service.PortalDomainService;
+import com.ukhanov.realhelpdesk.domain.ticket.service.TicketDomainService;
+import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
+
 @Service
 public class AccessValidationService {
-  private final PortalDomainService portalDomainService;
-  private final CurrentUserProvider currentUserProvider;
+    private final PortalDomainService portalDomainService;
+    private final CurrentUserProvider currentUserProvider;
 
-  private static final Logger logger = LoggerFactory.getLogger(AccessValidationService.class);
+    private static final Logger logger = LoggerFactory.getLogger(AccessValidationService.class);
 
-
-  public AccessValidationService(PortalDomainService portalDomainService,
-      CurrentUserProvider currentUserProvider,
-                                 TicketDomainService ticketDomainService) {
-    this.portalDomainService = portalDomainService;
-    this.currentUserProvider = currentUserProvider;
-  }
-
-  public boolean hasPortalAccess(Long portalId) throws PortalException {
-    PortalModel portal = portalDomainService.getPortalById(portalId);
-    Long currentUserId = currentUserProvider.getCurrentUserModel().getId();
-
-    boolean isOwner = portal.getOwner().getId().equals(currentUserId);
-    boolean isAllowedUser = portal.getAllowedUserIds().contains(currentUserId);
-    boolean isPublic = portal.isPublic();
-
-    if (!isOwner && !isAllowedUser && !isPublic) {
-      logger.info("Пользователь {} не имеет доступа к порталу {}", currentUserId, portalId);
-      return false;
+    public AccessValidationService(PortalDomainService portalDomainService, CurrentUserProvider currentUserProvider,
+            TicketDomainService ticketDomainService) {
+        this.portalDomainService = portalDomainService;
+        this.currentUserProvider = currentUserProvider;
     }
 
-    return true;
-  }
-  public boolean hasPortalOwner(Long portalId) throws PortalException {
-    PortalModel portal = portalDomainService.getPortalById(portalId);
-    Long currentUserId = currentUserProvider.getCurrentUserModel().getId();
+    public boolean hasPortalAccess(Long portalId) throws PortalException {
+        PortalModel portal = portalDomainService.getPortalById(portalId);
+        Long currentUserId = currentUserProvider.getCurrentUserModel().getId();
 
-    boolean isOwner = portal.getOwner().getId().equals(currentUserId);
+        boolean isOwner = portal.getOwner().getId().equals(currentUserId);
+        boolean isAllowedUser = portal.getAllowedUserIds().contains(currentUserId);
+        boolean isPublic = portal.isPublic();
 
-    if (!isOwner) {
-      logger.info("Пользователь не является владельцем портала {}", portalId);
-      return false;
+        if (!isOwner && !isAllowedUser && !isPublic) {
+            logger.info("Пользователь {} не имеет доступа к порталу {}", currentUserId, portalId);
+            return false;
+        }
+
+        return true;
+    }
+    public boolean hasPortalOwner(Long portalId) throws PortalException {
+        PortalModel portal = portalDomainService.getPortalById(portalId);
+        Long currentUserId = currentUserProvider.getCurrentUserModel().getId();
+
+        boolean isOwner = portal.getOwner().getId().equals(currentUserId);
+
+        if (!isOwner) {
+            logger.info("Пользователь не является владельцем портала {}", portalId);
+            return false;
+        }
+
+        return true;
     }
 
-    return true;
-  }
+    // Управление порталом (переименование, список участников): владелец или
+    // доверенные пользователи. Публичный доступ (isPublic) права управления не даёт.
+    public boolean hasPortalManageAccess(Long portalId) throws PortalException {
+        PortalModel portal = portalDomainService.getPortalById(portalId);
+        Long currentUserId = currentUserProvider.getCurrentUserModel().getId();
 
-  // Управление порталом (переименование, список участников): владелец или
-  // доверенные пользователи. Публичный доступ (isPublic) права управления не даёт.
-  public boolean hasPortalManageAccess(Long portalId) throws PortalException {
-    PortalModel portal = portalDomainService.getPortalById(portalId);
-    Long currentUserId = currentUserProvider.getCurrentUserModel().getId();
+        boolean isOwner = portal.getOwner().getId().equals(currentUserId);
+        boolean isAllowedUser = portal.getAllowedUserIds() != null && portal.getAllowedUserIds().contains(currentUserId);
 
-    boolean isOwner = portal.getOwner().getId().equals(currentUserId);
-    boolean isAllowedUser = portal.getAllowedUserIds() != null
-        && portal.getAllowedUserIds().contains(currentUserId);
+        if (!isOwner && !isAllowedUser) {
+            logger.info("Пользователь {} не имеет прав управления порталом {}", currentUserId, portalId);
+            return false;
+        }
 
-    if (!isOwner && !isAllowedUser) {
-      logger.info("Пользователь {} не имеет прав управления порталом {}", currentUserId, portalId);
-      return false;
+        return true;
     }
-
-    return true;
-  }
 
 }

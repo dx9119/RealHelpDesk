@@ -1,5 +1,12 @@
 package com.ukhanov.realhelpdesk.core.security.auth.login.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
 import com.ukhanov.realhelpdesk.core.security.auth.login.dto.LoginRequest;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokensResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
@@ -8,12 +15,6 @@ import com.ukhanov.realhelpdesk.core.security.user.SecurityUser;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserStatus;
 import com.ukhanov.realhelpdesk.core.security.user.service.CustomUserDetailsService;
 import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
 
 @Service
 public class LoginService {
@@ -24,7 +25,8 @@ public class LoginService {
     private final UserDomainService userDomainService;
     private final CustomUserDetailsService customUserDetailsService;
 
-    public LoginService(PasswordEncoder passwordEncoder, GetTokenService getTokenService, UserDomainService userDomainService, CustomUserDetailsService customUserDetailsService) {
+    public LoginService(PasswordEncoder passwordEncoder, GetTokenService getTokenService, UserDomainService userDomainService,
+            CustomUserDetailsService customUserDetailsService) {
         this.passwordEncoder = passwordEncoder;
         this.getTokenService = getTokenService;
 
@@ -35,7 +37,7 @@ public class LoginService {
     // Проверяем, если пользователь существует и пароль правильный - отдаем токены
     // Аутентификация/Аутентификация происходит в фильтре JwtAuthFilter
     public TokensResponse processLogin(LoginRequest loginRequest) throws TokenException {
-        if(!userDomainService.isUserExistsByEmail(loginRequest.getEmail())){
+        if (!userDomainService.isUserExistsByEmail(loginRequest.getEmail())) {
             logger.info("Ошибка логина. Пользователь {} не найден", loginRequest.getEmail());
             throw new UsernameNotFoundException("Ошибка авторизации: неверный логин, пароль или отсутствующий пользователь");
         }
@@ -47,8 +49,7 @@ public class LoginService {
             throw new BadCredentialsException("Ошибка авторизации: неверный логин, пароль или отсутствующий пользователь");
         }
 
-        if(!isPasswordValid(loginRequest.getPassword(), user.getPassword()))
-        {
+        if (!isPasswordValid(loginRequest.getPassword(), user.getPassword())) {
             logger.info("Ошибка логина.. Пароль не подошел для {}", loginRequest.getEmail());
             throw new BadCredentialsException("Ошибка авторизации: неверный логин, пароль или отсутствующий пользователь");
 

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+  Форматтер Eclipse JDT для RealHelpDesk.
+  Задаём только индентацию и длину строки; пробелы/скобки — дефолты JDT
+  (IntelliJ-совместимые: "x = 1", "if (a) {").
+-->
+<profiles version="13">
+    <profile kind="CodeFormatterProfile" name="RealHelpDesk" version="13">
+        <!-- Отступы: 4 пробела -->
+        <setting id="org.eclipse.jdt.core.formatter.tabulation.char" value="space"/>
+        <setting id="org.eclipse.jdt.core.formatter.tabulation.size" value="4"/>
+        <setting id="org.eclipse.jdt.core.formatter.indentation.size" value="4"/>
+        <setting id="org.eclipse.jdt.core.formatter.continuation_indentation" value="2"/>
+
+        <!-- Длина строки -->
+        <setting id="org.eclipse.jdt.core.formatter.lineSplit" value="140"/>
+        <setting id="org.eclipse.jdt.core.formatter.comment.line_length" value="140"/>
+
+        <!-- Не склеивать переносы строк, сделанные автором -->
+        <setting id="org.eclipse.jdt.core.formatter.alignment_for_enum_constants" value="16"/>
+        <setting id="org.eclipse.jdt.core.formatter.alignment_for_parameters_in_method_declaration" value="16"/>
+        <setting id="org.eclipse.jdt.core.formatter.alignment_for_annotations_on_parameter" value="18"/>
+    </profile>
+</profiles>

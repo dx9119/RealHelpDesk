@@ -1,5 +1,20 @@
 package com.ukhanov.realhelpdesk.feature.messagemanager.controller;
 
+import java.io.UnsupportedEncodingException;
+import java.util.List;
+
+import jakarta.mail.MessagingException;
+import jakarta.validation.Valid;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.ukhanov.realhelpdesk.feature.messagemanager.dto.CreateMessageRequest;
 import com.ukhanov.realhelpdesk.feature.messagemanager.dto.CreateMessageResponse;
 import com.ukhanov.realhelpdesk.feature.messagemanager.dto.MessageResponse;
@@ -7,14 +22,6 @@ import com.ukhanov.realhelpdesk.feature.messagemanager.exception.MessageExceptio
 import com.ukhanov.realhelpdesk.feature.messagemanager.service.MessageManageService;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
-import jakarta.mail.MessagingException;
-import jakarta.validation.Valid;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
-
-import java.io.UnsupportedEncodingException;
-import java.util.List;
 
 @RestController
 
@@ -27,13 +34,10 @@ public class MessageController {
         this.messageManageService = messageManageService;
     }
 
-
     @PostMapping("{portalId}/{ticketId}")
     @PreAuthorize("@ticketAccessValidationService.hasTicketAccess(#portalId, #ticketId)")
-    public ResponseEntity<CreateMessageResponse> createMessage(@Valid
-                                                               @RequestBody CreateMessageRequest request,
-                                                               @PathVariable Long ticketId,
-                                                               @PathVariable Long portalId)
+    public ResponseEntity<CreateMessageResponse> createMessage(@Valid @RequestBody CreateMessageRequest request,
+            @PathVariable Long ticketId, @PathVariable Long portalId)
             throws MessageException, MessagingException, TicketException, UnsupportedEncodingException {
         CreateMessageResponse response = messageManageService.createMessage(request, ticketId, portalId);
         return ResponseEntity.ok(response);
@@ -41,9 +45,8 @@ public class MessageController {
 
     @GetMapping("{portalId}/{ticketId}")
     @PreAuthorize("@ticketAccessValidationService.hasTicketAccess(#portalId, #ticketId)")
-    public ResponseEntity<List<MessageResponse>> getAllMessages(@PathVariable Long ticketId,
-                                                                @PathVariable Long portalId) //PreAuthorize
-        throws MessageException, PortalException {
+    public ResponseEntity<List<MessageResponse>> getAllMessages(@PathVariable Long ticketId, @PathVariable Long portalId) // PreAuthorize
+            throws MessageException, PortalException {
         List<MessageResponse> response = messageManageService.getAllMessage(ticketId);
         return ResponseEntity.ok(response);
     }

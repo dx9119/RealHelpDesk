@@ -1,12 +1,13 @@
 package com.ukhanov.realhelpdesk.feature.portalmanager.mapper;
 
+import java.util.Objects;
+
+import org.springframework.stereotype.Component;
+
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.CreatePortalRequest;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalResponse;
-import org.springframework.stereotype.Component;
-
-import java.util.Objects;
 
 @Component
 public class PortalMapper {
@@ -23,12 +24,8 @@ public class PortalMapper {
     }
 
     public static PortalResponse toResponse(PortalModel model) {
-        return PortalResponse.builder()
-                .id(model.getId())
-                .name(model.getName())
-                .description(model.getDescription())
-                .createdAt(model.getCreatedAt())
-                .build();
+        return PortalResponse.builder().id(model.getId()).name(model.getName()).description(model.getDescription())
+                .createdAt(model.getCreatedAt()).build();
     }
 
 }

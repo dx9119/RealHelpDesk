@@ -1,6 +1,5 @@
 package com.ukhanov.realhelpdesk.domain.ticket.model;
 
 public enum TicketAccessStatus {
-    ALL_USERS,
-    CREATOR_AND_PORTAL_USERS
+    ALL_USERS, CREATOR_AND_PORTAL_USERS
 }

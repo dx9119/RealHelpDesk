@@ -1,14 +1,16 @@
 package com.ukhanov.realhelpdesk.domain.message.service;
 
-import com.ukhanov.realhelpdesk.domain.message.model.MessageModel;
-import com.ukhanov.realhelpdesk.domain.message.repository.MessageRepository;
+import java.util.List;
+import java.util.Objects;
+
 import jakarta.transaction.Transactional;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.Objects;
+import com.ukhanov.realhelpdesk.domain.message.model.MessageModel;
+import com.ukhanov.realhelpdesk.domain.message.repository.MessageRepository;
 
 @Service
 public class MessageDomainService {

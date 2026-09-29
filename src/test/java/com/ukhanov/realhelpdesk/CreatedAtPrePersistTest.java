@@ -1,20 +1,22 @@
 package com.ukhanov.realhelpdesk;
 
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.RefreshTokenModel;
-import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
-import com.ukhanov.realhelpdesk.domain.message.model.MessageModel;
-import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
+import java.lang.reflect.Field;
+import java.time.Duration;
+import java.time.Instant;
+
 import jakarta.persistence.EntityManager;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 
-import java.lang.reflect.Field;
-import java.time.Duration;
-import java.time.Instant;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.RefreshTokenModel;
+import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
+import com.ukhanov.realhelpdesk.domain.message.model.MessageModel;
+import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -184,14 +186,11 @@ class CreatedAtPrePersistTest {
     // ────────────────────────────────────────────────
 
     private void assertCreatedAtIsNow(Instant createdAt) {
-        assertThat(createdAt)
-                .isNotNull()
-                .isBetween(startedAt.minus(TOLERANCE), Instant.now().plus(TOLERANCE));
+        assertThat(createdAt).isNotNull().isBetween(startedAt.minus(TOLERANCE), Instant.now().plus(TOLERANCE));
     }
 
     /**
-     * Читает сущность из БД после flush+clear: проверяем то, что реально ушло в базу,
-     * а не значение из первого уровня кэша.
+     * Читает сущность из БД после flush+clear: проверяем то, что реально ушло в базу, а не значение из первого уровня кэша.
      */
     private <T> T reload(T entity, Class<T> type) {
         em.flush();
@@ -201,8 +200,8 @@ class CreatedAtPrePersistTest {
     }
 
     /**
-     * У UserModel и RefreshTokenModel публичного сеттера createdAt нет — поле
-     * иммутабельно снаружи и заполняется только @PrePersist. В тесте задаём его рефлексией.
+     * У UserModel и RefreshTokenModel публичного сеттера createdAt нет — поле иммутабельно снаружи и заполняется только @PrePersist. В
+     * тесте задаём его рефлексией.
      */
     private void setCreatedAtDirectly(Object entity, Instant createdAt) {
         try {

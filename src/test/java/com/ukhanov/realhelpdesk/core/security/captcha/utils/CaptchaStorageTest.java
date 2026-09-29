@@ -16,14 +16,14 @@ class CaptchaStorageTest {
     }
 
     @Test
-    void кодВозвращаетсяДоИстеченияTtl() {
+    void codeReturned_beforeTtlExpires() {
         CaptchaStorage.put("cap-ok", "12345");
 
         assertEquals("12345", CaptchaStorage.get("cap-ok"));
     }
 
     @Test
-    void протухшийКодНеВозвращается() throws InterruptedException {
+    void expiredCode_notReturned() throws InterruptedException {
         CaptchaStorage.ttlMillis = 30;
         CaptchaStorage.put("cap-expired-get", "12345");
         Thread.sleep(60);
@@ -32,7 +32,7 @@ class CaptchaStorageTest {
     }
 
     @Test
-    void протухшийКодНельзяПроверить() throws InterruptedException {
+    void expiredCode_cannotBeVerified() throws InterruptedException {
         CaptchaStorage.ttlMillis = 30;
         CaptchaStorage.put("cap-expired-remove", "12345");
         Thread.sleep(60);
@@ -41,7 +41,7 @@ class CaptchaStorageTest {
     }
 
     @Test
-    void кодИспользуетсяТолькоОдинРаз() {
+    void codeUsed_onlyOnce() {
         CaptchaStorage.put("cap-once", "54321");
 
         assertEquals("54321", CaptchaStorage.remove("cap-once"));
@@ -50,7 +50,7 @@ class CaptchaStorageTest {
     }
 
     @Test
-    void повторноеПомещение_ОбновляетКодИСрок() {
+    void secondPut_updatesCodeAndTtl() {
         CaptchaStorage.put("cap-update", "11111");
         CaptchaStorage.put("cap-update", "22222");
 

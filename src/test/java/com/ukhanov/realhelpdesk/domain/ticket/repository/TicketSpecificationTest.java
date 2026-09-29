@@ -1,13 +1,16 @@
 package com.ukhanov.realhelpdesk.domain.ticket.repository;
 
-import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
-import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
-import com.ukhanov.realhelpdesk.domain.ticket.model.*;
+import java.time.Instant;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,10 +21,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.data.jpa.domain.Specification;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
+import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketLiveStatus;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -60,16 +65,16 @@ class TicketSpecificationTest {
         portalB = portal("Портал Б", bob, true, Set.of());
         portalA.setAllowedUserIds(Set.of(bob.getId()));
 
-        t1 = ticket("Ошибка входа", "Не работает пароль", alice, portalA,
-                TicketStatus.OPEN, TicketPriority.HIGH, TicketLiveStatus.ACTIVE, D1);
-        t2 = ticket("Проблема с оплатой", "Карта не проходит, ошибка 402", bob, portalA,
-                TicketStatus.CLOSED, TicketPriority.CRITICAL, TicketLiveStatus.ACTIVE, D2);
-        t3 = ticket("Вопрос по отчётам", "Как выгрузить статистику", alice, portalA,
-                TicketStatus.IN_PROGRESS, TicketPriority.LOW, TicketLiveStatus.ACTIVE, D3);
-        t4 = ticket("Ошибка входа", "Не пускает в систему", bob, portalB,
-                TicketStatus.OPEN, TicketPriority.HIGH, TicketLiveStatus.ACTIVE, D4);
-        t5 = ticket("Ошибка входа (архив)", "Старая заявка", alice, portalA,
-                TicketStatus.OPEN, TicketPriority.MEDIUM, TicketLiveStatus.DELETE, D5);
+        t1 = ticket("Ошибка входа", "Не работает пароль", alice, portalA, TicketStatus.OPEN, TicketPriority.HIGH, TicketLiveStatus.ACTIVE,
+                D1);
+        t2 = ticket("Проблема с оплатой", "Карта не проходит, ошибка 402", bob, portalA, TicketStatus.CLOSED, TicketPriority.CRITICAL,
+                TicketLiveStatus.ACTIVE, D2);
+        t3 = ticket("Вопрос по отчётам", "Как выгрузить статистику", alice, portalA, TicketStatus.IN_PROGRESS, TicketPriority.LOW,
+                TicketLiveStatus.ACTIVE, D3);
+        t4 = ticket("Ошибка входа", "Не пускает в систему", bob, portalB, TicketStatus.OPEN, TicketPriority.HIGH, TicketLiveStatus.ACTIVE,
+                D4);
+        t5 = ticket("Ошибка входа (архив)", "Старая заявка", alice, portalA, TicketStatus.OPEN, TicketPriority.MEDIUM,
+                TicketLiveStatus.DELETE, D5);
     }
 
     // ────────────────────────────────────────────────
@@ -80,8 +85,7 @@ class TicketSpecificationTest {
     @DisplayName("search → ищет по заголовку без учёта регистра")
     void search_matchesTitleIgnoringCase() {
         // t1, t4, t5 — совпадение по заголовку; t2 — по телу ("ошибка 402")
-        assertThat(run(TicketSpecification.search("ОШИБКА")))
-                .containsExactlyInAnyOrder(t1.getId(), t2.getId(), t4.getId(), t5.getId());
+        assertThat(run(TicketSpecification.search("ОШИБКА"))).containsExactlyInAnyOrder(t1.getId(), t2.getId(), t4.getId(), t5.getId());
     }
 
     @Test
@@ -117,22 +121,20 @@ class TicketSpecificationTest {
     @Test
     @DisplayName("active → отсекает мягко удалённые заявки")
     void active_excludesSoftDeleted() {
-        assertThat(run(TicketSpecification.active()))
-                .containsExactlyInAnyOrder(t1.getId(), t2.getId(), t3.getId(), t4.getId());
+        assertThat(run(TicketSpecification.active())).containsExactlyInAnyOrder(t1.getId(), t2.getId(), t3.getId(), t4.getId());
     }
 
     @Test
     @DisplayName("inPortals → возвращает только заявки указанных порталов")
     void inPortals_restrictsToGivenPortals() {
-        assertThat(run(TicketSpecification.inPortals(Set.of(portalA.getId()))))
-                .containsExactlyInAnyOrder(t1.getId(), t2.getId(), t3.getId(), t5.getId());
+        assertThat(run(TicketSpecification.inPortals(Set.of(portalA.getId())))).containsExactlyInAnyOrder(t1.getId(), t2.getId(),
+                t3.getId(), t5.getId());
     }
 
     @Test
     @DisplayName("onlyMy → возвращает только заявки автора")
     void onlyMy_returnsOnlyAuthorTickets() {
-        assertThat(run(TicketSpecification.onlyMy(alice.getId())))
-                .containsExactlyInAnyOrder(t1.getId(), t3.getId(), t5.getId());
+        assertThat(run(TicketSpecification.onlyMy(alice.getId()))).containsExactlyInAnyOrder(t1.getId(), t3.getId(), t5.getId());
     }
 
     @Test
@@ -140,17 +142,14 @@ class TicketSpecificationTest {
     void createdAfterAndBefore_areInclusive() {
         assertThat(run(TicketSpecification.createdAfter(D1))).contains(t1.getId());
         assertThat(run(TicketSpecification.createdBefore(D1))).contains(t1.getId());
-        assertThat(run(TicketSpecification.createdAfter(D1).and(TicketSpecification.createdBefore(D1))))
-                .containsExactly(t1.getId());
+        assertThat(run(TicketSpecification.createdAfter(D1).and(TicketSpecification.createdBefore(D1)))).containsExactly(t1.getId());
     }
 
     @Test
     @DisplayName("withStatus/withPriority → фильтруют по статусу и приоритету")
     void withStatusAndPriority_filterByEnum() {
-        assertThat(run(TicketSpecification.withStatus(TicketStatus.CLOSED)))
-                .containsExactlyInAnyOrder(t2.getId());
-        assertThat(run(TicketSpecification.withPriority(TicketPriority.CRITICAL)))
-                .containsExactlyInAnyOrder(t2.getId());
+        assertThat(run(TicketSpecification.withStatus(TicketStatus.CLOSED))).containsExactlyInAnyOrder(t2.getId());
+        assertThat(run(TicketSpecification.withPriority(TicketPriority.CRITICAL))).containsExactlyInAnyOrder(t2.getId());
     }
 
     // ────────────────────────────────────────────────
@@ -189,13 +188,11 @@ class TicketSpecificationTest {
     @DisplayName("build → статус и приоритет соединяются по И")
     void build_statusAndPriorityAreAnded() {
         // OPEN + CRITICAL одновременно ни у одной заявки нет
-        Set<Long> result = run(build(null, null, null, TicketStatus.OPEN, TicketPriority.CRITICAL, false,
-                Set.of(portalA.getId())));
+        Set<Long> result = run(build(null, null, null, TicketStatus.OPEN, TicketPriority.CRITICAL, false, Set.of(portalA.getId())));
 
         assertThat(result).isEmpty();
 
-        Set<Long> openOnly = run(build(null, null, null, TicketStatus.OPEN, null, false,
-                Set.of(portalA.getId())));
+        Set<Long> openOnly = run(build(null, null, null, TicketStatus.OPEN, null, false, Set.of(portalA.getId())));
 
         assertThat(openOnly).containsExactly(t1.getId());
     }
@@ -203,10 +200,8 @@ class TicketSpecificationTest {
     @Test
     @DisplayName("build → диапазон дат отсекает заявки вне периода")
     void build_dateRangeExcludesOutsideTickets() {
-        Set<Long> result = run(build(null,
-                Instant.parse("2025-01-01T00:00:00Z"),
-                Instant.parse("2025-12-31T23:59:59Z"),
-                null, null, false, Set.of(portalA.getId())));
+        Set<Long> result = run(build(null, Instant.parse("2025-01-01T00:00:00Z"), Instant.parse("2025-12-31T23:59:59Z"), null, null, false,
+                Set.of(portalA.getId())));
 
         assertThat(result).containsExactlyInAnyOrder(t1.getId(), t2.getId());
     }
@@ -222,11 +217,8 @@ class TicketSpecificationTest {
     @Test
     @DisplayName("build → все фильтры вместе → точное совпадение")
     void build_allFiltersCombined() {
-        Set<Long> result = run(build("ошибка",
-                Instant.parse("2025-01-01T00:00:00Z"),
-                Instant.parse("2025-12-31T23:59:59Z"),
-                TicketStatus.OPEN, TicketPriority.HIGH, true,
-                Set.of(portalA.getId())));
+        Set<Long> result = run(build("ошибка", Instant.parse("2025-01-01T00:00:00Z"), Instant.parse("2025-12-31T23:59:59Z"),
+                TicketStatus.OPEN, TicketPriority.HIGH, true, Set.of(portalA.getId())));
 
         assertThat(result).containsExactly(t1.getId());
     }
@@ -234,26 +226,22 @@ class TicketSpecificationTest {
     @Test
     @DisplayName("build → пустой или null набор порталов → IllegalArgumentException (сервис не вызывает build без порталов)")
     void build_withoutPortals_throws() {
-        assertThatThrownBy(() -> build(null, null, null, null, null, false, Set.of()))
-                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> build(null, null, null, null, null, false, Set.of())).isInstanceOf(IllegalArgumentException.class);
 
-        assertThatThrownBy(() -> build(null, null, null, null, null, false, null))
-                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> build(null, null, null, null, null, false, null)).isInstanceOf(IllegalArgumentException.class);
     }
 
     // ────────────────────────────────────────────────
     // Вспомогательные методы
     // ────────────────────────────────────────────────
 
-    private Specification<TicketModel> build(String search, Instant start, Instant end,
-                                             TicketStatus status, TicketPriority priority,
-                                             Boolean isMy, Set<Long> portalIds) {
+    private Specification<TicketModel> build(String search, Instant start, Instant end, TicketStatus status, TicketPriority priority,
+            Boolean isMy, Set<Long> portalIds) {
         return build(search, start, end, status, priority, isMy, portalIds, alice.getId());
     }
 
-    private Specification<TicketModel> build(String search, Instant start, Instant end,
-                                             TicketStatus status, TicketPriority priority,
-                                             Boolean isMy, Set<Long> portalIds, Long userId) {
+    private Specification<TicketModel> build(String search, Instant start, Instant end, TicketStatus status, TicketPriority priority,
+            Boolean isMy, Set<Long> portalIds, Long userId) {
         return TicketSpecification.build(search, start, end, status, priority, isMy, userId, portalIds);
     }
 
@@ -291,9 +279,8 @@ class TicketSpecificationTest {
         return portal;
     }
 
-    private TicketModel ticket(String title, String body, UserModel author, PortalModel portal,
-                               TicketStatus status, TicketPriority priority, TicketLiveStatus liveStatus,
-                               Instant createdAt) {
+    private TicketModel ticket(String title, String body, UserModel author, PortalModel portal, TicketStatus status,
+            TicketPriority priority, TicketLiveStatus liveStatus, Instant createdAt) {
         TicketModel ticket = new TicketModel();
         ticket.setCreatedAt(createdAt);
         ticket.setTitle(title);

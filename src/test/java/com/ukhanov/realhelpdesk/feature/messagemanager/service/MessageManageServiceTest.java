@@ -1,6 +1,17 @@
 package com.ukhanov.realhelpdesk.feature.messagemanager.service;
 
-import com.ukhanov.realhelpdesk.core.mail.exception.EmailAccessDeniedException;
+import java.time.Instant;
+import java.util.List;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
@@ -20,37 +31,35 @@ import com.ukhanov.realhelpdesk.feature.messagemanager.exception.MessageExceptio
 import com.ukhanov.realhelpdesk.feature.messagemanager.mapper.MessageMapper;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
-import jakarta.mail.MessagingException;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.io.UnsupportedEncodingException;
-import java.time.Instant;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Тесты сервиса MessageManageService")
 class MessageManageServiceTest {
 
-    @Mock private MessageMapper mockMessageMapper;
-    @Mock private CurrentUserProvider mockCurrentUserProvider;
-    @Mock private TicketDomainService mockTicketDomainService;
-    @Mock private MessageDomainService mockMessageDomainService;
-    @Mock private EmailDeliveryService mockEmailDeliveryService;
+    @Mock
+    private MessageMapper mockMessageMapper;
+    @Mock
+    private CurrentUserProvider mockCurrentUserProvider;
+    @Mock
+    private TicketDomainService mockTicketDomainService;
+    @Mock
+    private MessageDomainService mockMessageDomainService;
+    @Mock
+    private EmailDeliveryService mockEmailDeliveryService;
 
-    @Captor private ArgumentCaptor<TicketModel> ticketCaptor;
-    @Captor private ArgumentCaptor<MessageModel> messageCaptor;
+    @Captor
+    private ArgumentCaptor<TicketModel> ticketCaptor;
+    @Captor
+    private ArgumentCaptor<MessageModel> messageCaptor;
 
     private MessageManageService service;
 
@@ -62,13 +71,8 @@ class MessageManageServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new MessageManageService(
-                mockMessageMapper,
-                mockCurrentUserProvider,
-                mockTicketDomainService,
-                mockMessageDomainService,
-                mockEmailDeliveryService
-        );
+        service = new MessageManageService(mockMessageMapper, mockCurrentUserProvider, mockTicketDomainService, mockMessageDomainService,
+                mockEmailDeliveryService);
     }
 
     // ────────────────────────────────────────────────
@@ -89,8 +93,7 @@ class MessageManageServiceTest {
         when(mockTicketDomainService.findTicketById(TICKET_ID)).thenReturn(ticket);
 
         MessageModel messageToSave = createMessage(ticket, currentUser, MESSAGE_TEXT);
-        when(mockMessageMapper.toEntity(eq(request), eq(currentUser), eq(ticket)))
-                .thenReturn(messageToSave);
+        when(mockMessageMapper.toEntity(eq(request), eq(currentUser), eq(ticket))).thenReturn(messageToSave);
 
         MessageModel savedMessage = createMessage(ticket, currentUser, MESSAGE_TEXT);
         savedMessage.setId(777L);
@@ -108,12 +111,8 @@ class MessageManageServiceTest {
         assertThat(savedTicket.getTicketStatus()).isEqualTo(TicketStatus.IN_PROGRESS);
 
         // Проверяем вызов отправки email
-        verify(mockEmailDeliveryService).sendUserNotification(
-                eq(USER_EMAIL),
-                eq(EmailTemplates.ticketReplySubject(TICKET_ID)),
-                eq(EmailTemplates.ticketReplyBody(TICKET_ID, PORTAL_ID)),
-                eq(NotificationEvent.NEW_MESSAGE)
-        );
+        verify(mockEmailDeliveryService).sendUserNotification(eq(USER_EMAIL), eq(EmailTemplates.ticketReplySubject(TICKET_ID)),
+                eq(EmailTemplates.ticketReplyBody(TICKET_ID, PORTAL_ID)), eq(NotificationEvent.NEW_MESSAGE));
 
         verifyNoMoreInteractions(mockEmailDeliveryService, mockMessageDomainService, mockTicketDomainService);
     }
@@ -124,25 +123,22 @@ class MessageManageServiceTest {
 
     @Test
     @DisplayName("createMessage → null request → NPE")
-    void createMessage_nullRequest_shouldThrowNPE() {
-        assertThatThrownBy(() -> service.createMessage(null, TICKET_ID, PORTAL_ID))
-                .isInstanceOf(NullPointerException.class)
+    void createMessage_nullRequest_throwsNPE() {
+        assertThatThrownBy(() -> service.createMessage(null, TICKET_ID, PORTAL_ID)).isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("Запрос на создание сообщения не должен быть null");
     }
 
     @Test
     @DisplayName("createMessage → тикет не найден → TicketException")
-    void createMessage_ticketNotFound_shouldThrowTicketException() throws TicketException {
+    void createMessage_ticketNotFound_throwsTicketException() throws TicketException {
         CreateMessageRequest request = new CreateMessageRequest();
         request.setMessageText(MESSAGE_TEXT);
 
         when(mockCurrentUserProvider.getCurrentUserModel()).thenReturn(createUser(USER_EMAIL));
         when(mockTicketDomainService.findTicketById(TICKET_ID)).thenThrow(new TicketException("Тикет не найден"));
 
-        assertThatThrownBy(() -> service.createMessage(request, TICKET_ID, PORTAL_ID))
-                .isInstanceOf(TicketException.class);
+        assertThatThrownBy(() -> service.createMessage(request, TICKET_ID, PORTAL_ID)).isInstanceOf(TicketException.class);
     }
-
 
     // ────────────────────────────────────────────────
     // getAllMessage
@@ -150,14 +146,13 @@ class MessageManageServiceTest {
 
     @Test
     @DisplayName("getAllMessage → возвращает список сообщений")
-    void getAllMessage_shouldReturnMappedResponses() throws MessageException, PortalException {
+    void getAllMessage_returnsMappedResponses() throws MessageException, PortalException {
         MessageModel msg1 = createMessage(null, null, "Сообщение 1");
         msg1.setId(1L);
         MessageModel msg2 = createMessage(null, null, "Сообщение 2");
         msg2.setId(2L);
 
-        when(mockMessageDomainService.getMessagesByTicketId(TICKET_ID))
-                .thenReturn(List.of(msg1, msg2));
+        when(mockMessageDomainService.getMessagesByTicketId(TICKET_ID)).thenReturn(List.of(msg1, msg2));
 
         MessageResponse resp1 = new MessageResponse();
         resp1.setId(1L);
@@ -172,25 +167,20 @@ class MessageManageServiceTest {
 
         List<MessageResponse> result = service.getAllMessage(TICKET_ID);
 
-        assertThat(result)
-                .hasSize(2)
-                .extracting(MessageResponse::getMessageText)
-                .containsExactly("Сообщение 1", "Сообщение 2");
+        assertThat(result).hasSize(2).extracting(MessageResponse::getMessageText).containsExactly("Сообщение 1", "Сообщение 2");
     }
 
     @Test
     @DisplayName("getAllMessage → null ticketId → NPE")
-    void getAllMessage_nullTicketId_shouldThrowNPE() {
-        assertThatThrownBy(() -> service.getAllMessage(null))
-                .isInstanceOf(NullPointerException.class)
+    void getAllMessage_nullTicketId_throwsNPE() {
+        assertThatThrownBy(() -> service.getAllMessage(null)).isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("ID заявки не должен быть null");
     }
 
     @Test
     @DisplayName("getAllMessage → пустой список сообщений → возвращает пустой список")
-    void getAllMessage_noMessages_shouldReturnEmptyList() throws MessageException, PortalException {
-        when(mockMessageDomainService.getMessagesByTicketId(TICKET_ID))
-                .thenReturn(List.of());
+    void getAllMessage_noMessages_returnsEmptyList() throws MessageException, PortalException {
+        when(mockMessageDomainService.getMessagesByTicketId(TICKET_ID)).thenReturn(List.of());
 
         List<MessageResponse> result = service.getAllMessage(TICKET_ID);
 

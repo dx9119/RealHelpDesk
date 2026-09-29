@@ -1,36 +1,41 @@
 package com.ukhanov.realhelpdesk.core.security.auth;
 
+import java.io.UnsupportedEncodingException;
+import java.time.Duration;
+import java.util.Map;
+
+import jakarta.mail.MessagingException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.ukhanov.realhelpdesk.core.mail.exception.EmailAccessDeniedException;
 import com.ukhanov.realhelpdesk.core.security.auth.login.dto.LoginRequest;
 import com.ukhanov.realhelpdesk.core.security.auth.login.service.LoginService;
 import com.ukhanov.realhelpdesk.core.security.auth.logout.exception.LogoutException;
 import com.ukhanov.realhelpdesk.core.security.auth.logout.service.LogoutService;
+import com.ukhanov.realhelpdesk.core.security.auth.refresh.exception.RefreshException;
+import com.ukhanov.realhelpdesk.core.security.auth.refresh.service.RefreshService;
 import com.ukhanov.realhelpdesk.core.security.auth.register.dto.RegisterRequest;
 import com.ukhanov.realhelpdesk.core.security.auth.register.exception.RegistrationException;
 import com.ukhanov.realhelpdesk.core.security.auth.register.service.RegistrationService;
-import com.ukhanov.realhelpdesk.core.security.ratelimit.annotation.RateLimit;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.AuthorizationResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenStatusResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokensResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.GetTokenService;
-import com.ukhanov.realhelpdesk.core.security.auth.refresh.exception.RefreshException;
-import com.ukhanov.realhelpdesk.core.security.auth.refresh.service.RefreshService;
 import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaException;
-import jakarta.mail.MessagingException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
-
-import java.io.UnsupportedEncodingException;
-import java.time.Duration;
-import java.util.Map;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseCookie;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-
+import com.ukhanov.realhelpdesk.core.security.ratelimit.annotation.RateLimit;
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {
@@ -53,11 +58,8 @@ public class AuthController {
     @Value("${jwt.cookie.same-site:None}")
     private String sameSite;
 
-    public AuthController(RegistrationService registrationService,
-                          LoginService loginService,
-                          LogoutService logoutService,
-                          GetTokenService getTokenService,
-                          RefreshService refreshService) {
+    public AuthController(RegistrationService registrationService, LoginService loginService, LogoutService logoutService,
+            GetTokenService getTokenService, RefreshService refreshService) {
         this.registrationService = registrationService;
         this.loginService = loginService;
         this.logoutService = logoutService;
@@ -67,79 +69,54 @@ public class AuthController {
 
     @PostMapping("/register")
     @RateLimit(requests = 10, windowSeconds = 300)
-    public ResponseEntity<Map<String, String>> registration(
-            @Valid @RequestBody RegisterRequest registerRequest,
+    public ResponseEntity<Map<String, String>> registration(@Valid @RequestBody RegisterRequest registerRequest,
             @RequestParam(required = false) String capId)
             throws RegistrationException, MessagingException, EmailAccessDeniedException, CaptchaException, UnsupportedEncodingException {
 
         TokensResponse tokens = registrationService.processRegistration(registerRequest, capId);
 
-        Map<String, String> responseBody = Map.of(
-            "Статус", "Успех",
-            "Сообщение", "Регистрация прошла успешно"
-        );
+        Map<String, String> responseBody = Map.of("Статус", "Успех", "Сообщение", "Регистрация прошла успешно");
 
-        return ResponseEntity
-            .ok()
-            .header(HttpHeaders.SET_COOKIE,
-                accessCookie(tokens.getAccessToken(), ACCESS_TOKEN_TTL).toString(),
-                refreshCookie(tokens.getRefreshToken(), REFRESH_TOKEN_TTL).toString())
-            .body(responseBody);
+        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, accessCookie(tokens.getAccessToken(), ACCESS_TOKEN_TTL).toString(),
+                refreshCookie(tokens.getRefreshToken(), REFRESH_TOKEN_TTL).toString()).body(responseBody);
     }
-
 
     @PostMapping("/login")
     @RateLimit(requests = 10, windowSeconds = 300)
-    public ResponseEntity<Map<String, String>> login(
-            @Valid
-            @RequestBody LoginRequest loginRequest) throws TokenException {
+    public ResponseEntity<Map<String, String>> login(@Valid @RequestBody LoginRequest loginRequest) throws TokenException {
         TokensResponse tokens = loginService.processLogin(loginRequest);
 
-        Map<String, String> responseBody = Map.of(
-            "Статус", "Успех",
-            "Сообщение", "Вход выполнен успешно"
-        );
+        Map<String, String> responseBody = Map.of("Статус", "Успех", "Сообщение", "Вход выполнен успешно");
 
-        return ResponseEntity
-            .ok()
-            .header(HttpHeaders.SET_COOKIE,
-                accessCookie(tokens.getAccessToken(), ACCESS_TOKEN_TTL).toString(),
-                refreshCookie(tokens.getRefreshToken(), REFRESH_TOKEN_TTL).toString())
-            .body(responseBody);
+        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, accessCookie(tokens.getAccessToken(), ACCESS_TOKEN_TTL).toString(),
+                refreshCookie(tokens.getRefreshToken(), REFRESH_TOKEN_TTL).toString()).body(responseBody);
     }
 
     // Отдать новый токен авторизации при наличии активного refresh token
     @PostMapping("update")
     @RateLimit(requests = 30, windowSeconds = 300)
-    public ResponseEntity<Map<String, String>> updateAuth (HttpServletRequest request) throws TokenException, RefreshException {
+    public ResponseEntity<Map<String, String>> updateAuth(HttpServletRequest request) throws TokenException, RefreshException {
 
         ResponseCookie accessCookie = accessCookie(refreshService.updateAccess(request), ACCESS_TOKEN_TTL);
 
-        Map<String,String> responseBody = Map.of("Статус","Успех");
+        Map<String, String> responseBody = Map.of("Статус", "Успех");
 
-        return ResponseEntity
-                .ok()
-                .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
-                .body(responseBody);
+        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, accessCookie.toString()).body(responseBody);
     }
-
 
     // Проверка статуса refresh-токена и его срока действия
     @PostMapping("/token")
-    public ResponseEntity<TokenStatusResponse> statusToken(HttpServletRequest request)
-        throws TokenException, LogoutException {
+    public ResponseEntity<TokenStatusResponse> statusToken(HttpServletRequest request) throws TokenException, LogoutException {
         TokenStatusResponse response = getTokenService.getStatusRefreshTokenFromCookie(request);
         return ResponseEntity.ok(response);
     }
 
     // Проверка наличия авторизации на клиенте (фильтр не даст дойти до этого метода, если есть проблемы с авторизацией/токеном)
     @PostMapping("/check")
-    public ResponseEntity<AuthorizationResponse> checkToken(HttpServletRequest request)
-        throws TokenException {
+    public ResponseEntity<AuthorizationResponse> checkToken(HttpServletRequest request) throws TokenException {
         AuthorizationResponse response = new AuthorizationResponse("Активен");
         return ResponseEntity.ok(response);
     }
-
 
     // удаляем куки если пользователь хочет завершить сессию
     @DeleteMapping("/cookies")
@@ -147,34 +124,20 @@ public class AuthController {
 
         logoutService.processLogout(request);
 
-        Map<String,String> responseBody = Map.of("Статус","Успех");
+        Map<String, String> responseBody = Map.of("Статус", "Успех");
 
-        return ResponseEntity
-                .ok()
-                .header(HttpHeaders.SET_COOKIE,
-                    accessCookie("", Duration.ZERO).toString(),
-                    refreshCookie("", Duration.ZERO).toString())
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, accessCookie("", Duration.ZERO).toString(), refreshCookie("", Duration.ZERO).toString())
                 .body(responseBody);
     }
 
     private ResponseCookie accessCookie(String value, Duration maxAge) {
-        return ResponseCookie.from(ACCESS_COOKIE, value)
-            .httpOnly(true)
-            .secure(true)
-            .path("/")
-            .maxAge(maxAge)
-            .sameSite(sameSite)
-            .build();
+        return ResponseCookie.from(ACCESS_COOKIE, value).httpOnly(true).secure(true).path("/").maxAge(maxAge).sameSite(sameSite).build();
     }
 
     private ResponseCookie refreshCookie(String value, Duration maxAge) {
-        return ResponseCookie.from(REFRESH_COOKIE, value)
-            .httpOnly(true)
-            .secure(true)
-            .path(REFRESH_COOKIE_PATH)
-            .maxAge(maxAge)
-            .sameSite(sameSite)
-            .build();
+        return ResponseCookie.from(REFRESH_COOKIE, value).httpOnly(true).secure(true).path(REFRESH_COOKIE_PATH).maxAge(maxAge)
+                .sameSite(sameSite).build();
     }
 
 }

@@ -1,22 +1,14 @@
 package com.ukhanov.realhelpdesk.core.filter;
 
-import com.ukhanov.realhelpdesk.core.config.WhiteUrlConfig;
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenBearerResponse;
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.AccessTokenAuthService;
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.DecodeTokenService;
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.ValidTokenService;
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.utils.JwtClaims;
-import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.JwtException;
-import io.jsonwebtoken.MalformedJwtException;
+import java.io.IOException;
+import java.util.List;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -26,9 +18,19 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.Objects;
+import com.ukhanov.realhelpdesk.core.config.WhiteUrlConfig;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenBearerResponse;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.AccessTokenAuthService;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.DecodeTokenService;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.ValidTokenService;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.utils.JwtClaims;
+import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.MalformedJwtException;
 
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
@@ -40,31 +42,27 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private final AntPathMatcher antPathMatcher;
 
     public JwtAuthFilter(ValidTokenService tokenProcessingService, DecodeTokenService decodeTokenService,
-        AccessTokenAuthService accessTokenAuthService, AntPathMatcher antPathMatcher) {
+            AccessTokenAuthService accessTokenAuthService, AntPathMatcher antPathMatcher) {
         this.validTokenService = tokenProcessingService;
         this.decodeTokenService = decodeTokenService;
         this.accessTokenAuthService = accessTokenAuthService;
-      this.antPathMatcher = antPathMatcher;
+        this.antPathMatcher = antPathMatcher;
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain filterChain)
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
         String path = request.getServletPath();
 
-        //пропускаем OPTIONS для CORS запросов
+        // пропускаем OPTIONS для CORS запросов
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             filterChain.doFilter(request, response);
             return;
         }
 
         // Пропускаем фильтр для URL из БС
-        if (WhiteUrlConfig.WHITE_LIST_URLS
-            .stream()
-            .anyMatch(whiteListedPath -> antPathMatcher.match(whiteListedPath, path))) {
+        if (WhiteUrlConfig.WHITE_LIST_URLS.stream().anyMatch(whiteListedPath -> antPathMatcher.match(whiteListedPath, path))) {
 
             filterChain.doFilter(request, response);
             return;
@@ -89,11 +87,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             UserModel user = accessTokenAuthService.loadVerifiedUser(claims);
 
             // Аутентификация пользователя (роль берём из БД, а не из токена)
-            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                    user.getId().toString(),
-                    null,
-                    List.of(new SimpleGrantedAuthority(user.getUserRole().name()))
-            );
+            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(user.getId().toString(), null,
+                    List.of(new SimpleGrantedAuthority(user.getUserRole().name())));
             SecurityContextHolder.getContext().setAuthentication(auth);
 
             // Следующий фильтр
@@ -128,8 +123,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         if (cookies != null) {
             for (Cookie cookie : cookies) {
-                if ("accessToken".equals(cookie.getName())
-                        && cookie.getValue() != null && !cookie.getValue().isBlank()) {
+                if ("accessToken".equals(cookie.getName()) && cookie.getValue() != null && !cookie.getValue().isBlank()) {
                     token.setToken(cookie.getValue());
                     return token;
                 }

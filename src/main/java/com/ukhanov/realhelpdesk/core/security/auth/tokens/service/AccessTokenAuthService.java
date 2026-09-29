@@ -1,16 +1,18 @@
 package com.ukhanov.realhelpdesk.core.security.auth.tokens.service;
 
+import java.util.Objects;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.utils.JwtClaims;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserStatus;
 import com.ukhanov.realhelpdesk.core.security.user.repository.UserRepository;
-import io.jsonwebtoken.Claims;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
 
-import java.util.Objects;
+import io.jsonwebtoken.Claims;
 
 // Проверка access-токена против состояния пользователя в БД:
 // статус аккаунта и версия токена (отзыв после логаута/смены пароля)
@@ -30,8 +32,7 @@ public class AccessTokenAuthService {
 
         Long userId = parseUserId(claims.getSubject());
 
-        UserModel user = userRepository.findById(userId)
-                .orElseThrow(() -> new TokenException("Пользователь из токена не найден", null));
+        UserModel user = userRepository.findById(userId).orElseThrow(() -> new TokenException("Пользователь из токена не найден", null));
 
         if (user.getUserStatus() != UserStatus.ACTIVE) {
             logger.debug("Токен отклонён: пользователь {} не активен", userId);
