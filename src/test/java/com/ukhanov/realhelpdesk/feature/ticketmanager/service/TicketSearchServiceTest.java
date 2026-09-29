@@ -1,6 +1,7 @@
 package com.ukhanov.realhelpdesk.feature.ticketmanager.service;
 
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
+import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import com.ukhanov.realhelpdesk.domain.portal.repository.PortalRepository;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
@@ -203,6 +204,116 @@ class TicketSearchServiceTest {
         verify(mockTicketRepository).findAll(specCaptor.capture(), eq(PAGEABLE));
     }
 
+
+    // ────────────────────────────────────────────────
+    // Маппинг и параметры поиска
+    // ────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("searchTickets → маппит модель заявки в TicketResponse")
+    void searchTickets_mapsModelToResponse() {
+        // given
+        when(mockPortalRepository.findAllByOwnerIdOrderByCreatedAtDesc(USER_ID))
+                .thenReturn(List.of(createPortal(9L)));
+
+        PortalModel portal = createPortal(9L);
+        portal.setName("Портал Х");
+
+        UserModel author = new UserModel();
+        author.setFirstName("Иван");
+
+        Instant createdAt = Instant.parse("2025-01-15T10:00:00Z");
+
+        TicketModel ticket = createTicket(100L);
+        ticket.setTitle("Заявка на доступ");
+        ticket.setAuthor(author);
+        ticket.setPortal(portal);
+        ticket.setCreatedAt(createdAt);
+
+        when(mockTicketRepository.findAll(any(Specification.class), eq(PAGEABLE)))
+                .thenReturn(new PageImpl<>(List.of(ticket), PAGEABLE, 1));
+
+        // when
+        Page<TicketResponse> result = service.searchTickets(
+                "доступ", null, null, null, null, false, PAGEABLE);
+
+        // then
+        assertThat(result.getContent()).hasSize(1);
+
+        TicketResponse response = result.getContent().get(0);
+        assertThat(response.getId()).isEqualTo(100L);
+        assertThat(response.getTitle()).isEqualTo("Заявка на доступ");
+        assertThat(response.getAuthorFullName()).isEqualTo("Иван");
+        assertThat(response.getPortalName()).isEqualTo("Портал Х");
+        assertThat(response.getPortalId()).isEqualTo(9L);
+        assertThat(response.getCreatedAt()).isEqualTo(createdAt);
+    }
+
+    @Test
+    @DisplayName("searchTickets → заявка без автора и портала → null-поля в ответе")
+    void searchTickets_ticketWithoutAuthorAndPortal_mapsNulls() {
+        // given
+        when(mockPortalRepository.findAllByOwnerIdOrderByCreatedAtDesc(USER_ID))
+                .thenReturn(List.of(createPortal(1L)));
+
+        when(mockTicketRepository.findAll(any(Specification.class), eq(PAGEABLE)))
+                .thenReturn(new PageImpl<>(List.of(createTicket(101L)), PAGEABLE, 1));
+
+        // when
+        Page<TicketResponse> result = service.searchTickets(null, null, null, null, null, false, PAGEABLE);
+
+        // then
+        TicketResponse response = result.getContent().get(0);
+        assertThat(response.getAuthorFullName()).isNull();
+        assertThat(response.getPortalName()).isNull();
+        assertThat(response.getPortalId()).isNull();
+    }
+
+    @Test
+    @DisplayName("searchTickets → доступные порталы собираются из всех трёх источников текущего пользователя")
+    void searchTickets_queriesAllPortalSourcesForCurrentUser() {
+        // given
+        when(mockPortalRepository.findAllByOwnerIdOrderByCreatedAtDesc(USER_ID)).thenReturn(List.of());
+        when(mockPortalRepository.findAllAccessibleByUserId(USER_ID)).thenReturn(List.of(createPortal(5L)));
+        when(mockPortalRepository.findPublicPortalIdsWithUserTickets(USER_ID)).thenReturn(List.of());
+        when(mockTicketRepository.findAll(any(Specification.class), eq(PAGEABLE)))
+                .thenReturn(Page.empty(PAGEABLE));
+
+        // when
+        service.searchTickets("поиск", null, null, null, null, false, PAGEABLE);
+
+        // then
+        verify(mockPortalRepository).findAllByOwnerIdOrderByCreatedAtDesc(USER_ID);
+        verify(mockPortalRepository).findAllAccessibleByUserId(USER_ID);
+        verify(mockPortalRepository).findPublicPortalIdsWithUserTickets(USER_ID);
+        verify(mockTicketRepository).findAll(any(Specification.class), eq(PAGEABLE));
+    }
+
+    @Test
+    @DisplayName("searchTickets → пробрасывает Pageable и сохраняет итоги страницы")
+    void searchTickets_passesPageableAndPreservesTotals() {
+        // given
+        Pageable secondPage = PageRequest.of(1, 2);
+
+        when(mockPortalRepository.findAllByOwnerIdOrderByCreatedAtDesc(USER_ID))
+                .thenReturn(List.of(createPortal(1L)));
+
+        when(mockTicketRepository.findAll(any(Specification.class), eq(secondPage)))
+                .thenReturn(new PageImpl<>(
+                        List.of(createTicket(201L), createTicket(202L)), secondPage, 5));
+
+        // when
+        Page<TicketResponse> result = service.searchTickets(
+                null, null, null, null, null, false, secondPage);
+
+        // then
+        assertThat(result.getContent()).hasSize(2);
+        assertThat(result.getTotalElements()).isEqualTo(5);
+        assertThat(result.getTotalPages()).isEqualTo(3);
+        assertThat(result.getNumber()).isEqualTo(1);
+
+        verify(mockTicketRepository).findAll(any(Specification.class), eq(secondPage));
+    }
 
     // ────────────────────────────────────────────────
     // Вспомогательные методы
