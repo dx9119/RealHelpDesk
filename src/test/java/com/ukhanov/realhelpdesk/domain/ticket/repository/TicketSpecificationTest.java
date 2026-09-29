@@ -61,33 +61,15 @@ class TicketSpecificationTest {
         portalA.setAllowedUserIds(Set.of(bob.getId()));
 
         t1 = ticket("Ошибка входа", "Не работает пароль", alice, portalA,
-                TicketStatus.OPEN, TicketPriority.HIGH, TicketLiveStatus.ACTIVE);
+                TicketStatus.OPEN, TicketPriority.HIGH, TicketLiveStatus.ACTIVE, D1);
         t2 = ticket("Проблема с оплатой", "Карта не проходит, ошибка 402", bob, portalA,
-                TicketStatus.CLOSED, TicketPriority.CRITICAL, TicketLiveStatus.ACTIVE);
+                TicketStatus.CLOSED, TicketPriority.CRITICAL, TicketLiveStatus.ACTIVE, D2);
         t3 = ticket("Вопрос по отчётам", "Как выгрузить статистику", alice, portalA,
-                TicketStatus.IN_PROGRESS, TicketPriority.LOW, TicketLiveStatus.ACTIVE);
+                TicketStatus.IN_PROGRESS, TicketPriority.LOW, TicketLiveStatus.ACTIVE, D3);
         t4 = ticket("Ошибка входа", "Не пускает в систему", bob, portalB,
-                TicketStatus.OPEN, TicketPriority.HIGH, TicketLiveStatus.ACTIVE);
+                TicketStatus.OPEN, TicketPriority.HIGH, TicketLiveStatus.ACTIVE, D4);
         t5 = ticket("Ошибка входа (архив)", "Старая заявка", alice, portalA,
-                TicketStatus.OPEN, TicketPriority.MEDIUM, TicketLiveStatus.DELETE);
-
-        em.flush();
-
-        // createdAt: updatable=false → менять через dirty-checking нельзя, только bulk-update
-        setCreatedAt(t1, D1);
-        setCreatedAt(t2, D2);
-        setCreatedAt(t3, D3);
-        setCreatedAt(t4, D4);
-        setCreatedAt(t5, D5);
-
-        em.clear();
-    }
-
-    private void setCreatedAt(TicketModel ticket, Instant createdAt) {
-        em.createQuery("update TicketModel t set t.createdAt = :createdAt where t.id = :id")
-                .setParameter("createdAt", createdAt)
-                .setParameter("id", ticket.getId())
-                .executeUpdate();
+                TicketStatus.OPEN, TicketPriority.MEDIUM, TicketLiveStatus.DELETE, D5);
     }
 
     // ────────────────────────────────────────────────
@@ -310,8 +292,10 @@ class TicketSpecificationTest {
     }
 
     private TicketModel ticket(String title, String body, UserModel author, PortalModel portal,
-                               TicketStatus status, TicketPriority priority, TicketLiveStatus liveStatus) {
+                               TicketStatus status, TicketPriority priority, TicketLiveStatus liveStatus,
+                               Instant createdAt) {
         TicketModel ticket = new TicketModel();
+        ticket.setCreatedAt(createdAt);
         ticket.setTitle(title);
         ticket.setBody(body);
         ticket.setAuthor(author);
