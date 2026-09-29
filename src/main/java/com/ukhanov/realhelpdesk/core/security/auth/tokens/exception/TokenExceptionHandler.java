@@ -23,11 +23,11 @@ public class TokenExceptionHandler {
         HttpStatus status = HttpStatus.CONFLICT;
 
         Map<String, String> error = new HashMap<>();
-        error.put("Сообщение", ex.getMessage());
+        // Внутренние детали (cause, тексты ошибок jjwt) клиенту не отдаём
+        error.put("Сообщение", ex instanceof JwtException ? "Недействительный токен" : ex.getMessage());
         error.put("Путь", request.getDescription(false));
-        error.put("Подробнее", ex.getCause() != null ? ex.getCause().getMessage() : "none");
 
-        logger.error(ex.getClass().getName());
+        logger.error("{}: {}", ex.getClass().getName(), ex.getMessage());
 
         return new ResponseEntity<>(error, status);
     }

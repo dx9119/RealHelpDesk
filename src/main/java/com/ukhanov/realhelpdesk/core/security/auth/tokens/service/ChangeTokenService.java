@@ -38,7 +38,7 @@ public class ChangeTokenService {
                 decodeTokenService
                     .extractTokenFromCookies(request, "refreshToken")
             );
-        logger.debug("Получен токен из cookies: {}", tokenBearer);
+        logger.debug("Извлечён refresh-токен из cookies");
 
         RefreshTokenModel RefreshToken = findTokenService.findRefreshToken(tokenBearer);
         logger.debug("Поиск токена: завершён");

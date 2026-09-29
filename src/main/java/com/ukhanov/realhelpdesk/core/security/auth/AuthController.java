@@ -24,6 +24,7 @@ import jakarta.validation.Valid;
 import java.io.UnsupportedEncodingException;
 import java.time.Duration;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -34,11 +35,23 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/auth")
 public class AuthController {
 
+    private static final String ACCESS_COOKIE = "accessToken";
+    private static final String REFRESH_COOKIE = "refreshToken";
+
+    // Refresh-cookie нужен только эндпоинтам этого контроллера — не отправляем его на весь API
+    private static final String REFRESH_COOKIE_PATH = "/api/v1/auth";
+    private static final Duration ACCESS_TOKEN_TTL = Duration.ofHours(1);
+    private static final Duration REFRESH_TOKEN_TTL = Duration.ofDays(30);
+
     private final RegistrationService registrationService;
     private final LoginService loginService;
     private final LogoutService logoutService;
     private final GetTokenService getTokenService;
     private final RefreshService refreshService;
+
+    // None — для кросс-доменного фронта; Lax/Strict, если фронт на том же сайте
+    @Value("${jwt.cookie.same-site:None}")
+    private String sameSite;
 
     public AuthController(RegistrationService registrationService,
                           LoginService loginService,
@@ -61,22 +74,6 @@ public class AuthController {
 
         TokensResponse tokens = registrationService.processRegistration(registerRequest, capId);
 
-        ResponseCookie accessCookie = ResponseCookie.from("accessToken", tokens.getAccessToken())
-            .httpOnly(true)
-            .secure(true)
-            .path("/")
-            .maxAge(Duration.ofHours(1))
-            .sameSite("None")
-            .build();
-
-        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", tokens.getRefreshToken())
-            .httpOnly(true)
-            .secure(true)
-            .path("/")
-            .maxAge(Duration.ofDays(30))
-            .sameSite("None")
-            .build();
-
         Map<String, String> responseBody = Map.of(
             "Статус", "Успех",
             "Сообщение", "Регистрация прошла успешно"
@@ -84,7 +81,9 @@ public class AuthController {
 
         return ResponseEntity
             .ok()
-            .header(HttpHeaders.SET_COOKIE, accessCookie.toString(), refreshCookie.toString())
+            .header(HttpHeaders.SET_COOKIE,
+                accessCookie(tokens.getAccessToken(), ACCESS_TOKEN_TTL).toString(),
+                refreshCookie(tokens.getRefreshToken(), REFRESH_TOKEN_TTL).toString())
             .body(responseBody);
     }
 
@@ -96,22 +95,6 @@ public class AuthController {
             @RequestBody LoginRequest loginRequest) throws TokenException {
         TokensResponse tokens = loginService.processLogin(loginRequest);
 
-        ResponseCookie accessCookie = ResponseCookie.from("accessToken", tokens.getAccessToken())
-            .httpOnly(true)
-            .secure(true)
-            .path("/")
-            .maxAge(Duration.ofHours(1))
-            .sameSite("None")
-            .build();
-
-        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", tokens.getRefreshToken())
-            .httpOnly(true)
-            .secure(true)
-            .path("/")
-            .maxAge(Duration.ofDays(30))
-            .sameSite("None")
-            .build();
-
         Map<String, String> responseBody = Map.of(
             "Статус", "Успех",
             "Сообщение", "Вход выполнен успешно"
@@ -119,21 +102,18 @@ public class AuthController {
 
         return ResponseEntity
             .ok()
-            .header(HttpHeaders.SET_COOKIE, accessCookie.toString(), refreshCookie.toString())
+            .header(HttpHeaders.SET_COOKIE,
+                accessCookie(tokens.getAccessToken(), ACCESS_TOKEN_TTL).toString(),
+                refreshCookie(tokens.getRefreshToken(), REFRESH_TOKEN_TTL).toString())
             .body(responseBody);
     }
 
     // Отдать новый токен авторизации при наличии активного refresh token
     @PostMapping("update")
+    @RateLimit(requests = 30, windowSeconds = 300)
     public ResponseEntity<Map<String, String>> updateAuth (HttpServletRequest request) throws TokenException, RefreshException {
 
-        ResponseCookie accessCookie = ResponseCookie.from("accessToken", refreshService.updateAccess(request))
-                .httpOnly(true)
-                .secure(true)
-                .path("/")
-                .maxAge(Duration.ofHours(1))
-                .sameSite("None")
-                .build();
+        ResponseCookie accessCookie = accessCookie(refreshService.updateAccess(request), ACCESS_TOKEN_TTL);
 
         Map<String,String> responseBody = Map.of("Статус","Успех");
 
@@ -167,28 +147,34 @@ public class AuthController {
 
         logoutService.processLogout(request);
 
-        ResponseCookie accessCookie = ResponseCookie.from("accessToken", "")
-                .httpOnly(true)
-                .secure(true)
-                .path("/")
-                .maxAge(Duration.ZERO)
-                .sameSite("None")
-                .build();
-
-        ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", "")
-                .httpOnly(true)
-                .secure(true)
-                .path("/")
-                .maxAge(Duration.ZERO)
-                .sameSite("None")
-                .build();
-
         Map<String,String> responseBody = Map.of("Статус","Успех");
 
         return ResponseEntity
                 .ok()
-                .header(HttpHeaders.SET_COOKIE, accessCookie.toString(), refreshCookie.toString())
+                .header(HttpHeaders.SET_COOKIE,
+                    accessCookie("", Duration.ZERO).toString(),
+                    refreshCookie("", Duration.ZERO).toString())
                 .body(responseBody);
+    }
+
+    private ResponseCookie accessCookie(String value, Duration maxAge) {
+        return ResponseCookie.from(ACCESS_COOKIE, value)
+            .httpOnly(true)
+            .secure(true)
+            .path("/")
+            .maxAge(maxAge)
+            .sameSite(sameSite)
+            .build();
+    }
+
+    private ResponseCookie refreshCookie(String value, Duration maxAge) {
+        return ResponseCookie.from(REFRESH_COOKIE, value)
+            .httpOnly(true)
+            .secure(true)
+            .path(REFRESH_COOKIE_PATH)
+            .maxAge(maxAge)
+            .sameSite(sameSite)
+            .build();
     }
 
 }

@@ -3,6 +3,7 @@ package com.ukhanov.realhelpdesk.core.security.auth.tokens.service;
 import com.ukhanov.realhelpdesk.core.config.JwtConfig;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenBearer;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.utils.JwtClaims;
 import io.jsonwebtoken.Claims;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,8 +27,15 @@ public class ValidTokenService {
         this.decodeTokenService = getTokenService1;
     }
 
-    public void lowLevelVerifyToken(TokenBearer token) throws TokenException {
+    public void lowLevelVerifyToken(TokenBearer token, String expectedType) throws TokenException {
         Claims claims = decodeTokenService.decodeJwtClaims(token);
+
+        // Тип токена: refresh нельзя подсунуть вместо access и наоборот
+        String actualType = claims.get(JwtClaims.TYPE, String.class);
+        if (!expectedType.equals(actualType)) {
+            logger.debug("Недопустимый тип токена: {}", actualType);
+            throw new TokenException("Недопустимый тип токена", null);
+        }
 
         Instant expiration = Optional.ofNullable(claims.getExpiration())
                 .map(Date::toInstant)

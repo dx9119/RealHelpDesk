@@ -1,6 +1,5 @@
 package com.ukhanov.realhelpdesk.core.security.auth.tokens.service;
 
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.AuthorizationResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenBearerResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenStatusResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokensResponse;
@@ -10,14 +9,15 @@ import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.Token;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenBearer;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenStatus;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.repository.JwtRefreshTokenRepository;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.utils.JwtClaims;
 import com.ukhanov.realhelpdesk.core.security.user.SecurityUser;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Objects;
 
 @Service
@@ -31,37 +31,18 @@ public class GetTokenService {
     private final ValidTokenService validTokenService;
     private final DecodeTokenService decodeTokenService;
 
-    public GetTokenService(GenTokenService genTokenService, SaveTokenService saveTokenService, JwtRefreshTokenRepository jwtRefreshTokenRepository, FindTokenService findTokenService, ValidTokenService validTokenService,
-        DecodeTokenService decodeTokenService) {
+    public GetTokenService(GenTokenService genTokenService, SaveTokenService saveTokenService,
+        JwtRefreshTokenRepository jwtRefreshTokenRepository, FindTokenService findTokenService,
+        ValidTokenService validTokenService, DecodeTokenService decodeTokenService) {
         this.genTokenService = genTokenService;
         this.saveTokenService = saveTokenService;
         this.jwtRefreshTokenRepository = jwtRefreshTokenRepository;
         this.findTokenService = findTokenService;
         this.validTokenService = validTokenService;
-      this.decodeTokenService = decodeTokenService;
+        this.decodeTokenService = decodeTokenService;
     }
 
-    // Получить актиный рефреш токен или новый и новый access токен
-    public TokensResponse getActiveTokens(UserModel userModel) throws TokenException {
-        SecurityUser securityUser = new SecurityUser(userModel);
-
-        TokenBearerResponse tokenBearerResponse = genTokenService.generateAccessJwtToken(securityUser);
-        RefreshTokenModel refreshToken = getActiveRefreshToken(userModel);
-
-        if(refreshToken.getToken() == null) {
-            refreshToken = genTokenService.generateRefreshJwtToken(securityUser);
-            logger.debug("Токен обновления не найден, пользователь: {}", securityUser.getUsername());
-            saveTokenService.saveRefreshToken(refreshToken);
-        }
-
-        return TokensResponse.builder()
-                .accessToken(tokenBearerResponse.getToken())
-                .refreshToken(refreshToken.getToken())
-                .message(securityUser.getUsername())
-                .build();
-    }
-
-    // Получить новые токены
+    // Новые токены: access + свежий refresh (ротация при каждом входе/регистрации)
     public TokensResponse getNewTokens(UserModel user) {
         SecurityUser securityUser = new SecurityUser(user);
 
@@ -72,22 +53,20 @@ public class GetTokenService {
 
         return TokensResponse.builder()
                 .accessToken(tokenBearerResponse.getToken())
-                .refreshToken(refreshToken.getToken())
+                .refreshToken(refreshToken.getRawToken())
                 .message(securityUser.getUsername())
                 .build();
     }
 
-    public RefreshTokenModel getActiveRefreshToken(UserModel user) throws TokenException {
+    // Все активные refresh-токены пользователя (для отзыва, например при смене пароля)
+    public List<RefreshTokenModel> getActiveRefreshTokens(UserModel user) {
         Objects.requireNonNull(user, "Пользователь не может быть null!");
 
-        return jwtRefreshTokenRepository
-                .findTopByUserEmailAndStatusOrderByCreatedAtDesc(user.getEmail(), TokenStatus.ACTIVE)
-                .orElseThrow(() -> new TokenException("Активный токен обновления не найден"));
+        return jwtRefreshTokenRepository.findAllByUserEmailAndStatus(user.getEmail(), TokenStatus.ACTIVE);
     }
 
     private Token extractAndValidateToken(HttpServletRequest request, String tokenName) throws TokenException {
         Objects.requireNonNull(request, "Запрос не может быть null");
-
 
         Token token = new Token(
             decodeTokenService.extractTokenFromCookies(request, tokenName)
@@ -96,7 +75,7 @@ public class GetTokenService {
             throw new TokenException("Cookie с именем " + tokenName + " не найдена");
         }
 
-        logger.debug("Extracted token [{}]: {}", tokenName, token.getToken());
+        logger.debug("Извлечена cookie: {}", tokenName);
         return token;
     }
 
@@ -110,35 +89,19 @@ public class GetTokenService {
             .build();
     }
 
-    public AuthorizationResponse isAccessTokenActive(HttpServletRequest request) throws TokenException {
-        Token tokenAccess = extractAndValidateToken(request, "accessToken");
-        validTokenService.lowLevelVerifyToken(tokenAccess);
-        return new AuthorizationResponse("Активен");
-    }
-
-
-    public UserModel getUserByRefreshToken(String tokenRefresh) throws TokenException {
-        Objects.requireNonNull(tokenRefresh, "Токен не может быть null");
-
-        RefreshTokenModel refreshToken = jwtRefreshTokenRepository.findByTokenRefresh(tokenRefresh)
-                .orElseThrow(() -> new TokenException("Токен не найден", null));
-
-        return refreshToken.getUser();
-    }
-
+    // Новый access по валидному активному refresh-токену
     public TokenBearerResponse getNewAccessToken(TokenBearer tokenRefresh) throws TokenException {
         Objects.requireNonNull(tokenRefresh, "Токен не может быть null");
 
         RefreshTokenModel refreshToken = findTokenService.findRefreshToken(tokenRefresh);
 
-        if(refreshToken.getStatus() == TokenStatus.ACTIVE) {
-            validTokenService.lowLevelVerifyToken(tokenRefresh);
+        if (refreshToken.getStatus() != TokenStatus.ACTIVE) {
+            throw new TokenException("Токен обновления не активен", null);
         }
 
-        UserModel user = getUserByRefreshToken(tokenRefresh.getToken());
+        validTokenService.lowLevelVerifyToken(tokenRefresh, JwtClaims.TYPE_REFRESH);
+
+        UserModel user = refreshToken.getUser();
         return genTokenService.generateAccessJwtToken(new SecurityUser(user));
     }
-
-
-
 }

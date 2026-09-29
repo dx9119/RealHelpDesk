@@ -49,6 +49,10 @@ public class UserModel {
     @Enumerated(EnumType.STRING)
     private UserPlatformSource userPlatformSource = UserPlatformSource.LOCAL;
 
+    // Версия access-токенов: инкремент отзывает все ранее выданные access-токены
+    @Column(nullable = false)
+    private int tokenVersion = 0;
+
     // Связь с JWT Refresh-токенами
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private Set<RefreshTokenModel> jwtTokenRefresh = new HashSet<>();
@@ -207,6 +211,19 @@ public class UserModel {
 
     public void setUserStatus(UserStatus userStatus) {
         this.userStatus = userStatus;
+    }
+
+    public int getTokenVersion() {
+        return tokenVersion;
+    }
+
+    public void setTokenVersion(int tokenVersion) {
+        this.tokenVersion = tokenVersion;
+    }
+
+    // Отзывает все ранее выданные access-токены пользователя
+    public void incrementTokenVersion() {
+        this.tokenVersion++;
     }
 
     public Long getExternalId() {

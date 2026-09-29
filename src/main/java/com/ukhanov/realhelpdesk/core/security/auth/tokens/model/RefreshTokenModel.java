@@ -4,7 +4,6 @@ import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import jakarta.persistence.*;
 
 import java.time.Instant;
-import java.util.Objects;
 import java.util.UUID;
 
 @Entity
@@ -14,8 +13,12 @@ public class RefreshTokenModel implements TokenBearer {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID uuid;
 
-    @Column(unique = false, nullable = false, length = 1000)
+    // В БД хранится только SHA-256 хеш; сырой токен живёт только в памяти (для cookie)
+    @Column(unique = true, nullable = false, length = 64)
     private String tokenRefresh;
+
+    @Transient
+    private String rawToken;
 
     @Enumerated(EnumType.STRING)
     private TokenStatus status = TokenStatus.ACTIVE;
@@ -39,15 +42,19 @@ public class RefreshTokenModel implements TokenBearer {
         return tokenRefresh;
     }
 
-    public boolean equalsByToken(String token) {
-        return Objects.equals(this.tokenRefresh, token);
-    }
-
     public UUID getUuid() {
         return uuid;
     }
     public void setToken(String tokenRefresh) {
         this.tokenRefresh = tokenRefresh;
+    }
+
+    public String getRawToken() {
+        return rawToken;
+    }
+
+    public void setRawToken(String rawToken) {
+        this.rawToken = rawToken;
     }
 
     public void setUuid(UUID uuid) {

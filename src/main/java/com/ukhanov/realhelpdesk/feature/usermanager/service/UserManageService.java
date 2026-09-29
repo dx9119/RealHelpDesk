@@ -8,7 +8,6 @@ import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.RefreshTokenMode
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenStatus;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.GetTokenService;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.SaveTokenService;
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.SetTokenService;
 import com.ukhanov.realhelpdesk.feature.usermanager.dto.RecoveryRequest;
 import com.ukhanov.realhelpdesk.feature.usermanager.dto.NewPasswdRequest;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
@@ -41,21 +40,19 @@ public class UserManageService {
   private final PasswordEncoder passwordEncoder;
   private final GetTokenService getTokenService;
   private final SaveTokenService saveTokenService;
-  private final SetTokenService setTokenService;
 
 
   public UserManageService(CurrentUserProvider currentUserProvider,
                            UserDomainService userDomainService,
                            EmailDeliveryService emailDeliveryService,
                            PasswordEncoder passwordEncoder,
-                           GetTokenService getTokenService, SaveTokenService saveTokenService, SetTokenService setTokenService) {
+                           GetTokenService getTokenService, SaveTokenService saveTokenService) {
     this.currentUserProvider = currentUserProvider;
     this.userDomainService = userDomainService;
       this.emailDeliveryService = emailDeliveryService;
       this.passwordEncoder = passwordEncoder;
       this.getTokenService = getTokenService;
       this.saveTokenService = saveTokenService;
-      this.setTokenService = setTokenService;
   }
 
   public UserInfoResponse getUserInfo() {
@@ -105,6 +102,7 @@ public class UserManageService {
   }
 
 
+  @Transactional
   public void setNewPasswd(Long code, NewPasswdRequest request) throws TokenException {
     Objects.requireNonNull(code, "Код не должен быть null");
     Objects.requireNonNull(request, "Запрос не должен быть null");
@@ -113,16 +111,19 @@ public class UserManageService {
 
     UserModel user = userDomainService.getUserByRecoveryPasswdToken(code);
 
-    setTokenService.addNewRefreshToken(user); // нужен хотя бы один активный refresh токен для логина
-
     user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
     user.setRecoveryPasswdToken(RANDOM.nextLong());
-
-    RefreshTokenModel token = getTokenService.getActiveRefreshToken(user);
-    token.setStatus(TokenStatus.PASSWD_CHANGE);
+    // Отзываем access-токены, выданные до смены пароля
+    user.incrementTokenVersion();
 
     userDomainService.saveUser(user);
-    saveTokenService.saveRefreshToken(token);
+
+    // Отзываем все ранее выданные refresh-токены; новый выдастся при следующем входе
+    for (RefreshTokenModel token : getTokenService.getActiveRefreshTokens(user)) {
+      token.setStatus(TokenStatus.PASSWD_CHANGE);
+      saveTokenService.saveRefreshToken(token);
+      logger.debug("Refresh-токен {} отозван после смены пароля", token.getUuid());
+    }
   }
 
 

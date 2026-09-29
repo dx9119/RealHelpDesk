@@ -6,6 +6,7 @@ import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenBearer;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.MalformedJwtException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
@@ -28,6 +29,11 @@ public class DecodeTokenService {
     public Claims decodeJwtClaims(TokenBearer token) throws JwtException {
         Objects.requireNonNull(token, "Токен не может быть null!");
 
+        // jjwt на пустой строке бросает IllegalArgumentException — нормализуем в JwtException (обрабатывается фильтром)
+        if (token.getToken() == null || token.getToken().isBlank()) {
+            throw new MalformedJwtException("Токен отсутствует или пуст");
+        }
+
         Claims claims = Jwts.parser()
                 .verifyWith((SecretKey) jwtConfig.getJwtKey())
                 .build()
@@ -42,15 +48,6 @@ public class DecodeTokenService {
         return claims;
     }
 
-    public String[] decodeJwtForAuth(TokenBearer token) throws JwtException {
-        Claims claims = decodeJwtClaims(token);
-
-        String userId = claims.getSubject();
-        String role = claims.get("role", String.class);
-
-        return new String[] { userId, role };
-    }
-
     public String extractTokenFromCookies(HttpServletRequest request, String cookieName)
         throws TokenException {
         logger.debug("Начало извлечения cookie. Запрошенное имя: '{}'", cookieName);
@@ -61,11 +58,9 @@ public class DecodeTokenService {
             throw new TokenException("В запросе не получены cookies");
         }
 
-        boolean found = false;
         for (Cookie cookie : cookies) {
             if (cookieName.equals(cookie.getName())) {
-                logger.info("Целевая cookie '{}' найдена. Возвращаемое значение: '{}'", cookieName, cookie.getValue());
-                found = true;
+                logger.debug("Целевая cookie '{}' найдена", cookieName);
                 return cookie.getValue();
             }
         }

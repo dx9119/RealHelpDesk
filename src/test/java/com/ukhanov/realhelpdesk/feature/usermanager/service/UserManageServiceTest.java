@@ -5,7 +5,6 @@ import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.RefreshTokenMode
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenStatus;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.GetTokenService;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.SaveTokenService;
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.SetTokenService;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserPlatformSource;
@@ -48,7 +47,6 @@ class UserManageServiceTest {
     @Mock
     private SaveTokenService saveTokenService;
     @Mock
-    private SetTokenService setTokenService;
 
     private UserManageService service;
 
@@ -56,7 +54,7 @@ class UserManageServiceTest {
     void setUp() {
         service = new UserManageService(
                 currentUserProvider, userDomainService, emailDeliveryService,
-                passwordEncoder, getTokenService, saveTokenService, setTokenService
+                passwordEncoder, getTokenService, saveTokenService
         );
     }
 
@@ -76,7 +74,7 @@ class UserManageServiceTest {
         assertThat(response).usingRecursiveComparison()
              .isEqualTo(UserMapper.toResponse(user));
 
-        verifyNoInteractions(emailDeliveryService, passwordEncoder, getTokenService, saveTokenService, setTokenService);
+        verifyNoInteractions(emailDeliveryService, passwordEncoder, getTokenService, saveTokenService);
     }
 
     // ────────────────────────────────────────────────────────────────
@@ -147,12 +145,16 @@ class UserManageServiceTest {
         Long code = 55L;
         UserModel user = createDefaultUser();
         user.setRecoveryPasswdToken(code);
+        int tokenVersionBefore = user.getTokenVersion();
 
         when(userDomainService.getUserByRecoveryPasswdToken(code)).thenReturn(user);
 
-        RefreshTokenModel oldToken = new RefreshTokenModel();
-        oldToken.setStatus(TokenStatus.ACTIVE);
-        when(getTokenService.getActiveRefreshToken(user)).thenReturn(oldToken);
+        // Старые активные refresh-токены (их должно быть несколько — например, с разных устройств)
+        RefreshTokenModel oldToken1 = new RefreshTokenModel();
+        oldToken1.setStatus(TokenStatus.ACTIVE);
+        RefreshTokenModel oldToken2 = new RefreshTokenModel();
+        oldToken2.setStatus(TokenStatus.ACTIVE);
+        when(getTokenService.getActiveRefreshTokens(user)).thenReturn(java.util.List.of(oldToken1, oldToken2));
 
         when(passwordEncoder.encode("newStrongPass123")).thenReturn("encodedNewPass");
 
@@ -160,7 +162,6 @@ class UserManageServiceTest {
 
         service.setNewPasswd(code, request);
 
-        verify(setTokenService).addNewRefreshToken(user);
         verify(passwordEncoder).encode("newStrongPass123");
 
         ArgumentCaptor<UserModel> userCaptor = ArgumentCaptor.forClass(UserModel.class);
@@ -168,10 +169,14 @@ class UserManageServiceTest {
         UserModel savedUser = userCaptor.getValue();
         assertThat(savedUser.getPasswordHash()).isEqualTo("encodedNewPass");
         assertThat(savedUser.getRecoveryPasswdToken()).isNotEqualTo(code); // токен сброшен
+        assertThat(savedUser.getTokenVersion()).isEqualTo(tokenVersionBefore + 1); // access-токены отозваны
 
+        // Отзываются ВСЕ активные refresh-токены, а не только последний
         ArgumentCaptor<RefreshTokenModel> tokenCaptor = ArgumentCaptor.forClass(RefreshTokenModel.class);
-        verify(saveTokenService).saveRefreshToken(tokenCaptor.capture());
-        assertThat(tokenCaptor.getValue().getStatus()).isEqualTo(TokenStatus.PASSWD_CHANGE);
+        verify(saveTokenService, times(2)).saveRefreshToken(tokenCaptor.capture());
+        org.assertj.core.api.Assertions.assertThat(tokenCaptor.getAllValues())
+                .hasSize(2)
+                .allMatch(token -> token.getStatus() == TokenStatus.PASSWD_CHANGE);
     }
 
     @Test
@@ -183,7 +188,7 @@ class UserManageServiceTest {
         assertThatThrownBy(() -> service.setNewPasswd(wrongCode, new NewPasswdRequest("pass")))
                 .isInstanceOf(EntityNotFoundException.class);
 
-        verifyNoInteractions(setTokenService, saveTokenService, passwordEncoder);
+        verifyNoInteractions(saveTokenService, passwordEncoder);
     }
 
     @Test

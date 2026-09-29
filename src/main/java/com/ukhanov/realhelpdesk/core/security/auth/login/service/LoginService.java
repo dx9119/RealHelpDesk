@@ -5,6 +5,7 @@ import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokensResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.GetTokenService;
 import com.ukhanov.realhelpdesk.core.security.user.SecurityUser;
+import com.ukhanov.realhelpdesk.core.security.user.model.UserStatus;
 import com.ukhanov.realhelpdesk.core.security.user.service.CustomUserDetailsService;
 import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
 import org.slf4j.Logger;
@@ -40,6 +41,12 @@ public class LoginService {
         }
 
         SecurityUser user = customUserDetailsService.loadUserByUsername(loginRequest.getEmail());
+
+        if (user.getOriginalUser().getUserStatus() != UserStatus.ACTIVE) {
+            logger.info("Ошибка логина. Пользователь {} не активен", loginRequest.getEmail());
+            throw new BadCredentialsException("Ошибка авторизации: неверный логин, пароль или отсутствующий пользователь");
+        }
+
         if(!isPasswordValid(loginRequest.getPassword(), user.getPassword()))
         {
             logger.info("Ошибка логина.. Пароль не подошел для {}", loginRequest.getEmail());
@@ -47,7 +54,8 @@ public class LoginService {
 
         }
 
-        return getTokenService.getActiveTokens(user.getOriginalUser());
+        // Ротация: при каждом входе выдаём свежий refresh-токен (в БД хранится только его хеш)
+        return getTokenService.getNewTokens(user.getOriginalUser());
     }
 
     public boolean isPasswordValid(String password, String encodedPassword) {

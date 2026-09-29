@@ -3,8 +3,12 @@ package com.ukhanov.realhelpdesk.core.filter;
 import com.ukhanov.realhelpdesk.core.config.WhiteUrlConfig;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenBearerResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.AccessTokenAuthService;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.DecodeTokenService;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.ValidTokenService;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.utils.JwtClaims;
+import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.MalformedJwtException;
@@ -32,12 +36,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private static final Logger logger = LoggerFactory.getLogger(JwtAuthFilter.class);
     private final ValidTokenService validTokenService;
     private final DecodeTokenService decodeTokenService;
+    private final AccessTokenAuthService accessTokenAuthService;
     private final AntPathMatcher antPathMatcher;
 
     public JwtAuthFilter(ValidTokenService tokenProcessingService, DecodeTokenService decodeTokenService,
-        AntPathMatcher antPathMatcher) {
+        AccessTokenAuthService accessTokenAuthService, AntPathMatcher antPathMatcher) {
         this.validTokenService = tokenProcessingService;
         this.decodeTokenService = decodeTokenService;
+        this.accessTokenAuthService = accessTokenAuthService;
       this.antPathMatcher = antPathMatcher;
     }
 
@@ -74,19 +80,19 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
 
         try {
-            // Проверяем токен
-            validTokenService.lowLevelVerifyToken(token);
+            // Проверяем подпись, срок, issuer/audience и тип токена
+            validTokenService.lowLevelVerifyToken(token, JwtClaims.TYPE_ACCESS);
 
-            // claims от access-токена для аутентификации
-            String[] userInfo = decodeTokenService.decodeJwtForAuth(token);
-            String userId = userInfo[0];
-            String role = userInfo[1];
+            Claims claims = decodeTokenService.decodeJwtClaims(token);
 
-            // Аутентификация пользователя
+            // Проверяем пользователя в БД: статус и версию токена (отзыв)
+            UserModel user = accessTokenAuthService.loadVerifiedUser(claims);
+
+            // Аутентификация пользователя (роль берём из БД, а не из токена)
             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
-                    userId,
+                    user.getId().toString(),
                     null,
-                    List.of(new SimpleGrantedAuthority("ROLE_" + role))
+                    List.of(new SimpleGrantedAuthority(user.getUserRole().name()))
             );
             SecurityContextHolder.getContext().setAuthentication(auth);
 
@@ -122,7 +128,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         if (cookies != null) {
             for (Cookie cookie : cookies) {
-                if ("accessToken".equals(cookie.getName())) {
+                if ("accessToken".equals(cookie.getName())
+                        && cookie.getValue() != null && !cookie.getValue().isBlank()) {
                     token.setToken(cookie.getValue());
                     return token;
                 }

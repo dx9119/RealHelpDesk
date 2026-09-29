@@ -70,11 +70,8 @@ public class LoggingFilter extends OncePerRequestFilter {
     }
 
     private String getFullUrl(HttpServletRequest request) {
-        StringBuffer url = request.getRequestURL();
-        if (request.getQueryString() != null) {
-            url.append('?').append(request.getQueryString());
-        }
-        return url.toString();
+        // query-string не логируем: в GET-параметрах бывают коды восстановления пароля
+        return request.getRequestURL().toString();
     }
 
 }
