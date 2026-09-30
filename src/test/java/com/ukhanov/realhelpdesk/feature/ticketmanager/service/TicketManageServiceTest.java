@@ -131,7 +131,7 @@ class TicketManageServiceTest {
 
         CreateTicketResponse response = service.createTicket(request, PORTAL_ID);
 
-        assertThat(response.getMessage()).contains(String.valueOf(TICKET_ID));
+        assertThat(response.getId()).isEqualTo(TICKET_ID);
 
         verify(mockTicketDomainService).saveTicket(ticketCaptor.capture());
         assertThat(ticketCaptor.getValue().getTitle()).isEqualTo("New Issue");

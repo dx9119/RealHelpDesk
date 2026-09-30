@@ -1,8 +1,8 @@
 package com.ukhanov.realhelpdesk.core.security.auth;
 
 import java.io.UnsupportedEncodingException;
+import java.net.URI;
 import java.time.Duration;
-import java.util.Map;
 
 import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,6 +13,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,12 +37,14 @@ import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenExcepti
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.GetTokenService;
 import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaException;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.annotation.RateLimit;
+
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {
 
     private static final String ACCESS_COOKIE = "accessToken";
     private static final String REFRESH_COOKIE = "refreshToken";
+    private static final URI PROFILE_URI = URI.create("/api/v1/users/profile");
 
     // Refresh-cookie нужен только эндпоинтам этого контроллера — не отправляем его на весь API
     private static final String REFRESH_COOKIE_PATH = "/api/v1/auth";
@@ -69,66 +72,60 @@ public class AuthController {
 
     @PostMapping("/register")
     @RateLimit(requests = 10, windowSeconds = 300)
-    public ResponseEntity<Map<String, String>> registration(@Valid @RequestBody RegisterRequest registerRequest,
+    public ResponseEntity<Void> registration(@Valid @RequestBody RegisterRequest registerRequest,
             @RequestParam(required = false) String capId)
             throws RegistrationException, MessagingException, EmailAccessDeniedException, CaptchaException, UnsupportedEncodingException {
 
         TokensResponse tokens = registrationService.processRegistration(registerRequest, capId);
 
-        Map<String, String> responseBody = Map.of("Статус", "Успех", "Сообщение", "Регистрация прошла успешно");
-
-        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, accessCookie(tokens.getAccessToken(), ACCESS_TOKEN_TTL).toString(),
-                refreshCookie(tokens.getRefreshToken(), REFRESH_TOKEN_TTL).toString()).body(responseBody);
+        return ResponseEntity.created(PROFILE_URI)
+                .header(HttpHeaders.SET_COOKIE, accessCookie(tokens.getAccessToken(), ACCESS_TOKEN_TTL).toString(),
+                        refreshCookie(tokens.getRefreshToken(), REFRESH_TOKEN_TTL).toString())
+                .build();
     }
 
     @PostMapping("/login")
     @RateLimit(requests = 10, windowSeconds = 300)
-    public ResponseEntity<Map<String, String>> login(@Valid @RequestBody LoginRequest loginRequest) throws TokenException {
+    public ResponseEntity<Void> login(@Valid @RequestBody LoginRequest loginRequest) throws TokenException {
         TokensResponse tokens = loginService.processLogin(loginRequest);
 
-        Map<String, String> responseBody = Map.of("Статус", "Успех", "Сообщение", "Вход выполнен успешно");
-
         return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, accessCookie(tokens.getAccessToken(), ACCESS_TOKEN_TTL).toString(),
-                refreshCookie(tokens.getRefreshToken(), REFRESH_TOKEN_TTL).toString()).body(responseBody);
+                refreshCookie(tokens.getRefreshToken(), REFRESH_TOKEN_TTL).toString()).build();
     }
 
     // Отдать новый токен авторизации при наличии активного refresh token
-    @PostMapping("update")
+    @PostMapping("/tokens/access")
     @RateLimit(requests = 30, windowSeconds = 300)
-    public ResponseEntity<Map<String, String>> updateAuth(HttpServletRequest request) throws TokenException, RefreshException {
+    public ResponseEntity<Void> createAccessToken(HttpServletRequest request) throws TokenException, RefreshException {
 
         ResponseCookie accessCookie = accessCookie(refreshService.updateAccess(request), ACCESS_TOKEN_TTL);
 
-        Map<String, String> responseBody = Map.of("Статус", "Успех");
-
-        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, accessCookie.toString()).body(responseBody);
+        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, accessCookie.toString()).build();
     }
 
     // Проверка статуса refresh-токена и его срока действия
-    @PostMapping("/token")
-    public ResponseEntity<TokenStatusResponse> statusToken(HttpServletRequest request) throws TokenException, LogoutException {
+    @GetMapping("/tokens/refresh")
+    public ResponseEntity<TokenStatusResponse> refreshTokenStatus(HttpServletRequest request) throws TokenException, LogoutException {
         TokenStatusResponse response = getTokenService.getStatusRefreshTokenFromCookie(request);
         return ResponseEntity.ok(response);
     }
 
     // Проверка наличия авторизации на клиенте (фильтр не даст дойти до этого метода, если есть проблемы с авторизацией/токеном)
-    @PostMapping("/check")
-    public ResponseEntity<AuthorizationResponse> checkToken(HttpServletRequest request) throws TokenException {
+    @GetMapping("/session")
+    public ResponseEntity<AuthorizationResponse> sessionStatus(HttpServletRequest request) throws TokenException {
         AuthorizationResponse response = new AuthorizationResponse("Активен");
         return ResponseEntity.ok(response);
     }
 
     // удаляем куки если пользователь хочет завершить сессию
-    @DeleteMapping("/cookies")
-    public ResponseEntity<Map<String, String>> deleteCookies(HttpServletRequest request) throws TokenException, LogoutException {
+    @DeleteMapping("/session")
+    public ResponseEntity<Void> logout(HttpServletRequest request) throws TokenException, LogoutException {
 
         logoutService.processLogout(request);
 
-        Map<String, String> responseBody = Map.of("Статус", "Успех");
-
-        return ResponseEntity.ok()
+        return ResponseEntity.noContent()
                 .header(HttpHeaders.SET_COOKIE, accessCookie("", Duration.ZERO).toString(), refreshCookie("", Duration.ZERO).toString())
-                .body(responseBody);
+                .build();
     }
 
     private ResponseCookie accessCookie(String value, Duration maxAge) {

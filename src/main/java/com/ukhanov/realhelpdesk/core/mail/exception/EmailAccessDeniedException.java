@@ -1,12 +1,24 @@
 package com.ukhanov.realhelpdesk.core.mail.exception;
 
-public class EmailAccessDeniedException extends RuntimeException {
-    public EmailAccessDeniedException(String message, Throwable cause) {
-        super(message, cause);
-    }
+import org.springframework.http.HttpStatus;
+
+import com.ukhanov.realhelpdesk.core.exception.ApiRuntimeException;
+
+public class EmailAccessDeniedException extends ApiRuntimeException {
 
     public EmailAccessDeniedException(String message) {
-        super(message);
+        this(message, HttpStatus.FORBIDDEN);
     }
 
+    public EmailAccessDeniedException(String message, Throwable cause) {
+        this(message, HttpStatus.FORBIDDEN, cause);
+    }
+
+    public EmailAccessDeniedException(String message, HttpStatus status) {
+        super(message, status);
+    }
+
+    public EmailAccessDeniedException(String message, HttpStatus status, Throwable cause) {
+        super(message, status, cause);
+    }
 }

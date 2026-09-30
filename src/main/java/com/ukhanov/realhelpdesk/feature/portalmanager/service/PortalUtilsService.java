@@ -4,6 +4,7 @@ import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
@@ -28,7 +29,7 @@ public class PortalUtilsService {
         for (Long userId : userIds) {
             if (userId == null || userId <= 0) {
                 logger.debug("Неверный id пользователя: {}", userId);
-                throw new PortalException("Неверный id пользователя: " + userId);
+                throw new PortalException("Неверный id пользователя: " + userId, HttpStatus.BAD_REQUEST);
             }
         }
     }

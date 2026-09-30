@@ -4,7 +4,7 @@
 # Проверяет правила доступа: участник портала = владелец или доверенный
 # пользователь. Посторонний не читает участников и не переименовывает
 # портал даже после того, как владелец сделал его публичным (isPublic);
-# публичность открывает только чтение имени/описания (GET /portals/info).
+# публичность открывает только чтение имени/описания (GET /portals/{id}).
 # Смена isPublic доступна только владельцу.
 #
 # Требования: поднятый стек (docker compose up -d), капча выключена
@@ -44,51 +44,53 @@ if [ "$s" = "429" ]; then
   echo "  FAIL лимит регистрации исчерпан — docker compose restart app и повторите скрипт"
   exit 1
 fi
-check "$s" "200" "A зарегистрирован"
+check "$s" "201" "A зарегистрирован"
 check "$(code -c "$JAR_B" -X POST "$BASE/auth/register" -H 'Content-Type: application/json' \
   -d "{\"firstName\":\"Bravo\",\"lastName\":\"Guest\",\"email\":\"$GUEST_EMAIL\",\"password\":\"Password123!\"}")" \
-  "200" "B зарегистрирован"
+  "201" "B зарегистрирован"
 $PSQL "update users set is_email_verified=true;" >/dev/null
 
 check "$(code -b "$JAR_A" -c "$JAR_A" -X POST "$BASE/portals" -H 'Content-Type: application/json' \
   -d '{"name":"public-portal","description":"открытый"}')" \
-  "200" "A создал портал"
+  "201" "A создал портал"
 PORTAL=$($PSQL "select p.id from portals p join users u on u.id=p.owner_id where u.email='$OWNER_EMAIL';")
 GUEST_ID=$($PSQL "select id from users where email='$GUEST_EMAIL';")
 echo "  портал=$PORTAL, B id=$GUEST_ID"
 
-check "$(code -b "$JAR_A" -X POST "$BASE/portals/shared/$PORTAL/status?isPublic=true")" \
-  "200" "A сделал портал публичным"
+check "$(code -b "$JAR_A" -X PUT "$BASE/portals/shared/$PORTAL/visibility" -H 'Content-Type: application/json' \
+  -d '{"isPublic":true}')" \
+  "204" "A сделал портал публичным"
 
 echo
 echo "═══ Посторонний B на публичном портале ═══"
 check "$(code -b "$JAR_B" "$BASE/portals/shared/$PORTAL")" \
   "403" "B не читает участников (GET /portals/shared/{id})"
-check "$(code -b "$JAR_B" -X POST "$BASE/portals/info/update/$PORTAL" -H 'Content-Type: application/json' \
+check "$(code -b "$JAR_B" -X PUT "$BASE/portals/$PORTAL" -H 'Content-Type: application/json' \
   -d '{"name":"hacked","description":"взломано"}')" \
-  "403" "B не переименовывает портал (POST /portals/info/update/{id})"
-check "$(code -b "$JAR_B" "$BASE/portals/info/$PORTAL")" \
-  "200" "B читает публичное имя/описание (GET /portals/info/{id})"
+  "403" "B не переименовывает портал (PUT /portals/{id})"
+check "$(code -b "$JAR_B" "$BASE/portals/$PORTAL")" \
+  "200" "B читает публичное имя/описание (GET /portals/{id})"
 
 echo
 echo "═══ B получает доступ ═══"
-check "$(code -b "$JAR_A" -X POST "$BASE/portals/shared/$PORTAL/users" -H 'Content-Type: application/json' \
-  -d "{\"newAccessUserId\":[\"$GUEST_ID\"]}")" \
-  "200" "A выдал B доступ"
+check "$(code -b "$JAR_A" -X PUT "$BASE/portals/shared/$PORTAL/users" -H 'Content-Type: application/json' \
+  -d "{\"userIds\":[\"$GUEST_ID\"]}")" \
+  "204" "A выдал B доступ"
 
 check "$(code -b "$JAR_B" "$BASE/portals/shared/$PORTAL")" \
   "200" "B (доверенный) читает участников"
-check "$(code -b "$JAR_B" -X POST "$BASE/portals/info/update/$PORTAL" -H 'Content-Type: application/json' \
+check "$(code -b "$JAR_B" -X PUT "$BASE/portals/$PORTAL" -H 'Content-Type: application/json' \
   -d '{"name":"public-portal-v2","description":"обновлено доверенным"}')" \
   "200" "B (доверенный) переименовывает портал"
-check "$(code -b "$JAR_B" -X POST "$BASE/portals/shared/$PORTAL/status?isPublic=false")" \
+check "$(code -b "$JAR_B" -X PUT "$BASE/portals/shared/$PORTAL/visibility" -H 'Content-Type: application/json' \
+  -d '{"isPublic":false}')" \
   "403" "B не меняет isPublic — это только владелец"
 
 echo
 echo "═══ Владелец A ═══"
 check "$(code -b "$JAR_A" "$BASE/portals/shared/$PORTAL")" \
   "200" "A читает участников"
-check "$(code -b "$JAR_A" -X POST "$BASE/portals/info/update/$PORTAL" -H 'Content-Type: application/json' \
+check "$(code -b "$JAR_A" -X PUT "$BASE/portals/$PORTAL" -H 'Content-Type: application/json' \
   -d '{"name":"public-portal-final","description":"обновлено владельцем"}')" \
   "200" "A переименовывает портал"
 

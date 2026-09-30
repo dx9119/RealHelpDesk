@@ -1,6 +1,7 @@
 package com.ukhanov.realhelpdesk.core.filter;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import jakarta.servlet.FilterChain;
@@ -72,8 +73,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         TokenBearerResponse token = resolveToken(request);
         if (token == null) {
             logger.warn("Нет access-token: {}", path);
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setHeader("X-Auth-Token-Missing", "true");
+            unauthorized(response, path, "Требуется аутентификация", "X-Auth-Token-Missing");
             return;
         }
 
@@ -95,25 +95,30 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
 
         } catch (ExpiredJwtException e) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setHeader("X-Access-Token-Expired", "true");
             logger.error("Токен истек {}: {}", path, e.getMessage());
+            unauthorized(response, path, "Срок действия токена истек", "X-Access-Token-Expired");
 
         } catch (MalformedJwtException e) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setHeader("X-Malformed-Token", "true");
             logger.error("Не корректный формат токена доступа, {}: {}", path, e.getMessage());
+            unauthorized(response, path, "Некорректный формат токена", "X-Malformed-Token");
 
         } catch (JwtException e) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setHeader("X-Invalid-Token", "true");
             logger.error("JWT ошибка {}: {}", path, e.getMessage());
+            unauthorized(response, path, "Некорректный или недействительный токен", "X-Invalid-Token");
 
         } catch (TokenException e) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setHeader("X-Verify-Token-Failed", "true");
             logger.error("Токен доступа отвергнут: {}", e.getMessage());
+            unauthorized(response, path, e.getMessage(), "X-Verify-Token-Failed");
         }
+    }
+
+    private void unauthorized(HttpServletResponse response, String path, String detail, String markerHeader) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setHeader(markerHeader, "true");
+        response.setContentType("application/problem+json");
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.getWriter().write("{\"type\":\"about:blank\",\"title\":\"Unauthorized\",\"status\":401,\"detail\":\"" + detail
+                + "\",\"instance\":\"" + path + "\"}");
     }
 
     // Извлекаем токен из куки

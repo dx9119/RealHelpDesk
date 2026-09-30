@@ -6,7 +6,7 @@
 #   GET  /captcha                      30 / 60 сек
 #   POST /auth/register                10 / 5 мин
 #   POST /auth/login                   10 / 5 мин
-#   POST /user/passwd-reset/request     3 / 10 мин
+#   POST /users/password-resets         3 / 10 мин
 #
 # Счетчики живут в памяти приложения: если лимит уже исчерпан прошлым
 # запуском, скрипт об этом скажет — перезапустите приложение
@@ -86,16 +86,16 @@ for i in $(seq 1 11); do
 done
 check "$last" "429" "последняя попытка входа заблокирована"
 
-step "POST /user/passwd-reset/request: 4 запроса (лимит 3/10мин)"
+step "POST /users/password-resets: 4 запроса (лимит 3/10мин)"
 last=""
 for i in $(seq 1 4); do
-  last=$(curl -sk -o /dev/null -w "%{http_code}" -X POST "$BASE/user/passwd-reset/request" \
+  last=$(curl -sk -o /dev/null -w "%{http_code}" -X POST "$BASE/users/password-resets" \
     -H 'Content-Type: application/json' -d '{"email":"nobody@test.local"}')
 done
 check "$last" "429" "последний запрос сброса пароля заблокирован"
 
 step "Эндпоинт без @RateLimit не ограничен"
-check "$(curl -sk -o /dev/null -w '%{http_code}' "$BASE/health-check")" "200" "health-check отвечает 200"
+check "$(curl -sk -o /dev/null -w '%{http_code}' "$BASE/health")" "200" "health отвечает 200"
 
 echo
 if [ "$FAIL" -eq 0 ]; then

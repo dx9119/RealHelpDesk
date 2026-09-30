@@ -1,17 +1,18 @@
 package com.ukhanov.realhelpdesk.feature.portalmanager.dto;
 
 public class CreatePortalResponse {
-    public CreatePortalResponse(String message) {
-        this.message = message;
+
+    private Long id;
+
+    public CreatePortalResponse(Long id) {
+        this.id = id;
     }
 
-    private String message;
-
-    public String getMessage() {
-        return message;
+    public Long getId() {
+        return id;
     }
 
-    public void setMessage(String message) {
-        this.message = message;
+    public void setId(Long id) {
+        this.id = id;
     }
 }

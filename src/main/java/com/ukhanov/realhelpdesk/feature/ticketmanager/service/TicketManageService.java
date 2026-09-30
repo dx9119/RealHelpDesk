@@ -90,7 +90,7 @@ public class TicketManageService {
         emailDeliveryService.initNotifyPortalUsers(portal, EmailTemplates.ticketCreatedSubject(ticket.getId()),
                 EmailTemplates.ticketCreatedBody(ticket.getId(), portal.getId()), NotificationEvent.NEW_TICKET);
 
-        return new CreateTicketResponse("Тикет создан с ID: " + saved.getId());
+        return new CreateTicketResponse(saved.getId());
 
     }
 

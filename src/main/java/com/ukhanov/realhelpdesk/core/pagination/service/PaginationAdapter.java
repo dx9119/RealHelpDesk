@@ -28,6 +28,10 @@ public class PaginationAdapter {
     }
 
     public <T> PageResponse<T> mapToResponse(Page<T> page, String sortBy, String order) {
+        return mapToResponse(page);
+    }
+
+    public <T> PageResponse<T> mapToResponse(Page<T> page) {
         Objects.requireNonNull(page, "Защита от null: Page необходим для маппинга");
         return pageResponseMapper.map(page);
     }

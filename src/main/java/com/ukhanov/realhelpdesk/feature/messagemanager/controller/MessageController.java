@@ -1,6 +1,7 @@
 package com.ukhanov.realhelpdesk.feature.messagemanager.controller;
 
 import java.io.UnsupportedEncodingException;
+import java.net.URI;
 import java.util.List;
 
 import jakarta.mail.MessagingException;
@@ -24,8 +25,7 @@ import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 
 @RestController
-
-@RequestMapping("/api/v1/message/")
+@RequestMapping("/api/v1/portals/{portalId}/tickets/{ticketId}/messages")
 public class MessageController {
 
     private final MessageManageService messageManageService;
@@ -34,18 +34,19 @@ public class MessageController {
         this.messageManageService = messageManageService;
     }
 
-    @PostMapping("{portalId}/{ticketId}")
+    @PostMapping
     @PreAuthorize("@ticketAccessValidationService.hasTicketAccess(#portalId, #ticketId)")
     public ResponseEntity<CreateMessageResponse> createMessage(@Valid @RequestBody CreateMessageRequest request,
-            @PathVariable Long ticketId, @PathVariable Long portalId)
+            @PathVariable Long portalId, @PathVariable Long ticketId)
             throws MessageException, MessagingException, TicketException, UnsupportedEncodingException {
         CreateMessageResponse response = messageManageService.createMessage(request, ticketId, portalId);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.created(URI.create("/api/v1/portals/" + portalId + "/tickets/" + ticketId + "/messages/" + response.getId()))
+                .body(response);
     }
 
-    @GetMapping("{portalId}/{ticketId}")
+    @GetMapping
     @PreAuthorize("@ticketAccessValidationService.hasTicketAccess(#portalId, #ticketId)")
-    public ResponseEntity<List<MessageResponse>> getAllMessages(@PathVariable Long ticketId, @PathVariable Long portalId) // PreAuthorize
+    public ResponseEntity<List<MessageResponse>> getAllMessages(@PathVariable Long portalId, @PathVariable Long ticketId)
             throws MessageException, PortalException {
         List<MessageResponse> response = messageManageService.getAllMessage(ticketId);
         return ResponseEntity.ok(response);

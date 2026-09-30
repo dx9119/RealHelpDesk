@@ -2,6 +2,8 @@ package com.ukhanov.realhelpdesk.core.security.ratelimit.interceptor;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -15,6 +17,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.web.servlet.HandlerMapping;
 
 import com.ukhanov.realhelpdesk.core.security.ratelimit.annotation.RateLimit;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.service.RateLimitService;
@@ -48,7 +51,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        String key = clientKey(request) + "|" + request.getMethod() + " " + request.getRequestURI();
+        String key = clientKey(request) + "|" + request.getMethod() + " " + routeOf(request);
         RateLimitService.Decision decision = rateLimitService.check(key, rateLimit.requests(),
                 Duration.ofSeconds(rateLimit.windowSeconds()));
 
@@ -58,14 +61,27 @@ public class RateLimitInterceptor implements HandlerInterceptor {
 
         logger.warn("Rate limit превышен: {} {} (key={})", request.getMethod(), request.getRequestURI(), key);
 
+        String detail = "Слишком много запросов. Повторите через " + decision.retryAfterSeconds() + " сек.";
+        Map<String, Object> problem = new LinkedHashMap<>();
+        problem.put("type", "about:blank");
+        problem.put("title", HttpStatus.TOO_MANY_REQUESTS.getReasonPhrase());
+        problem.put("status", HttpStatus.TOO_MANY_REQUESTS.value());
+        problem.put("detail", detail);
+        problem.put("instance", request.getRequestURI());
+        problem.put("timestamp", Instant.now().toString());
+
         response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
         response.setHeader("Retry-After", String.valueOf(decision.retryAfterSeconds()));
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        objectMapper.writeValue(response.getWriter(), Map.of("Сообщение",
-                "Слишком много запросов. Повторите через " + decision.retryAfterSeconds() + " сек.", "Путь", request.getRequestURI()));
+        objectMapper.writeValue(response.getWriter(), problem);
 
         return false;
+    }
+
+    private String routeOf(HttpServletRequest request) {
+        Object pattern = request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
+        return pattern != null ? pattern.toString() : request.getRequestURI();
     }
 
     private String clientKey(HttpServletRequest request) {
