@@ -1,17 +1,17 @@
 package com.ukhanov.realhelpdesk.feature.usermanager.controller;
 
 import java.io.UnsupportedEncodingException;
-import java.util.Map;
 
 import jakarta.mail.MessagingException;
 import jakarta.validation.Valid;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
@@ -23,7 +23,7 @@ import com.ukhanov.realhelpdesk.feature.usermanager.dto.UserInfoResponse;
 import com.ukhanov.realhelpdesk.feature.usermanager.service.UserManageService;
 
 @RestController
-@RequestMapping("/api/v1/user/")
+@RequestMapping("/api/v1/users")
 public class UserController {
 
     private final UserManageService userManageService;
@@ -40,7 +40,7 @@ public class UserController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/profile")
+    @PutMapping("/profile")
     public ResponseEntity<UserInfoResponse> updateUserInfo(@Valid @RequestBody UserInfoRequest request) {
 
         UserInfoResponse response = userManageService.updateUserInfo(request);
@@ -48,22 +48,20 @@ public class UserController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/passwd-reset/request")
+    @PostMapping("/password-resets")
     @RateLimit(requests = 3, windowSeconds = 600)
-    public ResponseEntity<Map<String, String>> passwdResetLink(@Valid @RequestBody RecoveryRequest request)
+    public ResponseEntity<Void> requestPasswordReset(@Valid @RequestBody RecoveryRequest request)
             throws MessagingException, UnsupportedEncodingException {
         userManageService.sendResetLink(request);
 
-        Map<String, String> responce = Map.of("Статус", "Успех");
-        return ResponseEntity.ok(responce);
+        return ResponseEntity.accepted().build();
     }
 
-    @PostMapping("/passwd-reset/confirm")
+    @PutMapping("/password-resets/{code}")
     @RateLimit(requests = 5, windowSeconds = 600)
-    public ResponseEntity<Map<String, String>> newPasswdSet(@Valid @RequestParam Long code, @RequestBody NewPasswdRequest request)
-            throws TokenException {
+    public ResponseEntity<Void> resetPassword(@PathVariable Long code, @Valid @RequestBody NewPasswdRequest request) throws TokenException {
         userManageService.setNewPasswd(code, request);
-        Map<String, String> responce = Map.of("Статус", "Успех");
-        return ResponseEntity.ok(responce);
+
+        return ResponseEntity.noContent().build();
     }
 }

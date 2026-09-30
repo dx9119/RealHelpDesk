@@ -63,7 +63,7 @@ public class MessageManageService {
                 EmailTemplates.ticketReplyBody(ticket.getId(), portalId), NotificationEvent.NEW_MESSAGE);
 
         logger.info("Сообщение сохранено для заявки с ID: {}", ticketId);
-        return new CreateMessageResponse("Сообщение создано, ID: " + message.getId());
+        return new CreateMessageResponse(message.getId());
     }
 
     public List<MessageResponse> getAllMessage(Long ticketId) throws MessageException, PortalException {

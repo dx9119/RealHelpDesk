@@ -1,17 +1,18 @@
 package com.ukhanov.realhelpdesk.feature.messagemanager.dto;
 
 public class CreateMessageResponse {
-    private String message;
 
-    public String getMessage() {
-        return message;
+    private Long id;
+
+    public CreateMessageResponse(Long id) {
+        this.id = id;
     }
 
-    public void setMessage(String message) {
-        this.message = message;
+    public Long getId() {
+        return id;
     }
 
-    public CreateMessageResponse(String message) {
-        this.message = message;
+    public void setId(Long id) {
+        this.id = id;
     }
 }

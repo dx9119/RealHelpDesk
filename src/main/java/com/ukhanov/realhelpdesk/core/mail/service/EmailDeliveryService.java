@@ -10,6 +10,7 @@ import jakarta.mail.internet.MimeMessage;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -85,7 +86,8 @@ public class EmailDeliveryService {
         long count = emailLogService.countEmailsSentToByEventInLast24Hours(recipient, NotificationEvent.RECOVERY_PASSWORD);
 
         if (count > 3) {
-            throw new EmailAccessDeniedException("Исчерпан лимит на количество запросов восстановления, обновление лимита через 24 часа");
+            throw new EmailAccessDeniedException("Исчерпан лимит на количество запросов восстановления, обновление лимита через 24 часа",
+                    HttpStatus.TOO_MANY_REQUESTS);
         }
 
     }

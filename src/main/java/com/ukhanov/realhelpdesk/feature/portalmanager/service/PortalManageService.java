@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
@@ -105,7 +106,7 @@ public class PortalManageService {
         emailDeliveryService.initNotifyPortalUsers(portal, EmailTemplates.portalCreatedSubject(savePortal.getId()),
                 EmailTemplates.portalCreatedBody(savePortal.getId()), NotificationEvent.NEW_PORTAL);
 
-        return new CreatePortalResponse("Портал создан, id:" + savePortal.getId().toString());
+        return new CreatePortalResponse(savePortal.getId());
     }
 
     public List<PortalResponse> getAllPortals() {
@@ -150,7 +151,7 @@ public class PortalManageService {
         try {
             portal = portalDomainService.getPortalById(portalId);
         } catch (IllegalArgumentException e) {
-            throw new PortalException("Портал с ID " + portalId + " не найден", e);
+            throw new PortalException("Портал с ID " + portalId + " не найден", HttpStatus.NOT_FOUND, e);
         }
         portal.setPublic(isPublic);
         portalDomainService.savePortal(portal);

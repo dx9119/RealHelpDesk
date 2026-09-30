@@ -50,7 +50,7 @@ public class TicketDomainService {
 
         TicketModel ticket = ticketRepository.findByIdAndTicketLiveStatus(ticketId, TicketLiveStatus.ACTIVE).orElseThrow(() -> {
             logger.warn("Заявка с ID {} не найдена!", ticketId);
-            return new TicketException("Заявка не найдена!");
+            return TicketException.notFound("Заявка не найдена!");
         });
 
         return ticket;

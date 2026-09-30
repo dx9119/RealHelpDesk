@@ -1,17 +1,18 @@
 package com.ukhanov.realhelpdesk.feature.ticketmanager.dto;
 
 public class CreateTicketResponse {
-    private String message;
 
-    public String getMessage() {
-        return message;
+    private Long id;
+
+    public CreateTicketResponse(Long id) {
+        this.id = id;
     }
 
-    public void setMessage(String message) {
-        this.message = message;
+    public Long getId() {
+        return id;
     }
 
-    public CreateTicketResponse(String message) {
-        this.message = message;
+    public void setId(Long id) {
+        this.id = id;
     }
 }

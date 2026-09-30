@@ -1,6 +1,7 @@
 package com.ukhanov.realhelpdesk.core.filter;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import jakarta.servlet.FilterChain;
@@ -19,6 +20,7 @@ import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.ukhanov.realhelpdesk.core.config.WhiteUrlConfig;
+import com.ukhanov.realhelpdesk.core.log.LogSanitizer;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenBearerResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.AccessTokenAuthService;
@@ -71,9 +73,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         // Парсим access-токен
         TokenBearerResponse token = resolveToken(request);
         if (token == null) {
-            logger.debug("Нет access-токена: {}", path);
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setHeader("X-Auth-Token-Missing", "true");
+            logger.debug("Нет access-токена: {}", LogSanitizer.uri(path));
+            unauthorized(response, path, "Требуется аутентификация", "X-Auth-Token-Missing");
             return;
         }
 
@@ -95,25 +96,30 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
 
         } catch (ExpiredJwtException e) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setHeader("X-Access-Token-Expired", "true");
-            logger.debug("Access-токен истёк: {}", path);
+            logger.debug("Access-токен истёк: {}", LogSanitizer.uri(path));
+            unauthorized(response, path, "Срок действия токена истек", "X-Access-Token-Expired");
 
         } catch (MalformedJwtException e) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setHeader("X-Malformed-Token", "true");
-            logger.warn("Некорректный access-токен: {}", path);
+            logger.warn("Некорректный access-токен: {}", LogSanitizer.uri(path));
+            unauthorized(response, path, "Некорректный формат токена", "X-Malformed-Token");
 
         } catch (JwtException e) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setHeader("X-Invalid-Token", "true");
-            logger.warn("Ошибка проверки access-токена: {}", path);
+            logger.warn("Ошибка проверки access-токена: {}", LogSanitizer.uri(path));
+            unauthorized(response, path, "Некорректный или недействительный токен", "X-Invalid-Token");
 
         } catch (TokenException e) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setHeader("X-Verify-Token-Failed", "true");
-            logger.warn("Access-токен отклонён: {} ({})", path, e.getClass().getSimpleName());
+            logger.warn("Access-токен отклонён: {} ({})", LogSanitizer.uri(path), e.getClass().getSimpleName());
+            unauthorized(response, path, e.getMessage(), "X-Verify-Token-Failed");
         }
+    }
+
+    private void unauthorized(HttpServletResponse response, String path, String detail, String markerHeader) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setHeader(markerHeader, "true");
+        response.setContentType("application/problem+json");
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.getWriter().write("{\"type\":\"about:blank\",\"title\":\"Unauthorized\",\"status\":401,\"detail\":\"" + detail
+                + "\",\"instance\":\"" + path + "\"}");
     }
 
     // Извлекаем токен из куки

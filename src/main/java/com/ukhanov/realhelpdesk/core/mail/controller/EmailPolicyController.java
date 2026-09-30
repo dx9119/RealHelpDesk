@@ -5,7 +5,9 @@ import java.io.UnsupportedEncodingException;
 import jakarta.mail.MessagingException;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -35,10 +37,10 @@ public class EmailPolicyController {
         this.captchaService = captchaService;
     }
 
-    @GetMapping("/confirm")
-    public ResponseEntity<String> confirmEmail(@RequestParam("token") Long token) throws EmailAccessDeniedException {
+    @PostMapping("/confirmations/{token}")
+    public ResponseEntity<Void> confirmEmail(@PathVariable Long token) throws EmailAccessDeniedException {
         emailDeliveryService.confirmEmail(token);
-        return ResponseEntity.ok("Успешно");
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/info")
@@ -47,20 +49,20 @@ public class EmailPolicyController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/notify-set")
-    public ResponseEntity<String> stopNotify(@RequestParam NotificationEvent level) {
-        emailPolicyService.addToStopList(level);
-        return ResponseEntity.ok("Успешно");
+    @DeleteMapping("/notifications/{event}")
+    public ResponseEntity<Void> stopNotifications(@PathVariable NotificationEvent event) {
+        emailPolicyService.addToStopList(event);
+        return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/code")
+    @PostMapping("/codes")
     @RateLimit(requests = 3, windowSeconds = 600)
-    public ResponseEntity<String> getCode(@RequestParam(value = "capId", required = false) String capId,
+    public ResponseEntity<Void> sendConfirmCode(@RequestParam(value = "capId", required = false) String capId,
             @RequestParam(value = "capCode", required = false) String capCode)
             throws MessagingException, CaptchaException, UnsupportedEncodingException {
         captchaService.captVerificationResult(capId, capCode);
         emailDeliveryService.sendConfirmCode();
-        return ResponseEntity.ok("Успешно");
+        return ResponseEntity.accepted().build();
     }
 
 }

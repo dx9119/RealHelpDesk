@@ -1,12 +1,24 @@
 package com.ukhanov.realhelpdesk.core.security.auth.login.exception;
 
-public class LoginException extends Exception {
+import org.springframework.http.HttpStatus;
+
+import com.ukhanov.realhelpdesk.core.exception.ApiException;
+
+public class LoginException extends ApiException {
+
     public LoginException(String message) {
-        super(message);
+        this(message, HttpStatus.UNAUTHORIZED);
     }
 
     public LoginException(String message, Throwable cause) {
-        super(message, cause);
+        this(message, HttpStatus.UNAUTHORIZED, cause);
     }
 
+    public LoginException(String message, HttpStatus status) {
+        super(message, status);
+    }
+
+    public LoginException(String message, HttpStatus status, Throwable cause) {
+        super(message, status, cause);
+    }
 }

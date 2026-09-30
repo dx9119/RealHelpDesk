@@ -103,7 +103,7 @@ class MessageManageServiceTest {
         CreateMessageResponse response = service.createMessage(request, TICKET_ID, PORTAL_ID);
 
         // then
-        assertThat(response.getMessage()).contains("Сообщение создано, ID: 777");
+        assertThat(response.getId()).isEqualTo(777L);
 
         // Проверяем изменение статуса тикета
         verify(mockTicketDomainService).saveTicket(ticketCaptor.capture());

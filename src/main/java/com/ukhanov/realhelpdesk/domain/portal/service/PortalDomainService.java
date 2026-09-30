@@ -41,7 +41,7 @@ public class PortalDomainService {
     public PortalModel getPortalById(Long portalId) throws PortalException {
         Objects.requireNonNull(portalId, "portalId must not be null");
         logger.debug("Получен портал ID: {}", portalId);
-        return portalRepository.findById(portalId).orElseThrow(() -> new PortalException("Портал с ID " + portalId + " не найден"));
+        return portalRepository.findById(portalId).orElseThrow(() -> PortalException.notFound("Портал с ID " + portalId + " не найден"));
     }
 
     @Transactional

@@ -3,7 +3,7 @@
 #
 # Проверяет исправления аудита JWT:
 #   - разграничение типа токена (refresh-токен не работает как access)
-#   - обновление access через /auth/update (refresh-cookie с path=/api/v1/auth)
+#   - обновление access через /auth/tokens/access (refresh-cookie с path=/api/v1/auth)
 #   - мгновенный отзыв access-токена при логауте (claim ver + token_version)
 #   - отзыв всех refresh-токенов при смене пароля
 #   - отказ неактивным/неаутентифицированным запросам
@@ -45,7 +45,7 @@ step "Регистрация ($EMAIL)"
 curl -sk -D "$HDR" -o /dev/null -c "$JAR" -X POST "$BASE/api/v1/auth/register" \
   -H 'Content-Type: application/json' \
   -d "{\"firstName\":\"E2E\",\"lastName\":\"Flow\",\"email\":\"$EMAIL\",\"password\":\"$PASS1\"}"
-check 200 "$(head -1 "$HDR" | awk '{print $2}')" "POST /auth/register"
+check 201 "$(head -1 "$HDR" | awk '{print $2}')" "POST /auth/register"
 if [ -n "$(cookie accessToken)" ] && [ -n "$(cookie refreshToken)" ]; then
   PASS=$((PASS+1)); echo "  OK   access и refresh cookie установлены"
 else
@@ -53,26 +53,26 @@ else
 fi
 
 step "Авторизованный запрос"
-check 200 "$(status -b "$JAR" "$BASE/api/v1/user/profile")" "GET /user/profile"
+check 200 "$(status -b "$JAR" "$BASE/api/v1/users/profile")" "GET /users/profile"
 
 step "Тип токена: refresh-cookie вместо access"
-check 401 "$(status -H "Cookie: accessToken=$(cookie refreshToken)" "$BASE/api/v1/user/profile")" "refresh как access"
+check 401 "$(status -H "Cookie: accessToken=$(cookie refreshToken)" "$BASE/api/v1/users/profile")" "refresh как access"
 
-step "Обновление access через /auth/update"
+step "Обновление access через /auth/tokens/access"
 OLD_REFRESH=$(cookie refreshToken)
-check 200 "$(status -b "$JAR" -c "$JAR" -X POST "$BASE/api/v1/auth/update")" "POST /auth/update"
+check 200 "$(status -b "$JAR" -c "$JAR" -X POST "$BASE/api/v1/auth/tokens/access")" "POST /auth/tokens/access"
 NEW_AT=$(header_cookie_value accessToken)
 if [ -n "$NEW_AT" ]; then
   PASS=$((PASS+1)); echo "  OK   новый access-токен выдан"
 else
   FAIL=$((FAIL+1)); echo "  FAIL новый access не выдан"
 fi
-check 200 "$(status -H "Cookie: accessToken=$NEW_AT" "$BASE/api/v1/user/profile")" "GET /user/profile с новым access"
+check 200 "$(status -H "Cookie: accessToken=$NEW_AT" "$BASE/api/v1/users/profile")" "GET /users/profile с новым access"
 
 step "Логаут: access-токен отзывается немедленно"
-check 200 "$(status -b "$JAR" -c "$JAR" -X DELETE "$BASE/api/v1/auth/cookies")" "DELETE /auth/cookies"
-check 401 "$(status -H "Cookie: accessToken=$NEW_AT" "$BASE/api/v1/user/profile")" "старый access после логаута"
-check 409 "$(status -X POST -H "Cookie: refreshToken=$OLD_REFRESH" "$BASE/api/v1/auth/update")" "refresh после логаута"
+check 204 "$(status -b "$JAR" -c "$JAR" -X DELETE "$BASE/api/v1/auth/session")" "DELETE /auth/session"
+check 401 "$(status -H "Cookie: accessToken=$NEW_AT" "$BASE/api/v1/users/profile")" "старый access после логаута"
+check 401 "$(status -X POST -H "Cookie: refreshToken=$OLD_REFRESH" "$BASE/api/v1/auth/tokens/access")" "refresh после логаута"
 
 step "Повторный вход"
 rm -f "$JAR"
@@ -81,18 +81,18 @@ curl -sk -D "$HDR" -o /dev/null -c "$JAR" -X POST "$BASE/api/v1/auth/login" \
 check 200 "$(head -1 "$HDR" | awk '{print $2}')" "POST /auth/login"
 AT2=$(cookie accessToken)
 RT2=$(cookie refreshToken)
-check 200 "$(status -b "$JAR" "$BASE/api/v1/user/profile")" "GET /user/profile после входа"
+check 200 "$(status -b "$JAR" "$BASE/api/v1/users/profile")" "GET /users/profile после входа"
 
 step "Смена пароля: отзываются все токены"
-REQ_STATUS=$(status -X POST "$BASE/api/v1/user/passwd-reset/request" \
+REQ_STATUS=$(status -X POST "$BASE/api/v1/users/password-resets" \
   -H 'Content-Type: application/json' -d "{\"email\":\"$EMAIL\"}")
 if [ "$REQ_STATUS" = "429" ]; then
-  echo "  FAIL /user/passwd-reset/request -> 429: лимит 3 / 10 мин исчерпан."
+  echo "  FAIL /users/password-resets -> 429: лимит 3 / 10 мин исчерпан."
   echo "       Счетчики в памяти приложения: docker compose restart app и повторите запуск."
   echo; echo "Итого: OK $PASS, FAIL $((FAIL+1))"
   exit 1
 fi
-check 200 "$REQ_STATUS" "POST /user/passwd-reset/request"
+check 202 "$REQ_STATUS" "POST /users/password-resets"
 sleep 2
 MSG=$(curl -s "http://localhost:3000/api/Messages" \
   | python3 -c "import sys,json; r=json.load(sys.stdin).get('results',[]); print(r[0]['id'] if r else '')")
@@ -103,22 +103,22 @@ if [ -n "$RESET_CODE" ]; then
 else
   FAIL=$((FAIL+1)); echo "  FAIL код сброса не найден"
 fi
-check 200 "$(status -X POST "$BASE/api/v1/user/passwd-reset/confirm?code=$RESET_CODE" \
-  -H 'Content-Type: application/json' -d "{\"password\":\"$PASS2\"}")" "POST /user/passwd-reset/confirm"
-check 401 "$(status -H "Cookie: accessToken=$AT2" "$BASE/api/v1/user/profile")" "access до смены пароля (отзыв)"
-check 409 "$(status -X POST -H "Cookie: refreshToken=$RT2" "$BASE/api/v1/auth/update")" "refresh до смены пароля (отзыв)"
+check 204 "$(status -X PUT "$BASE/api/v1/users/password-resets/$RESET_CODE" \
+  -H 'Content-Type: application/json' -d "{\"password\":\"$PASS2\"}")" "PUT /users/password-resets/{code}"
+check 401 "$(status -H "Cookie: accessToken=$AT2" "$BASE/api/v1/users/profile")" "access до смены пароля (отзыв)"
+check 401 "$(status -X POST -H "Cookie: refreshToken=$RT2" "$BASE/api/v1/auth/tokens/access")" "refresh до смены пароля (отзыв)"
 
 step "Вход с новым паролем"
 rm -f "$JAR"
 curl -sk -D "$HDR" -o /dev/null -c "$JAR" -X POST "$BASE/api/v1/auth/login" \
   -H 'Content-Type: application/json' -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS2\"}"
 check 200 "$(head -1 "$HDR" | awk '{print $2}')" "POST /auth/login с новым паролем"
-check 200 "$(status -b "$JAR" "$BASE/api/v1/user/profile")" "GET /user/profile после смены пароля"
+check 200 "$(status -b "$JAR" "$BASE/api/v1/users/profile")" "GET /users/profile после смены пароля"
 
 step "Отказы"
-check 409 "$(status -X POST "$BASE/api/v1/auth/login" \
+check 401 "$(status -X POST "$BASE/api/v1/auth/login" \
   -H 'Content-Type: application/json' -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS3\"}")" "неверный пароль"
-check 401 "$(status "$BASE/api/v1/user/profile")" "запрос без cookie"
+check 401 "$(status "$BASE/api/v1/users/profile")" "запрос без cookie"
 
 echo
 echo "Итого: OK $PASS, FAIL $FAIL"
