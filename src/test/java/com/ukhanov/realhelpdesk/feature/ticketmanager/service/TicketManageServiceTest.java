@@ -18,6 +18,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
+import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
 import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
@@ -49,6 +50,7 @@ import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -137,6 +139,85 @@ class TicketManageServiceTest {
         assertThat(ticketCaptor.getValue().getTitle()).isEqualTo("New Issue");
 
         verify(mockEmailDeliveryService).initNotifyPortalUsers(eq(portal), anyString(), anyString(), eq(NotificationEvent.NEW_TICKET));
+    }
+
+    // ────────────────────────────────────────────────
+    // setTicketStatus / setTicketPriority / deleteTicket
+    // ────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("setTicketStatus → письмо об изменении статуса участникам портала")
+    void setTicketStatus_sendsChangeNotification() throws Exception {
+        TicketModel ticket = defaultTicket(TICKET_ID);
+        PortalModel portal = defaultPortal(PORTAL_ID);
+        when(mockTicketDomainService.findTicketById(TICKET_ID)).thenReturn(ticket);
+        when(mockTicketAccessValidationService.hasTicketChange(PORTAL_ID, TICKET_ID)).thenReturn(true);
+        when(mockTicketDomainService.saveTicket(any())).thenReturn(ticket);
+        when(mockPortalDomainService.getPortalById(PORTAL_ID)).thenReturn(portal);
+
+        service.setTicketStatus(PORTAL_ID, TICKET_ID, TicketStatus.CLOSED);
+
+        assertThat(ticket.getTicketStatus()).isEqualTo(TicketStatus.CLOSED);
+        verify(mockEmailDeliveryService).initNotifyPortalUsers(eq(portal),
+                eq(EmailTemplates.updateStatusTicketSubject(TICKET_ID, TicketStatus.CLOSED)),
+                eq(EmailTemplates.updateStatusTicketBody(TICKET_ID, PORTAL_ID)), eq(NotificationEvent.CHANGE_TICKET));
+    }
+
+    @Test
+    @DisplayName("setTicketStatus без прав → TicketException и письма нет")
+    void setTicketStatus_withoutRights_sendsNoEmail() throws TicketException, PortalException {
+        TicketModel ticket = defaultTicket(TICKET_ID);
+        when(mockTicketDomainService.findTicketById(TICKET_ID)).thenReturn(ticket);
+        when(mockTicketAccessValidationService.hasTicketChange(PORTAL_ID, TICKET_ID)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.setTicketStatus(PORTAL_ID, TICKET_ID, TicketStatus.CLOSED)).isInstanceOf(TicketException.class);
+
+        verifyNoInteractions(mockEmailDeliveryService);
+    }
+
+    @Test
+    @DisplayName("setTicketPriority → письмо об изменении приоритета участникам портала")
+    void setTicketPriority_sendsChangeNotification() throws Exception {
+        TicketModel ticket = defaultTicket(TICKET_ID);
+        PortalModel portal = defaultPortal(PORTAL_ID);
+        when(mockTicketDomainService.findTicketById(TICKET_ID)).thenReturn(ticket);
+        when(mockTicketAccessValidationService.hasTicketChange(PORTAL_ID, TICKET_ID)).thenReturn(true);
+        when(mockTicketDomainService.saveTicket(any())).thenReturn(ticket);
+        when(mockPortalDomainService.getPortalById(PORTAL_ID)).thenReturn(portal);
+
+        service.setTicketPriority(PORTAL_ID, TICKET_ID, TicketPriority.HIGH);
+
+        assertThat(ticket.getTicketPriority()).isEqualTo(TicketPriority.HIGH);
+        verify(mockEmailDeliveryService).initNotifyPortalUsers(eq(portal),
+                eq(EmailTemplates.updatePriorityTicketSubject(TICKET_ID, TicketPriority.HIGH)),
+                eq(EmailTemplates.updatePriorityTicketBody(TICKET_ID, PORTAL_ID)), eq(NotificationEvent.CHANGE_TICKET));
+    }
+
+    @Test
+    @DisplayName("deleteTicket → письмо об удалении участникам портала")
+    void deleteTicket_sendsDeletedNotification() throws Exception {
+        TicketModel ticket = defaultTicket(TICKET_ID);
+        PortalModel portal = defaultPortal(PORTAL_ID);
+        when(mockTicketAccessValidationService.hasTicketChange(PORTAL_ID, TICKET_ID)).thenReturn(true);
+        when(mockTicketDomainService.findTicketById(TICKET_ID)).thenReturn(ticket);
+        when(mockTicketRepository.save(any())).thenReturn(ticket);
+        when(mockPortalDomainService.getPortalById(PORTAL_ID)).thenReturn(portal);
+
+        service.deleteTicket(TICKET_ID, PORTAL_ID);
+
+        assertThat(ticket.getTicketLiveStatus()).isEqualTo(TicketLiveStatus.DELETE);
+        verify(mockEmailDeliveryService).initNotifyPortalUsers(eq(portal), eq(EmailTemplates.deletedTicketSubject(TICKET_ID)),
+                eq(EmailTemplates.deletedTicketBody(TICKET_ID, "test@user.com")), eq(NotificationEvent.TICKET_DELETED));
+    }
+
+    @Test
+    @DisplayName("deleteTicket без прав владельца → TicketException и письма нет")
+    void deleteTicket_withoutRights_sendsNoEmail() throws TicketException, PortalException {
+        when(mockTicketAccessValidationService.hasTicketChange(PORTAL_ID, TICKET_ID)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.deleteTicket(TICKET_ID, PORTAL_ID)).isInstanceOf(TicketException.class);
+
+        verifyNoInteractions(mockEmailDeliveryService);
     }
 
     // ────────────────────────────────────────────────

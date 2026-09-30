@@ -27,6 +27,7 @@
         <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
         <checkstyle.version>10.26.1</checkstyle.version>
         <spotless-maven-plugin.version>2.44.5</spotless-maven-plugin.version>
+        <greenmail.version>2.1.0</greenmail.version>
     </properties>
 
     <dependencies>
@@ -133,6 +134,14 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- GreenMail: in-memory SMTP-сервер для интеграционных тестов реальной отправки email -->
+        <dependency>
+            <groupId>com.icegreen</groupId>
+            <artifactId>greenmail</artifactId>
+            <version>${greenmail.version}</version>
             <scope>test</scope>
         </dependency>
 

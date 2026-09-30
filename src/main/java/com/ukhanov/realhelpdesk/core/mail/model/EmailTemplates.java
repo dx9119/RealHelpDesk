@@ -84,7 +84,7 @@ public final class EmailTemplates {
 
                 С уважением,
                 Команда %s
-                """, ticketId, DOMAIN, ticketId, portalId, PROJECT_NAME);
+                """, ticketId, DOMAIN, portalId, ticketId, PROJECT_NAME);
     }
 
     public static String ticketCreatedSubject(Long ticketId) {
@@ -102,7 +102,7 @@ public final class EmailTemplates {
 
                 С уважением,
                 Команда %s
-                """, ticketId, DOMAIN, ticketId, portalId, PROJECT_NAME);
+                """, ticketId, DOMAIN, portalId, ticketId, PROJECT_NAME);
     }
 
     public static String portalCreatedSubject(Long portalId) {
@@ -136,7 +136,7 @@ public final class EmailTemplates {
 
                 С уважением,
                 Команда %s
-                """, portalId, DOMAIN, PROJECT_NAME);
+                """, DOMAIN, PROJECT_NAME);
     }
 
     public static String updateStatusTicketSubject(Long ticketId, TicketStatus ticketStatus) {

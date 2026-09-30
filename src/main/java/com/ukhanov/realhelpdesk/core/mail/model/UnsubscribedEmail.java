@@ -34,6 +34,7 @@ public class UnsubscribedEmail {
     public UnsubscribedEmail(String email, NotificationEvent muteEvent) {
         this.email = email;
         this.muteEvent = muteEvent;
+        this.inStopListAt = Instant.now();
     }
 
     public String getEmail() {
