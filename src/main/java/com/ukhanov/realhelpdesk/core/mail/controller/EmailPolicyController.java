@@ -56,7 +56,7 @@ public class EmailPolicyController {
     }
 
     @PostMapping("/codes")
-    @RateLimit(requests = 3, windowSeconds = 600)
+    @RateLimit(key = "email-code")
     public ResponseEntity<Void> sendConfirmCode(@RequestParam(value = "capId", required = false) String capId,
             @RequestParam(value = "capCode", required = false) String capCode)
             throws MessagingException, CaptchaException, UnsupportedEncodingException {

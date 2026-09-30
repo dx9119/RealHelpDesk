@@ -71,7 +71,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    @RateLimit(requests = 10, windowSeconds = 300)
+    @RateLimit(key = "auth-register")
     public ResponseEntity<Void> registration(@Valid @RequestBody RegisterRequest registerRequest,
             @RequestParam(required = false) String capId)
             throws RegistrationException, MessagingException, EmailAccessDeniedException, CaptchaException, UnsupportedEncodingException {
@@ -85,7 +85,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    @RateLimit(requests = 10, windowSeconds = 300)
+    @RateLimit(key = "auth-login")
     public ResponseEntity<Void> login(@Valid @RequestBody LoginRequest loginRequest) throws TokenException {
         TokensResponse tokens = loginService.processLogin(loginRequest);
 
@@ -95,7 +95,7 @@ public class AuthController {
 
     // Отдать новый токен авторизации при наличии активного refresh token
     @PostMapping("/tokens/access")
-    @RateLimit(requests = 30, windowSeconds = 300)
+    @RateLimit(key = "auth-access-token")
     public ResponseEntity<Void> createAccessToken(HttpServletRequest request) throws TokenException, RefreshException {
 
         ResponseCookie accessCookie = accessCookie(refreshService.updateAccess(request), ACCESS_TOKEN_TTL);

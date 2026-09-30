@@ -49,7 +49,7 @@ public class UserController {
     }
 
     @PostMapping("/password-resets")
-    @RateLimit(requests = 3, windowSeconds = 600)
+    @RateLimit(key = "password-reset-request")
     public ResponseEntity<Void> requestPasswordReset(@Valid @RequestBody RecoveryRequest request)
             throws MessagingException, UnsupportedEncodingException {
         userManageService.sendResetLink(request);
@@ -58,7 +58,7 @@ public class UserController {
     }
 
     @PutMapping("/password-resets/{code}")
-    @RateLimit(requests = 5, windowSeconds = 600)
+    @RateLimit(key = "password-reset-confirm")
     public ResponseEntity<Void> resetPassword(@PathVariable Long code, @Valid @RequestBody NewPasswdRequest request) throws TokenException {
         userManageService.setNewPasswd(code, request);
 

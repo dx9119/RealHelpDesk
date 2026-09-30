@@ -1,5 +1,6 @@
 package com.ukhanov.realhelpdesk.core.mail.service;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
@@ -20,9 +21,9 @@ public class EmailLogService {
         this.emailLogRepository = emailLogRepository;
     }
 
-    public long countEmailsSentToByEventInLast24Hours(String email, NotificationEvent event) {
+    public long countEmailsSentToByEventInWindow(String email, NotificationEvent event, Duration window) {
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime from = now.minusHours(24);
+        LocalDateTime from = now.minus(window);
         return emailLogRepository.countEmailsByToAndEventBetween(email, event, from, now);
     }
 

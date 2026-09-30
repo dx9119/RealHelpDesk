@@ -1,6 +1,7 @@
 package com.ukhanov.realhelpdesk.core.mail.service;
 
 import java.io.UnsupportedEncodingException;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -21,6 +22,7 @@ import com.ukhanov.realhelpdesk.core.mail.model.EmailLog;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.repository.EmailLogRepository;
+import com.ukhanov.realhelpdesk.core.security.ratelimit.config.RateLimitProperties;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
@@ -37,16 +39,18 @@ public class EmailDeliveryService {
     private final EmailPolicyService emailPolicyService;
     private final CurrentUserProvider currentUserProvider;
     private final EmailLogService emailLogService;
+    private final RateLimitProperties rateLimitProperties;
 
     public EmailDeliveryService(JavaMailSender mailSender, UserDomainService userDomainService, EmailProperties emailProperties,
             EmailPolicyService emailPolicyService, CurrentUserProvider currentUserProvider, EmailLogService emailLogService,
-            EmailLogRepository emailLogRepository) {
+            EmailLogRepository emailLogRepository, RateLimitProperties rateLimitProperties) {
         this.mailSender = mailSender;
         this.userDomainService = userDomainService;
         this.emailProperties = emailProperties;
         this.emailPolicyService = emailPolicyService;
         this.currentUserProvider = currentUserProvider;
         this.emailLogService = emailLogService;
+        this.rateLimitProperties = rateLimitProperties;
     }
 
     public void sendEmail(String recipient, String subject, String text, NotificationEvent sourceEvent)
@@ -83,10 +87,13 @@ public class EmailDeliveryService {
     }
 
     public void emailLimiter(String recipient) {
-        long count = emailLogService.countEmailsSentToByEventInLast24Hours(recipient, NotificationEvent.RECOVERY_PASSWORD);
+        RateLimitProperties.Limit limit = rateLimitProperties.require("email-recovery");
+        long count = emailLogService.countEmailsSentToByEventInWindow(recipient, NotificationEvent.RECOVERY_PASSWORD,
+                Duration.ofSeconds(limit.windowSeconds()));
 
-        if (count > 3) {
-            throw new EmailAccessDeniedException("Исчерпан лимит на количество запросов восстановления, обновление лимита через 24 часа",
+        if (count > limit.requests()) {
+            throw new EmailAccessDeniedException(
+                    "Исчерпан лимит на количество запросов восстановления, окно лимита " + limit.windowSeconds() + " сек",
                     HttpStatus.TOO_MANY_REQUESTS);
         }
 

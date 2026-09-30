@@ -79,17 +79,20 @@ https://example.com:8443/api/v1/auth/register?capId=abc123xyz9
 
 Счетчик идет по IP и эндпоинту и работает одинаково при включенной и выключенной капче. При превышении — ответ `429` с заголовком `Retry-After`.
 
-| Эндпоинт | Лимит |
-|---|---|
-| `GET /api/v1/captcha` | 30 за 60 сек |
-| `POST /api/v1/auth/register` | 10 за 5 мин |
-| `POST /api/v1/auth/login` | 10 за 5 мин |
-| `POST /api/v1/auth/tokens/access` | 30 за 5 мин |
-| `POST /api/v1/users/password-resets` | 3 за 10 мин |
-| `PUT /api/v1/users/password-resets/{code}` | 5 за 10 мин |
-| `POST /api/v1/email/codes` | 3 за 10 мин |
+| Эндпоинт | Ключ (`ratelimit.limits.<key>`) | Лимит по умолчанию |
+|---|---|---|
+| `GET /api/v1/captcha` | `captcha` | 30 за 60 сек |
+| `POST /api/v1/auth/register` | `auth-register` | 10 за 5 мин |
+| `POST /api/v1/auth/login` | `auth-login` | 10 за 5 мин |
+| `POST /api/v1/auth/tokens/access` | `auth-access-token` | 30 за 5 мин |
+| `POST /api/v1/users/password-resets` | `password-reset-request` | 3 за 10 мин |
+| `PUT /api/v1/users/password-resets/{code}` | `password-reset-confirm` | 5 за 10 мин |
+| `POST /api/v1/email/codes` | `email-code` | 3 за 10 мин |
+| письма восстановления пароля (лимит на адрес) | `email-recovery` | 3 за 24 часа |
 
-Новый лимит — аннотация `@RateLimit(requests = ..., windowSeconds = ...)` на методе контроллера. Счетчики хранятся в памяти приложения и сбрасываются при рестарте.
+Пороги живут в `application.properties` (`ratelimit.limits.<key>.requests` и `ratelimit.limits.<key>.window-seconds`) и переопределяются переменными окружения `RATE_LIMIT_<KEY>_REQUESTS` / `RATE_LIMIT_<KEY>_WINDOW_SECONDS` — примеры в `.env.example`.
+
+Новый лимит — аннотация `@RateLimit(key = "...")` на методе контроллера плюс запись порога в `application.properties` под тем же ключом (без порога в конфиге запрос упадет с 500 и сообщением об отсутствующем ключе). Счетчики хранятся в памяти приложения и сбрасываются при рестарте.
 
 За прокси (nginx и т.п.) задайте `TRUST_PROXY_HEADERS=true`, иначе все пользователи будут считаться одним IP самого прокси. Без прокси держите `false` — иначе заголовок `X-Forwarded-For` можно подделать и обойти лимит.
 

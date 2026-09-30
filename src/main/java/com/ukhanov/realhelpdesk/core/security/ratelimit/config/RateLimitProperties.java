@@ -1,0 +1,63 @@
+package com.ukhanov.realhelpdesk.core.security.ratelimit.config;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
+
+/**
+ * Пороги рейт-лимитов из конфига: ключи аннотации {@code @RateLimit(key = ...)} и лимит писем восстановления пароля.
+ */
+@Component
+@ConfigurationProperties(prefix = "ratelimit")
+public class RateLimitProperties {
+
+    /** Брат IP клиента из X-Forwarded-For (включать только за прокси). */
+    private boolean trustProxyHeaders = false;
+
+    /** Пороги по ключам: auth-login, captcha, email-code и т.д. */
+    private Map<String, Limit> limits = new LinkedHashMap<>();
+
+    /**
+     * Порог лимита: число запросов за окно windowSeconds.
+     */
+    public record Limit(int requests, int windowSeconds) {
+
+        public Limit {
+            if (requests < 1) {
+                throw new IllegalArgumentException("ratelimit: requests должен быть больше 0, получено " + requests);
+            }
+            if (windowSeconds < 1) {
+                throw new IllegalArgumentException("ratelimit: windowSeconds должен быть больше 0, получено " + windowSeconds);
+            }
+        }
+    }
+
+    /**
+     * Возвращает порог по ключу или падает с понятной ошибкой, если лимит не описан в конфиге.
+     */
+    public Limit require(String key) {
+        Limit limit = limits.get(key);
+        if (limit == null) {
+            throw new IllegalStateException("Rate limit не задан в конфиге: ratelimit.limits." + key);
+        }
+        return limit;
+    }
+
+    public boolean isTrustProxyHeaders() {
+        return trustProxyHeaders;
+    }
+
+    public void setTrustProxyHeaders(boolean trustProxyHeaders) {
+        this.trustProxyHeaders = trustProxyHeaders;
+    }
+
+    public Map<String, Limit> getLimits() {
+        return limits;
+    }
+
+    public void setLimits(Map<String, Limit> limits) {
+        this.limits = limits;
+    }
+}

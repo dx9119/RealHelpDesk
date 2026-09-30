@@ -25,7 +25,7 @@ public class CaptchaController {
     }
 
     @GetMapping
-    @RateLimit(requests = 30, windowSeconds = 60)
+    @RateLimit(key = "captcha")
     public ResponseEntity<byte[]> getCaptcha(@RequestParam @Size(max = 10) String capId) throws IOException {
 
         byte[] imageBytes = captchaService.getImageBytes(capId);

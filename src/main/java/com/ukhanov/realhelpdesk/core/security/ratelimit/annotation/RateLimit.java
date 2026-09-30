@@ -6,12 +6,16 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+/**
+ * Связывает метод контроллера с порогом рейт-лимита из конфига (ключ {@code ratelimit.limits.<key>} в application.properties).
+ */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 public @interface RateLimit {
 
-    int requests();
-
-    int windowSeconds();
+    /**
+     * Ключ лимита в конфиге, например {@code auth-login}.
+     */
+    String key();
 }

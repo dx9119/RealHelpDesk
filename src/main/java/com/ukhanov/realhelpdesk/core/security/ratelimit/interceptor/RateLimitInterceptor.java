@@ -11,7 +11,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -21,6 +20,7 @@ import org.springframework.web.servlet.HandlerMapping;
 
 import com.ukhanov.realhelpdesk.core.log.LogSanitizer;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.annotation.RateLimit;
+import com.ukhanov.realhelpdesk.core.security.ratelimit.config.RateLimitProperties;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.service.RateLimitService;
 
 import tools.jackson.databind.ObjectMapper;
@@ -32,13 +32,12 @@ public class RateLimitInterceptor implements HandlerInterceptor {
 
     private final RateLimitService rateLimitService;
     private final ObjectMapper objectMapper;
+    private final RateLimitProperties rateLimitProperties;
 
-    @Value("${ratelimit.trust-proxy-headers:false}")
-    private boolean trustProxyHeaders;
-
-    public RateLimitInterceptor(RateLimitService rateLimitService, ObjectMapper objectMapper) {
+    public RateLimitInterceptor(RateLimitService rateLimitService, ObjectMapper objectMapper, RateLimitProperties rateLimitProperties) {
         this.rateLimitService = rateLimitService;
         this.objectMapper = objectMapper;
+        this.rateLimitProperties = rateLimitProperties;
     }
 
     @Override
@@ -52,11 +51,12 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             return true;
         }
 
+        RateLimitProperties.Limit limit = rateLimitProperties.require(rateLimit.key());
+
         String client = clientKey(request);
         // ключ — по шаблону маршрута: /password-resets/123 и /password-resets/456 должны считаться одним лимитом
         String key = client + "|" + request.getMethod() + " " + routeOf(request);
-        RateLimitService.Decision decision = rateLimitService.check(key, rateLimit.requests(),
-                Duration.ofSeconds(rateLimit.windowSeconds()));
+        RateLimitService.Decision decision = rateLimitService.check(key, limit.requests(), Duration.ofSeconds(limit.windowSeconds()));
 
         if (decision.allowed()) {
             return true;
@@ -88,7 +88,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     }
 
     private String clientKey(HttpServletRequest request) {
-        if (trustProxyHeaders) {
+        if (rateLimitProperties.isTrustProxyHeaders()) {
             String forwardedFor = request.getHeader("X-Forwarded-For");
             if (forwardedFor != null && !forwardedFor.isBlank()) {
                 return forwardedFor.split(",")[0].trim();
