@@ -49,12 +49,13 @@ public class TicketManageService {
     private final PaginationAdapter paginationAdapter;
     private final EmailDeliveryService emailDeliveryService;
     private final TicketAccessValidationService ticketAccessValidationService;
+    private final EmailTemplates emailTemplates;
 
     private final TicketRepository ticketRepository;
 
     public TicketManageService(TicketDomainService ticketDomainService, CurrentUserProvider currentUserProvider,
             PortalDomainService portalDomainService, PaginationAdapter paginationAdapter, EmailDeliveryService emailDeliveryService,
-            TicketAccessValidationService ticketAccessValidationService, TicketRepository ticketRepository) {
+            TicketAccessValidationService ticketAccessValidationService, TicketRepository ticketRepository, EmailTemplates emailTemplates) {
         this.ticketDomainService = ticketDomainService;
         this.currentUserProvider = currentUserProvider;
         this.portalDomainService = portalDomainService;
@@ -62,6 +63,7 @@ public class TicketManageService {
         this.emailDeliveryService = emailDeliveryService;
         this.ticketAccessValidationService = ticketAccessValidationService;
         this.ticketRepository = ticketRepository;
+        this.emailTemplates = emailTemplates;
     }
 
     public TicketResponseOld getTicketById(Long ticketId) throws TicketException {
@@ -86,8 +88,8 @@ public class TicketManageService {
         logger.info("Создана заявка {} в портале {}", saved.getId(), portalId);
 
         // Отправляем письмо с оповещением о создании заявки всем пользователям портала
-        emailDeliveryService.initNotifyPortalUsers(portal, EmailTemplates.ticketCreatedSubject(ticket.getId()),
-                EmailTemplates.ticketCreatedBody(ticket.getId(), portal.getId()), NotificationEvent.NEW_TICKET);
+        emailDeliveryService.initNotifyPortalUsers(portal, emailTemplates.ticketCreatedSubject(ticket.getId()),
+                emailTemplates.ticketCreatedBody(ticket.getId(), portal.getId()), NotificationEvent.NEW_TICKET);
 
         return new CreateTicketResponse(saved.getId());
 
@@ -171,8 +173,8 @@ public class TicketManageService {
 
         // Отправляем письмо
         emailDeliveryService.initNotifyPortalUsers(portalDomainService.getPortalById(portalId),
-                EmailTemplates.updateStatusTicketSubject(ticketSaved.getId(), status),
-                EmailTemplates.updateStatusTicketBody(ticketSaved.getId(), portalId), NotificationEvent.CHANGE_TICKET);
+                emailTemplates.updateStatusTicketSubject(ticketSaved.getId(), status),
+                emailTemplates.updateStatusTicketBody(ticketSaved.getId(), portalId), NotificationEvent.CHANGE_TICKET);
     }
 
     public void setTicketPriority(Long portalId, Long ticketId, TicketPriority priority)
@@ -195,8 +197,8 @@ public class TicketManageService {
         PortalModel portal = portalDomainService.getPortalById(portalId);
 
         // Отправляем письмо
-        emailDeliveryService.initNotifyPortalUsers(portal, EmailTemplates.updatePriorityTicketSubject(ticketSaved.getId(), priority),
-                EmailTemplates.updatePriorityTicketBody(ticketSaved.getId(), portal.getId()), NotificationEvent.CHANGE_TICKET);
+        emailDeliveryService.initNotifyPortalUsers(portal, emailTemplates.updatePriorityTicketSubject(ticketSaved.getId(), priority),
+                emailTemplates.updatePriorityTicketBody(ticketSaved.getId(), portal.getId()), NotificationEvent.CHANGE_TICKET);
     }
 
     public void deleteTicket(Long ticketID, Long portalId)
@@ -219,7 +221,7 @@ public class TicketManageService {
 
         // Отправляем письмо
         emailDeliveryService.initNotifyPortalUsers(portalDomainService.getPortalById(portalId),
-                EmailTemplates.deletedTicketSubject(ticketID), EmailTemplates.deletedTicketBody(ticketID, user.getEmail()),
+                emailTemplates.deletedTicketSubject(ticketID), emailTemplates.deletedTicketBody(ticketID, user.getEmail()),
                 NotificationEvent.TICKET_DELETED);
     }
 

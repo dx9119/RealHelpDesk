@@ -1,203 +1,113 @@
 package com.ukhanov.realhelpdesk.core.mail.model;
 
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.stereotype.Component;
+
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 
-public final class EmailTemplates {
-
-    private EmailTemplates() {
-    }
+@Component
+public class EmailTemplates {
 
     public static final String DOMAIN = "front.example.ru";
     public static final String PROJECT_NAME = "real help desk";
 
-    public static String registrationLinkSubject() {
-        return "Подтверждение регистрации";
+    private final MessageSource messageSource;
+
+    public EmailTemplates(MessageSource messageSource) {
+        this.messageSource = messageSource;
     }
 
-    public static String registrationLinkBody(String token) {
-        return String.format("""
-                Добрый день!
-
-                Для завершения регистрации в системе «%s», пожалуйста, подтвердите ваш адрес электронной почты, перейдите по ссылке:
-                https://%s/notify-settings
-
-                В поле "✅ Подтверждение Email", введите данный код:
-                %s
-
-                С уважением,
-                Команда %s
-                """, PROJECT_NAME, DOMAIN, token, PROJECT_NAME);
+    public String registrationLinkSubject() {
+        return text("email.registration.link.subject");
     }
 
-    public static String registrationCodeSubject() {
-        return "Код подтверждения";
+    public String registrationLinkBody(String token) {
+        return text("email.registration.link.body", PROJECT_NAME, DOMAIN, token);
     }
 
-    public static String registrationCodeBody(String code) {
-        return String.format("""
-                Добрый день!
-
-                Для подтверждения email в системе «%s» - перейдите по ссылке:
-                https://%s/notify-settings
-
-                В поле "✅ Подтверждение Email", введите данный код:
-                %s
-
-                С уважением,
-                Команда %s
-                """, PROJECT_NAME, DOMAIN, code, PROJECT_NAME);
+    public String registrationCodeSubject() {
+        return text("email.registration.code.subject");
     }
 
-    public static String passwordResetSubject() {
-        return "Сброс пароля";
+    public String registrationCodeBody(String code) {
+        return text("email.registration.code.body", PROJECT_NAME, DOMAIN, code);
     }
 
-    public static String passwordResetBody(String code) {
-        return String.format("""
-                Добрый день!
-
-                Мы получили запрос на сброс пароля для вашей учётной записи в системе «%s».
-
-                Чтобы установить новый пароль, перейдите по ссылке:
-                https://%s/pass-reset?code=%s
-
-                Если вы не запрашивали сброс пароля, просто проигнорируйте это письмо — никаких действий предпринимать не нужно.
-
-                С уважением,
-                Команда %s
-                """, PROJECT_NAME, DOMAIN, code, PROJECT_NAME);
+    public String passwordResetSubject() {
+        return text("email.password.reset.subject");
     }
 
-    public static String ticketReplySubject(Long ticketId) {
-        return "[Заявка#" + ticketId + "] Новое сообщение";
+    public String passwordResetBody(String code) {
+        return text("email.password.reset.body", PROJECT_NAME, DOMAIN, code);
     }
 
-    public static String ticketReplyBody(Long ticketId, Long portalId) {
-        return String.format("""
-                Добрый день!
-
-                В заявке #%s появилось новое сообщение.
-
-                Ознакомиться с ним можно по ссылке:
-                https://%s/ticket-show/portal/%s/ticket/%s
-
-                С уважением,
-                Команда %s
-                """, ticketId, DOMAIN, portalId, ticketId, PROJECT_NAME);
+    public String ticketReplySubject(Long ticketId) {
+        return text("email.ticket.reply.subject", String.valueOf(ticketId));
     }
 
-    public static String ticketCreatedSubject(Long ticketId) {
-        return "Создана новая заявка #" + ticketId;
+    public String ticketReplyBody(Long ticketId, Long portalId) {
+        return text("email.ticket.reply.body", String.valueOf(ticketId), DOMAIN, String.valueOf(portalId), PROJECT_NAME);
     }
 
-    public static String ticketCreatedBody(Long ticketId, Long portalId) {
-        return String.format("""
-                Добрый день!
-
-                Cоздана заявка #%s
-
-                Ознакомиться с ней можно по ссылке:
-                https://%s/ticket-show/portal/%s/ticket/%s
-
-                С уважением,
-                Команда %s
-                """, ticketId, DOMAIN, portalId, ticketId, PROJECT_NAME);
+    public String ticketCreatedSubject(Long ticketId) {
+        return text("email.ticket.created.subject", String.valueOf(ticketId));
     }
 
-    public static String portalCreatedSubject(Long portalId) {
-        return "Создан новый портал #" + portalId;
+    public String ticketCreatedBody(Long ticketId, Long portalId) {
+        return text("email.ticket.created.body", String.valueOf(ticketId), DOMAIN, String.valueOf(portalId), PROJECT_NAME);
     }
 
-    public static String portalCreatedBody(Long portalId) {
-        return String.format("""
-                Добрый день!
-
-                Cоздан портал #%s
-
-                Ознакомиться с ним можно на странице "Порталы", в разделе "мои порталы".
-                https://%s/portal-manager
-
-                С уважением,
-                Команда %s
-                """, portalId, DOMAIN, PROJECT_NAME);
+    public String portalCreatedSubject(Long portalId) {
+        return text("email.portal.created.subject", String.valueOf(portalId));
     }
 
-    public static String portalAddUserSubject(Long portalId) {
-        return "Вас добавили к порталу #" + portalId;
+    public String portalCreatedBody(Long portalId) {
+        return text("email.portal.created.body", String.valueOf(portalId), DOMAIN, PROJECT_NAME);
     }
 
-    public static String portalAddUserBody(Long portalId) {
-        return String.format("""
-                Добрый день!
-
-                Ознакомиться с порталом можно на странице "Порталы", в разделе "Общие порталы".
-                https://%s/portal-manager
-
-                С уважением,
-                Команда %s
-                """, DOMAIN, PROJECT_NAME);
+    public String portalAddUserSubject(Long portalId) {
+        return text("email.portal.add.user.subject", String.valueOf(portalId));
     }
 
-    public static String updateStatusTicketSubject(Long ticketId, TicketStatus ticketStatus) {
-        return "Задан статус:" + ticketStatus + " для заявки#" + ticketId;
+    public String portalAddUserBody(Long portalId) {
+        return text("email.portal.add.user.body", DOMAIN, PROJECT_NAME);
     }
 
-    public static String updateStatusTicketBody(Long ticketId, Long portalId) {
-        return String.format("""
-                Добрый день!
-
-                Ознакомиться с заявкой можно по ссылке:
-                https://%s/ticket-show/portal/%s/ticket/%s
-
-                С уважением,
-                Команда %s
-                """, DOMAIN, portalId, ticketId, PROJECT_NAME);
+    public String updateStatusTicketSubject(Long ticketId, TicketStatus ticketStatus) {
+        return text("email.ticket.status.subject", String.valueOf(ticketStatus), String.valueOf(ticketId));
     }
 
-    public static String updatePriorityTicketSubject(Long ticketId, TicketPriority ticketPriority) {
-        return "Задан приоритет:" + ticketPriority + " для заявки#" + ticketId;
+    public String updateStatusTicketBody(Long ticketId, Long portalId) {
+        return text("email.ticket.status.body", DOMAIN, String.valueOf(portalId), String.valueOf(ticketId), PROJECT_NAME);
     }
 
-    public static String updatePriorityTicketBody(Long ticketId, Long portalId) {
-        return String.format("""
-                Добрый день!
-
-                Ознакомиться с заявкой можно по ссылке:
-                https://%s/ticket-show/portal/%s/ticket/%s
-
-                С уважением,
-                Команда %s
-                """, DOMAIN, portalId, ticketId, PROJECT_NAME);
+    public String updatePriorityTicketSubject(Long ticketId, TicketPriority ticketPriority) {
+        return text("email.ticket.priority.subject", String.valueOf(ticketPriority), String.valueOf(ticketId));
     }
 
-    public static String deletedTicketSubject(Long ticketId) {
-        return "Удалена заявка#" + ticketId;
+    public String updatePriorityTicketBody(Long ticketId, Long portalId) {
+        return text("email.ticket.priority.body", DOMAIN, String.valueOf(portalId), String.valueOf(ticketId), PROJECT_NAME);
     }
 
-    public static String deletedTicketBody(Long ticketId, String email) {
-        return String.format("""
-                Добрый день!
-
-                Заявка #%s была удалена пользователем %s.
-
-                С уважением,
-                Команда %s
-                """, ticketId, email, PROJECT_NAME);
+    public String deletedTicketSubject(Long ticketId) {
+        return text("email.ticket.deleted.subject", String.valueOf(ticketId));
     }
 
-    public static String deletedPortalSubject(Long portalId) {
-        return "Удален портал#" + portalId;
+    public String deletedTicketBody(Long ticketId, String email) {
+        return text("email.ticket.deleted.body", String.valueOf(ticketId), email, PROJECT_NAME);
     }
 
-    public static String deletedPortalBody(Long portalId, String email) {
-        return String.format("""
-                Добрый день!
+    public String deletedPortalSubject(Long portalId) {
+        return text("email.portal.deleted.subject", String.valueOf(portalId));
+    }
 
-                Портал #%s был удален пользователем %s.
+    public String deletedPortalBody(Long portalId, String email) {
+        return text("email.portal.deleted.body", String.valueOf(portalId), email, PROJECT_NAME);
+    }
 
-                С уважением,
-                Команда %s
-                """, portalId, email, PROJECT_NAME);
+    private String text(String code, Object... args) {
+        return messageSource.getMessage(code, args, LocaleContextHolder.getLocale());
     }
 }

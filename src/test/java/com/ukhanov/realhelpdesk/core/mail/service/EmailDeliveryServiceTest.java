@@ -25,6 +25,7 @@ import com.ukhanov.realhelpdesk.core.mail.exception.EmailAccessDeniedException;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailLog;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
+import com.ukhanov.realhelpdesk.core.mail.support.EmailTemplatesFixture;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.config.RateLimitProperties;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
@@ -60,6 +61,8 @@ class EmailDeliveryServiceTest {
     private RateLimitProperties rateLimitProperties;
     private EmailDeliveryService service;
 
+    private final EmailTemplates emailTemplates = EmailTemplatesFixture.emailTemplates();
+
     @BeforeEach
     void setUp() {
         mailSender = mock(JavaMailSender.class);
@@ -76,7 +79,7 @@ class EmailDeliveryServiceTest {
         rateLimitProperties.setLimits(Map.of("email-recovery", new RateLimitProperties.Limit(3, 86400)));
 
         service = new EmailDeliveryService(mailSender, userDomainService, emailProperties, emailPolicyService, currentUserProvider,
-                emailLogService, rateLimitProperties);
+                emailLogService, rateLimitProperties, emailTemplates);
 
         when(mailSender.createMimeMessage()).thenAnswer(invocation -> new JavaMailSenderImpl().createMimeMessage());
     }
@@ -136,7 +139,7 @@ class EmailDeliveryServiceTest {
         when(emailLogService.countEmailsSentToByEventInWindow(eq(RECIPIENT), eq(NotificationEvent.RECOVERY_PASSWORD),
                 eq(Duration.ofSeconds(86400)))).thenReturn(2L);
 
-        service.sendEmail(RECIPIENT, EmailTemplates.passwordResetSubject(), "Текст", NotificationEvent.RECOVERY_PASSWORD);
+        service.sendEmail(RECIPIENT, emailTemplates.passwordResetSubject(), "Текст", NotificationEvent.RECOVERY_PASSWORD);
 
         assertThat(sentMessages()).hasSize(1);
     }
@@ -148,7 +151,7 @@ class EmailDeliveryServiceTest {
                 eq(Duration.ofSeconds(86400)))).thenReturn(3L);
 
         EmailAccessDeniedException exception = catchThrowableOfType(
-                () -> service.sendEmail(RECIPIENT, EmailTemplates.passwordResetSubject(), "Текст", NotificationEvent.RECOVERY_PASSWORD),
+                () -> service.sendEmail(RECIPIENT, emailTemplates.passwordResetSubject(), "Текст", NotificationEvent.RECOVERY_PASSWORD),
                 EmailAccessDeniedException.class);
 
         assertThat(exception).isNotNull();
@@ -257,7 +260,7 @@ class EmailDeliveryServiceTest {
 
         MimeMessage message = singleSentMessage();
         assertThat(message.getAllRecipients()[0].toString()).isEqualTo(RECIPIENT);
-        assertThat(message.getSubject()).isEqualTo(EmailTemplates.registrationCodeSubject());
+        assertThat(message.getSubject()).isEqualTo(emailTemplates.registrationCodeSubject());
         assertThat(contentOf(message)).contains("987654");
 
         verify(emailLogService).add(argThat((EmailLog log) -> RECIPIENT.equals(log.getRecipient())

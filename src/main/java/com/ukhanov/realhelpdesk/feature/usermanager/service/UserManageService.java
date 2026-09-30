@@ -41,16 +41,18 @@ public class UserManageService {
     private final PasswordEncoder passwordEncoder;
     private final GetTokenService getTokenService;
     private final SaveTokenService saveTokenService;
+    private final EmailTemplates emailTemplates;
 
     public UserManageService(CurrentUserProvider currentUserProvider, UserDomainService userDomainService,
             EmailDeliveryService emailDeliveryService, PasswordEncoder passwordEncoder, GetTokenService getTokenService,
-            SaveTokenService saveTokenService) {
+            SaveTokenService saveTokenService, EmailTemplates emailTemplates) {
         this.currentUserProvider = currentUserProvider;
         this.userDomainService = userDomainService;
         this.emailDeliveryService = emailDeliveryService;
         this.passwordEncoder = passwordEncoder;
         this.getTokenService = getTokenService;
         this.saveTokenService = saveTokenService;
+        this.emailTemplates = emailTemplates;
     }
 
     public UserInfoResponse getUserInfo() {
@@ -87,8 +89,8 @@ public class UserManageService {
 
         userDomainService.saveUser(user);
 
-        emailDeliveryService.sendEmail(user.getEmail(), EmailTemplates.passwordResetSubject(),
-                EmailTemplates.passwordResetBody(recoverPasswdToken.toString()), NotificationEvent.RECOVERY_PASSWORD);
+        emailDeliveryService.sendEmail(user.getEmail(), emailTemplates.passwordResetSubject(),
+                emailTemplates.passwordResetBody(recoverPasswdToken.toString()), NotificationEvent.RECOVERY_PASSWORD);
         logger.info("Отправлено письмо восстановления пароля, userId={}", user.getId());
     }
 

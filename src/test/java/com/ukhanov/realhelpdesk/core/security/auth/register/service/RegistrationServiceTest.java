@@ -12,6 +12,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
+import com.ukhanov.realhelpdesk.core.mail.support.EmailTemplatesFixture;
 import com.ukhanov.realhelpdesk.core.security.auth.register.dto.RegisterRequest;
 import com.ukhanov.realhelpdesk.core.security.auth.register.exception.RegistrationException;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.GetTokenService;
@@ -54,9 +55,12 @@ class RegistrationServiceTest {
 
     private RegistrationService service;
 
+    private final EmailTemplates emailTemplates = EmailTemplatesFixture.emailTemplates();
+
     @BeforeEach
     void setUp() {
-        service = new RegistrationService(passwordEncoder, userDomainService, getTokenService, emailDeliveryService, captchaService);
+        service = new RegistrationService(passwordEncoder, userDomainService, getTokenService, emailDeliveryService, captchaService,
+                emailTemplates);
     }
 
     @Test
@@ -76,7 +80,7 @@ class RegistrationServiceTest {
                 eq(NotificationEvent.NEW_SYSTEM_MESSAGE));
 
         ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
-        verify(emailDeliveryService).sendUserNotification(eq(EMAIL), eq(EmailTemplates.registrationLinkSubject()), bodyCaptor.capture(),
+        verify(emailDeliveryService).sendUserNotification(eq(EMAIL), eq(emailTemplates.registrationLinkSubject()), bodyCaptor.capture(),
                 eq(NotificationEvent.NEW_SYSTEM_MESSAGE));
 
         assertThat(user.getVerifyEmailToken()).isNotNull();

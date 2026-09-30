@@ -14,6 +14,7 @@ import org.mockito.quality.Strictness;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
+import com.ukhanov.realhelpdesk.core.mail.support.EmailTemplatesFixture;
 import com.ukhanov.realhelpdesk.core.pagination.service.PaginationAdapter;
 import com.ukhanov.realhelpdesk.core.security.accesscontrol.AccessValidationService;
 import com.ukhanov.realhelpdesk.core.security.limiter.exception.LimitException;
@@ -72,10 +73,12 @@ class PortalManageServiceTest {
 
     private PortalManageService service;
 
+    private final EmailTemplates emailTemplates = EmailTemplatesFixture.emailTemplates();
+
     @BeforeEach
     void setUp() {
         service = new PortalManageService(currentUserProvider, portalDomainService, paginationAdapter, portalUtilsService,
-                accessValidationService, limitService, userDomainService, emailDeliveryService);
+                accessValidationService, limitService, userDomainService, emailDeliveryService, emailTemplates);
 
         UserModel owner = new UserModel();
         owner.setId(OWNER_ID);
@@ -102,8 +105,8 @@ class PortalManageServiceTest {
         CreatePortalResponse response = service.createPortal(request("Портал"));
 
         assertThat(response.getId()).isEqualTo(PORTAL_ID);
-        verify(emailDeliveryService).initNotifyPortalUsers(any(PortalModel.class), eq(EmailTemplates.portalCreatedSubject(PORTAL_ID)),
-                eq(EmailTemplates.portalCreatedBody(PORTAL_ID)), eq(NotificationEvent.NEW_PORTAL));
+        verify(emailDeliveryService).initNotifyPortalUsers(any(PortalModel.class), eq(emailTemplates.portalCreatedSubject(PORTAL_ID)),
+                eq(emailTemplates.portalCreatedBody(PORTAL_ID)), eq(NotificationEvent.NEW_PORTAL));
     }
 
     @Test
@@ -142,8 +145,8 @@ class PortalManageServiceTest {
         DeleteResult result = service.deletePortals(Set.of(PORTAL_ID));
 
         assertThat(result.getCount()).isEqualTo(1);
-        verify(emailDeliveryService).initNotifyPortalUsers(eq(portal), eq(EmailTemplates.deletedPortalSubject(PORTAL_ID)),
-                eq(EmailTemplates.deletedPortalBody(PORTAL_ID, OWNER_EMAIL)), eq(NotificationEvent.PORTAL_DELETED));
+        verify(emailDeliveryService).initNotifyPortalUsers(eq(portal), eq(emailTemplates.deletedPortalSubject(PORTAL_ID)),
+                eq(emailTemplates.deletedPortalBody(PORTAL_ID, OWNER_EMAIL)), eq(NotificationEvent.PORTAL_DELETED));
     }
 
     @Test

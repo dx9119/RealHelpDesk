@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
+import com.ukhanov.realhelpdesk.core.mail.support.EmailTemplatesFixture;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.message.model.MessageModel;
@@ -63,6 +64,8 @@ class MessageManageServiceTest {
 
     private MessageManageService service;
 
+    private final EmailTemplates emailTemplates = EmailTemplatesFixture.emailTemplates();
+
     private static final Long TICKET_ID = 42L;
     private static final Long PORTAL_ID = 100L;
     private static final String MESSAGE_TEXT = "Это тестовое сообщение от клиента";
@@ -72,7 +75,7 @@ class MessageManageServiceTest {
     @BeforeEach
     void setUp() {
         service = new MessageManageService(mockMessageMapper, mockCurrentUserProvider, mockTicketDomainService, mockMessageDomainService,
-                mockEmailDeliveryService);
+                mockEmailDeliveryService, emailTemplates);
     }
 
     // ────────────────────────────────────────────────
@@ -111,8 +114,8 @@ class MessageManageServiceTest {
         assertThat(savedTicket.getTicketStatus()).isEqualTo(TicketStatus.IN_PROGRESS);
 
         // Проверяем вызов отправки email
-        verify(mockEmailDeliveryService).sendUserNotification(eq(USER_EMAIL), eq(EmailTemplates.ticketReplySubject(TICKET_ID)),
-                eq(EmailTemplates.ticketReplyBody(TICKET_ID, PORTAL_ID)), eq(NotificationEvent.NEW_MESSAGE));
+        verify(mockEmailDeliveryService).sendUserNotification(eq(USER_EMAIL), eq(emailTemplates.ticketReplySubject(TICKET_ID)),
+                eq(emailTemplates.ticketReplyBody(TICKET_ID, PORTAL_ID)), eq(NotificationEvent.NEW_MESSAGE));
 
         verifyNoMoreInteractions(mockEmailDeliveryService, mockMessageDomainService, mockTicketDomainService);
     }
