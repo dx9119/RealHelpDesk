@@ -2,6 +2,7 @@ package com.ukhanov.realhelpdesk.core.filter;
 
 import java.io.IOException;
 import java.security.SecureRandom;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -21,6 +22,8 @@ public class LoggingFilter extends OncePerRequestFilter {
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
+    private static final Pattern SAFE_REQUEST_ID = Pattern.compile("[A-Za-z0-9._:-]{1,64}");
+
     public static final String REQUEST_ID = "requestId";
     public static final String CLIENT_IP = "clientIp";
     public static final String URI_REQUEST = "uriRequest";
@@ -29,25 +32,52 @@ public class LoggingFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
-        String requestId = request.getHeader("X-Request-ID");
-        if (requestId == null || requestId.isEmpty()) {
-            requestId = String.valueOf(RANDOM.nextLong());
-        }
-
-        MDC.put(REQUEST_ID, requestId);
+        MDC.put(REQUEST_ID, resolveRequestId(request));
         MDC.put(CLIENT_IP, getClientIpAddress(request));
-        MDC.put(URI_REQUEST, getFullUrl(request));
+        // query-string не кладём в MDC: в GET-параметрах бывают коды восстановления пароля
+        MDC.put(URI_REQUEST, request.getRequestURI());
 
-        logger.info("Входящий запрос: [{}]", request.getMethod());
-
+        long startedNs = System.nanoTime();
+        boolean failed = false;
         try {
             filterChain.doFilter(request, response);
-
-            logger.info("Исходящий запрос: [{}] HTTP статус: [{}]", request.getMethod(), response.getStatus());
-
+        } catch (ServletException | IOException | RuntimeException ex) {
+            failed = true;
+            logger.error("HTTP {} {} завершился исключением за {} мс", request.getMethod(), request.getRequestURI(), elapsedMs(startedNs),
+                    ex);
+            throw ex;
         } finally {
+            if (!failed) {
+                logExchange(request, response, startedNs);
+            }
             MDC.clear();
         }
+    }
+
+    // Успех — DEBUG (только профиль debug). 4xx — INFO, 5xx — ERROR: это видно в prod.
+    private void logExchange(HttpServletRequest request, HttpServletResponse response, long startedNs) {
+        int status = response.getStatus();
+        long tookMs = elapsedMs(startedNs);
+        if (status >= 500) {
+            logger.error("HTTP {} {} -> {} за {} мс", request.getMethod(), request.getRequestURI(), status, tookMs);
+        } else if (status >= 400) {
+            logger.info("HTTP {} {} -> {} за {} мс", request.getMethod(), request.getRequestURI(), status, tookMs);
+        } else {
+            logger.debug("HTTP {} {} -> {} за {} мс", request.getMethod(), request.getRequestURI(), status, tookMs);
+        }
+    }
+
+    private static long elapsedMs(long startedNs) {
+        return (System.nanoTime() - startedNs) / 1_000_000L;
+    }
+
+    // Чужой X-Request-ID принимаем только как безопасный идентификатор, иначе подменяем своим.
+    private static String resolveRequestId(HttpServletRequest request) {
+        String header = request.getHeader("X-Request-ID");
+        if (header != null && SAFE_REQUEST_ID.matcher(header).matches()) {
+            return header;
+        }
+        return Long.toUnsignedString(RANDOM.nextLong());
     }
 
     private String getClientIpAddress(HttpServletRequest request) {
@@ -62,11 +92,6 @@ public class LoggingFilter extends OncePerRequestFilter {
             ip = request.getRemoteAddr();
         }
         return ip != null ? ip : "ip null";
-    }
-
-    private String getFullUrl(HttpServletRequest request) {
-        // query-string не логируем: в GET-параметрах бывают коды восстановления пароля
-        return request.getRequestURL().toString();
     }
 
 }

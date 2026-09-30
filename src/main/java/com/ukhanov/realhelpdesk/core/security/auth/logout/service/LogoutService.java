@@ -40,7 +40,7 @@ public class LogoutService {
         user.incrementTokenVersion();
         userDomainService.saveUser(user);
 
-        logger.debug("Выход выполнен, access-токены пользователя {} отозваны", user.getId());
+        logger.info("Выход выполнен, access-токены пользователя {} отозваны", user.getId());
     }
 
 }

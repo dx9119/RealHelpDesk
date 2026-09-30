@@ -48,7 +48,8 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        String key = clientKey(request) + "|" + request.getMethod() + " " + request.getRequestURI();
+        String client = clientKey(request);
+        String key = client + "|" + request.getMethod() + " " + request.getRequestURI();
         RateLimitService.Decision decision = rateLimitService.check(key, rateLimit.requests(),
                 Duration.ofSeconds(rateLimit.windowSeconds()));
 
@@ -56,7 +57,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        logger.warn("Rate limit превышен: {} {} (key={})", request.getMethod(), request.getRequestURI(), key);
+        logger.warn("Превышен лимит запросов: {} {}, ip={}", request.getMethod(), request.getRequestURI(), client);
 
         response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
         response.setHeader("Retry-After", String.valueOf(decision.retryAfterSeconds()));

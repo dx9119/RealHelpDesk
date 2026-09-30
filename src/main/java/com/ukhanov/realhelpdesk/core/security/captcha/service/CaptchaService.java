@@ -30,7 +30,7 @@ public class CaptchaService {
     public String generateCaptchaText(String capId) {
         String captchaText = captchaProducer.createText();
         CaptchaStorage.put(capId, captchaText);
-        logger.info("Сгенерирована капча для capId: {}", capId);
+        logger.debug("Сгенерирована капча, capId={}", capId);
         return captchaText;
     }
 

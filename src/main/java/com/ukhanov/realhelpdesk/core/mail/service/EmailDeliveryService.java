@@ -51,7 +51,7 @@ public class EmailDeliveryService {
     public void sendEmail(String recipient, String subject, String text, NotificationEvent sourceEvent)
             throws MessagingException, EmailAccessDeniedException, UnsupportedEncodingException {
 
-        logger.info("Начал попытку отправки письма: '{},{},{}'", recipient, subject, sourceEvent);
+        logger.debug("Отправка письма, event={}, recipient={}", sourceEvent, recipient);
 
         emailLogService.add(new EmailLog(subject, emailProperties.getFrom(), recipient, sourceEvent));
 
@@ -60,7 +60,7 @@ public class EmailDeliveryService {
         }
 
         if (emailPolicyService.isStopList(recipient, sourceEvent)) {
-            logger.debug("Пропускаем email из столп листа {}", recipient);
+            logger.debug("Письмо не отправлено: адрес в стоп-листе, event={}", sourceEvent);
             return;
         }
 
@@ -77,7 +77,7 @@ public class EmailDeliveryService {
         mimeMessage.setHeader("Content-Transfer-Encoding", "7bit");
 
         mailSender.send(mimeMessage);
-        logger.info("Письмо ушло получателю: '{}'", recipient);
+        logger.info("Письмо отправлено, event={}", sourceEvent);
 
     }
 

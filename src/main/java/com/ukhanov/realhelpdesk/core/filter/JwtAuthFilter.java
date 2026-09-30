@@ -71,7 +71,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         // Парсим access-токен
         TokenBearerResponse token = resolveToken(request);
         if (token == null) {
-            logger.warn("Нет access-token: {}", path);
+            logger.debug("Нет access-токена: {}", path);
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setHeader("X-Auth-Token-Missing", "true");
             return;
@@ -97,22 +97,22 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         } catch (ExpiredJwtException e) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setHeader("X-Access-Token-Expired", "true");
-            logger.error("Токен истек {}: {}", path, e.getMessage());
+            logger.debug("Access-токен истёк: {}", path);
 
         } catch (MalformedJwtException e) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setHeader("X-Malformed-Token", "true");
-            logger.error("Не корректный формат токена доступа, {}: {}", path, e.getMessage());
+            logger.warn("Некорректный access-токен: {}", path);
 
         } catch (JwtException e) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setHeader("X-Invalid-Token", "true");
-            logger.error("JWT ошибка {}: {}", path, e.getMessage());
+            logger.warn("Ошибка проверки access-токена: {}", path);
 
         } catch (TokenException e) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setHeader("X-Verify-Token-Failed", "true");
-            logger.error("Токен доступа отвергнут: {}", e.getMessage());
+            logger.warn("Access-токен отклонён: {} ({})", path, e.getClass().getSimpleName());
         }
     }
 
@@ -129,7 +129,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 }
             }
         }
-        logger.debug("Токен доступа отсутствует в файлах cookie.");
         return null;
     }
 }

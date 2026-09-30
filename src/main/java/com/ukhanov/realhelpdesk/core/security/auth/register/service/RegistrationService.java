@@ -46,7 +46,7 @@ public class RegistrationService {
     public UserModel addUser(RegisterRequest registerRequest)
             throws RegistrationException, MessagingException, EmailAccessDeniedException, UnsupportedEncodingException {
         Objects.requireNonNull(registerRequest, "getTokensRequest cannot be null");
-        logger.info("Начало регистрации для email: {}", registerRequest.getEmail());
+        logger.debug("Начало регистрации, email={}", registerRequest.getEmail());
 
         // Проверяем наличие прошлой регистрации
         if (userDomainService.isUserExistsByEmail(registerRequest.getEmail())) {
@@ -62,8 +62,8 @@ public class RegistrationService {
         UserModel newUser = AuthMapper.toEntity(registerRequest, passwordEncoder.encode(registerRequest.getPassword()));
 
         // Сохраняем пользователя
-        userDomainService.saveUser(newUser);
-        logger.info("Пользователь успешно зарегистрирован, email: {}", registerRequest.getEmail());
+        newUser = userDomainService.saveUser(newUser);
+        logger.info("Зарегистрирован пользователь {}", newUser.getId());
 
         // Оповещаем админа о регистрации
         emailDeliveryService.sendAdminNotification("Новая регистрация:" + newUser.getEmail(), "Кто,что:" + newUser.toString(),

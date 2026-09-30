@@ -38,19 +38,19 @@ public class LoginService {
     // Аутентификация/Аутентификация происходит в фильтре JwtAuthFilter
     public TokensResponse processLogin(LoginRequest loginRequest) throws TokenException {
         if (!userDomainService.isUserExistsByEmail(loginRequest.getEmail())) {
-            logger.info("Ошибка логина. Пользователь {} не найден", loginRequest.getEmail());
+            logger.warn("Отказ во входе: пользователь не найден, email={}", loginRequest.getEmail());
             throw new UsernameNotFoundException("Ошибка авторизации: неверный логин, пароль или отсутствующий пользователь");
         }
 
         SecurityUser user = customUserDetailsService.loadUserByUsername(loginRequest.getEmail());
 
         if (user.getOriginalUser().getUserStatus() != UserStatus.ACTIVE) {
-            logger.info("Ошибка логина. Пользователь {} не активен", loginRequest.getEmail());
+            logger.warn("Отказ во входе: учётная запись не активна, email={}", loginRequest.getEmail());
             throw new BadCredentialsException("Ошибка авторизации: неверный логин, пароль или отсутствующий пользователь");
         }
 
         if (!isPasswordValid(loginRequest.getPassword(), user.getPassword())) {
-            logger.info("Ошибка логина.. Пароль не подошел для {}", loginRequest.getEmail());
+            logger.warn("Отказ во входе: неверный пароль, email={}", loginRequest.getEmail());
             throw new BadCredentialsException("Ошибка авторизации: неверный логин, пароль или отсутствующий пользователь");
 
         }

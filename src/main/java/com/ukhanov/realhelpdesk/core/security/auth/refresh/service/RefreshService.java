@@ -66,7 +66,7 @@ public class RefreshService {
             token.setStatus(TokenStatus.REVOKED);
             saveTokenService.saveRefreshToken(token);
         } catch (TokenException e) {
-            logger.debug("Не удалось пометить refresh-токен как REVOKED");
+            logger.warn("Не удалось отозвать refresh-токен после отклонения");
         }
     }
 

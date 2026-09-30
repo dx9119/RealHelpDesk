@@ -62,9 +62,6 @@ public class UserManageService {
     public UserInfoResponse updateUserInfo(UserInfoRequest request) {
         Objects.requireNonNull(request, "Request не должен быть null");
 
-        logger.debug("Запрос на обновление информации пользователя. Имя: {}, Фамилия: {}, Отчество: {}, Доп. информация: {}",
-                request.getFirstName(), request.getLastName(), request.getMiddleName(), request.getAdditionalInfo());
-
         UserModel currentUser = currentUserProvider.getCurrentUserModel();
 
         currentUser.setFirstName(request.getFirstName());
@@ -73,6 +70,7 @@ public class UserManageService {
         currentUser.setAdditionalInfo(request.getAdditionalInfo());
 
         UserModel updatedUser = userDomainService.saveUser(currentUser);
+        logger.info("Профиль пользователя {} обновлён", updatedUser.getId());
 
         return UserMapper.toResponse(updatedUser);
     }
@@ -80,7 +78,7 @@ public class UserManageService {
     public void sendResetLink(RecoveryRequest request) throws MessagingException, UnsupportedEncodingException {
         Objects.requireNonNull(request, "RecoveryRequest не должен быть null");
 
-        logger.debug("Запрос на сброс пароля. Email: {}", request.getEmail());
+        logger.debug("Запрошено восстановление пароля, email={}", request.getEmail());
 
         UserModel user = userDomainService.getUserByEmail(request.getEmail());
 
@@ -91,14 +89,13 @@ public class UserManageService {
 
         emailDeliveryService.sendEmail(user.getEmail(), EmailTemplates.passwordResetSubject(),
                 EmailTemplates.passwordResetBody(recoverPasswdToken.toString()), NotificationEvent.RECOVERY_PASSWORD);
+        logger.info("Отправлено письмо восстановления пароля, userId={}", user.getId());
     }
 
     @Transactional
     public void setNewPasswd(Long code, NewPasswdRequest request) throws TokenException {
         Objects.requireNonNull(code, "Код не должен быть null");
         Objects.requireNonNull(request, "Запрос не должен быть null");
-
-        logger.debug("Запрос на смену пароля по коду восстановления: {}", code);
 
         UserModel user = userDomainService.getUserByRecoveryPasswdToken(code);
 
@@ -110,11 +107,13 @@ public class UserManageService {
         userDomainService.saveUser(user);
 
         // Отзываем все ранее выданные refresh-токены; новый выдастся при следующем входе
+        int revoked = 0;
         for (RefreshTokenModel token : getTokenService.getActiveRefreshTokens(user)) {
             token.setStatus(TokenStatus.PASSWD_CHANGE);
             saveTokenService.saveRefreshToken(token);
-            logger.debug("Refresh-токен {} отозван после смены пароля", token.getUuid());
+            revoked++;
         }
+        logger.info("Пароль изменён, отозвано refresh-токенов: {}, userId={}", revoked, user.getId());
     }
 
 }
