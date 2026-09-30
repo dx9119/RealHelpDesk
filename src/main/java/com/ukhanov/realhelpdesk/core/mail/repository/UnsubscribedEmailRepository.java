@@ -8,7 +8,7 @@ import org.springframework.stereotype.Repository;
 import com.ukhanov.realhelpdesk.core.mail.model.UnsubscribedEmail;
 
 @Repository
-public interface UnsubscribedEmailRepository extends JpaRepository<UnsubscribedEmail, String> {
+public interface UnsubscribedEmailRepository extends JpaRepository<UnsubscribedEmail, Long> {
 
     Optional<UnsubscribedEmail> findByEmail(String email);
 

@@ -10,6 +10,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
+import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.RefreshTokenModel;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenStatus;
@@ -30,6 +32,7 @@ import com.ukhanov.realhelpdesk.feature.usermanager.mapper.UserMapper;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.times;
@@ -128,6 +131,24 @@ class UserManageServiceTest {
     @Test
     void sendResetLink_requestNull_throwsNpe() {
         assertThatThrownBy(() -> service.sendResetLink(null)).isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void sendResetLink_success_sendsPasswordResetEmailWithFreshToken() throws Exception {
+        UserModel user = createDefaultUser();
+        when(userDomainService.getUserByEmail("email@example.com")).thenReturn(user);
+
+        service.sendResetLink(new RecoveryRequest("email@example.com"));
+
+        verify(userDomainService).saveUser(user);
+        assertThat(user.getRecoveryPasswdToken()).isNotEqualTo(88L);
+
+        ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
+        verify(emailDeliveryService).sendEmail(eq("email@example.com"), eq(EmailTemplates.passwordResetSubject()), bodyCaptor.capture(),
+                eq(NotificationEvent.RECOVERY_PASSWORD));
+        verifyNoMoreInteractions(emailDeliveryService);
+
+        assertThat(bodyCaptor.getValue()).contains("/pass-reset?code=" + user.getRecoveryPasswdToken()).contains(EmailTemplates.DOMAIN);
     }
 
     // ────────────────────────────────────────────────────────────────
