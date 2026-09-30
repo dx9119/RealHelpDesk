@@ -20,15 +20,6 @@ public class UserInfoResponse {
     private UserStatus userStatus;
     private UserPlatformSource userPlatformSource;
     private Instant createdAt;
-    private Long verifyEmailToken;
-
-    public Long getVerifyEmailToken() {
-        return verifyEmailToken;
-    }
-
-    public void setVerifyEmailToken(Long verifyEmailToken) {
-        this.verifyEmailToken = verifyEmailToken;
-    }
 
     public UserInfoResponse() {
     }

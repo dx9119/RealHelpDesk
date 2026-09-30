@@ -25,7 +25,6 @@ import com.ukhanov.realhelpdesk.core.mail.exception.EmailAccessDeniedException;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailLog;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
-import com.ukhanov.realhelpdesk.core.mail.repository.EmailLogRepository;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.config.RateLimitProperties;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
@@ -58,7 +57,6 @@ class EmailDeliveryServiceTest {
     private EmailPolicyService emailPolicyService;
     private CurrentUserProvider currentUserProvider;
     private EmailLogService emailLogService;
-    private EmailLogRepository emailLogRepository;
     private RateLimitProperties rateLimitProperties;
     private EmailDeliveryService service;
 
@@ -69,7 +67,6 @@ class EmailDeliveryServiceTest {
         emailPolicyService = mock(EmailPolicyService.class);
         currentUserProvider = mock(CurrentUserProvider.class);
         emailLogService = mock(EmailLogService.class);
-        emailLogRepository = mock(EmailLogRepository.class);
 
         emailProperties = new EmailProperties();
         emailProperties.setFrom(FROM);
@@ -79,7 +76,7 @@ class EmailDeliveryServiceTest {
         rateLimitProperties.setLimits(Map.of("email-recovery", new RateLimitProperties.Limit(3, 86400)));
 
         service = new EmailDeliveryService(mailSender, userDomainService, emailProperties, emailPolicyService, currentUserProvider,
-                emailLogService, emailLogRepository, rateLimitProperties);
+                emailLogService, rateLimitProperties);
 
         when(mailSender.createMimeMessage()).thenAnswer(invocation -> new JavaMailSenderImpl().createMimeMessage());
     }
@@ -112,13 +109,13 @@ class EmailDeliveryServiceTest {
     }
 
     @Test
-    @DisplayName("Адрес в стоп-листе: журнал заполняется, но письмо не отправляется")
-    void sendEmail_recipientInStopList_skipsDeliveryButWritesLog() throws Exception {
+    @DisplayName("Адрес в стоп-листе: письмо не отправляется и не попадает в журнал")
+    void sendEmail_recipientInStopList_skipsDeliveryAndLog() throws Exception {
         when(emailPolicyService.isStopList(RECIPIENT, NotificationEvent.NEW_MESSAGE)).thenReturn(true);
 
         service.sendEmail(RECIPIENT, "Тема", "Текст", NotificationEvent.NEW_MESSAGE);
 
-        verify(emailLogService).add(any(EmailLog.class));
+        verify(emailLogService, never()).add(any(EmailLog.class));
         verify(mailSender, never()).createMimeMessage();
         verify(mailSender, never()).send(any(MimeMessage.class));
     }
@@ -134,10 +131,10 @@ class EmailDeliveryServiceTest {
     }
 
     @Test
-    @DisplayName("Восстановление пароля в пределах лимита — письмо уходит")
+    @DisplayName("Восстановление пароля: отправлено меньше лимита — письмо уходит")
     void sendEmail_recoveryPasswordWithinLimit_isDelivered() throws Exception {
         when(emailLogService.countEmailsSentToByEventInWindow(eq(RECIPIENT), eq(NotificationEvent.RECOVERY_PASSWORD),
-                eq(Duration.ofSeconds(86400)))).thenReturn(3L);
+                eq(Duration.ofSeconds(86400)))).thenReturn(2L);
 
         service.sendEmail(RECIPIENT, EmailTemplates.passwordResetSubject(), "Текст", NotificationEvent.RECOVERY_PASSWORD);
 
@@ -145,10 +142,10 @@ class EmailDeliveryServiceTest {
     }
 
     @Test
-    @DisplayName("Восстановление пароля сверх лимита — 429, письмо не уходит, журнал заполнен")
+    @DisplayName("Восстановление пароля: лимит исчерпан — 429, письмо не уходит и в журнал не пишется")
     void sendEmail_recoveryPasswordOverLimit_throwsTooManyRequestsWithoutDelivery() {
         when(emailLogService.countEmailsSentToByEventInWindow(eq(RECIPIENT), eq(NotificationEvent.RECOVERY_PASSWORD),
-                eq(Duration.ofSeconds(86400)))).thenReturn(4L);
+                eq(Duration.ofSeconds(86400)))).thenReturn(3L);
 
         EmailAccessDeniedException exception = catchThrowableOfType(
                 () -> service.sendEmail(RECIPIENT, EmailTemplates.passwordResetSubject(), "Текст", NotificationEvent.RECOVERY_PASSWORD),
@@ -157,7 +154,7 @@ class EmailDeliveryServiceTest {
         assertThat(exception).isNotNull();
         assertThat(exception.getStatus()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
         assertThat(exception.getMessage()).contains("86400");
-        verify(emailLogService).add(any(EmailLog.class));
+        verify(emailLogService, never()).add(any(EmailLog.class));
         verify(mailSender, never()).send(any(MimeMessage.class));
     }
 

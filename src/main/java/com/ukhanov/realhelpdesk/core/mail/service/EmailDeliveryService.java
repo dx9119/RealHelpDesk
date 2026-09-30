@@ -21,7 +21,6 @@ import com.ukhanov.realhelpdesk.core.mail.exception.EmailAccessDeniedException;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailLog;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
-import com.ukhanov.realhelpdesk.core.mail.repository.EmailLogRepository;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.config.RateLimitProperties;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
@@ -43,7 +42,7 @@ public class EmailDeliveryService {
 
     public EmailDeliveryService(JavaMailSender mailSender, UserDomainService userDomainService, EmailProperties emailProperties,
             EmailPolicyService emailPolicyService, CurrentUserProvider currentUserProvider, EmailLogService emailLogService,
-            EmailLogRepository emailLogRepository, RateLimitProperties rateLimitProperties) {
+            RateLimitProperties rateLimitProperties) {
         this.mailSender = mailSender;
         this.userDomainService = userDomainService;
         this.emailProperties = emailProperties;
@@ -57,8 +56,6 @@ public class EmailDeliveryService {
             throws MessagingException, EmailAccessDeniedException, UnsupportedEncodingException {
 
         logger.debug("Отправка письма, event={}, recipient={}", sourceEvent, recipient);
-
-        emailLogService.add(new EmailLog(subject, emailProperties.getFrom(), recipient, sourceEvent));
 
         if (sourceEvent == NotificationEvent.RECOVERY_PASSWORD) {
             emailLimiter(recipient);
@@ -84,6 +81,9 @@ public class EmailDeliveryService {
         mailSender.send(mimeMessage);
         logger.info("Письмо отправлено, event={}", sourceEvent);
 
+        // журнал — только фактически отправленные письма: он же считает квоту для emailLimiter
+        emailLogService.add(new EmailLog(subject, emailProperties.getFrom(), recipient, sourceEvent));
+
     }
 
     public void emailLimiter(String recipient) {
@@ -91,7 +91,8 @@ public class EmailDeliveryService {
         long count = emailLogService.countEmailsSentToByEventInWindow(recipient, NotificationEvent.RECOVERY_PASSWORD,
                 Duration.ofSeconds(limit.windowSeconds()));
 
-        if (count > limit.requests()) {
+        // записи в журнале предшествующих отправок уже учтены, поэтому лимит — «не больше requests в окно»
+        if (count >= limit.requests()) {
             throw new EmailAccessDeniedException(
                     "Исчерпан лимит на количество запросов восстановления, окно лимита " + limit.windowSeconds() + " сек",
                     HttpStatus.TOO_MANY_REQUESTS);

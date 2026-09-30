@@ -1,5 +1,9 @@
 package com.ukhanov.realhelpdesk.core.mail.repository;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceException;
 
 import org.junit.jupiter.api.DisplayName;
@@ -22,6 +26,9 @@ class UnsubscribedEmailRepositoryIT {
 
     @Autowired
     private UnsubscribedEmailRepository repository;
+
+    @Autowired
+    private EntityManager entityManager;
 
     @Test
     @DisplayName("Запись сохраняется и находится по адресу")
@@ -47,6 +54,34 @@ class UnsubscribedEmailRepositoryIT {
         repository.flush();
 
         assertThat(repository.findByEmail(EMAIL)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Запись находится по Long-id из сущности")
+    void findById_returnsRecordById() {
+        UnsubscribedEmail saved = repository.saveAndFlush(new UnsubscribedEmail(EMAIL, NotificationEvent.NEW_MESSAGE));
+
+        assertThat(saved.getId()).isNotNull();
+        assertThat(repository.findById(saved.getId())).isPresent();
+    }
+
+    @Test
+    @DisplayName("Повторное добавление в стоп-лист сохраняет новое время inStopListAt")
+    void update_inStopListAtIsPersisted() {
+        UnsubscribedEmail saved = repository.saveAndFlush(new UnsubscribedEmail(EMAIL, NotificationEvent.NEW_TICKET));
+
+        UnsubscribedEmail record = repository.findById(saved.getId()).orElseThrow();
+        // H2 хранит timestamp с точностью до микросекунд — усекаем ожидаемое значение
+        Instant refreshedAt = Instant.now().minusSeconds(60).truncatedTo(ChronoUnit.MICROS);
+        record.setMuteEvent(NotificationEvent.CHANGE_TICKET);
+        record.setInStopListAt(refreshedAt);
+        repository.saveAndFlush(record);
+        entityManager.flush();
+        entityManager.clear();
+
+        UnsubscribedEmail reloaded = repository.findById(saved.getId()).orElseThrow();
+        assertThat(reloaded.getMuteEvent()).isEqualTo(NotificationEvent.CHANGE_TICKET);
+        assertThat(reloaded.getInStopListAt()).isEqualTo(refreshedAt);
     }
 
     @Test

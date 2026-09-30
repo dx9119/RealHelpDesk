@@ -135,8 +135,8 @@ class EmailSendingIT {
     }
 
     @Test
-    @DisplayName("Адрес в стоп-листе: письмо не доставляется, но запись в журнале появляется")
-    void sendEmail_recipientInStopList_isNotDelivered() throws Exception {
+    @DisplayName("Адрес в стоп-листе: письмо не доставляется и не попадает в журнал")
+    void sendEmail_recipientInStopList_isNotDeliveredAndNotLogged() throws Exception {
         unsubscribedEmailRepository.saveAndFlush(new UnsubscribedEmail(RECIPIENT, NotificationEvent.NEW_MESSAGE));
 
         emailDeliveryService.sendEmail(RECIPIENT, "Тема", "Текст", NotificationEvent.NEW_MESSAGE);
@@ -144,22 +144,38 @@ class EmailSendingIT {
 
         assertThat(greenMail.waitForIncomingEmail(5000, 1)).isTrue();
         assertThat(greenMail.getReceivedMessages()).hasSize(1);
-        assertThat(countLogs(RECIPIENT, NotificationEvent.NEW_MESSAGE)).isEqualTo(1);
+        assertThat(countLogs(RECIPIENT, NotificationEvent.NEW_MESSAGE)).isZero();
         assertThat(countLogs(RECIPIENT, NotificationEvent.NEW_TICKET)).isEqualTo(1);
     }
 
     @Test
-    @DisplayName("Сверх лимита восстановления пароля — 429 и письмо не доставляется")
+    @DisplayName("Лимит восстановления пароля не исчерпан — письмо доставляется и учитывается в журнале")
+    void sendEmail_recoveryPasswordWithinLimit_isDelivered() throws Exception {
+        seedRecoveryLogs(2);
+
+        emailDeliveryService.sendEmail(RECIPIENT, "Сброс пароля", "Текст", NotificationEvent.RECOVERY_PASSWORD);
+
+        assertThat(greenMail.waitForIncomingEmail(5000, 1)).isTrue();
+        assertThat(countLogs(RECIPIENT, NotificationEvent.RECOVERY_PASSWORD)).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("Сверх лимита восстановления пароля — 429, письмо не доставляется и не логируется")
     void sendEmail_recoveryPasswordOverLimit_throwsTooManyRequests() {
-        for (int i = 0; i < 4; i++) {
-            emailLogRepository.saveAndFlush(new EmailLog("Сброс пароля", FROM, RECIPIENT, NotificationEvent.RECOVERY_PASSWORD));
-        }
+        seedRecoveryLogs(3);
 
         assertThatThrownBy(() -> emailDeliveryService.sendEmail(RECIPIENT, "Сброс пароля", "Текст", NotificationEvent.RECOVERY_PASSWORD))
                 .isInstanceOf(EmailAccessDeniedException.class).extracting(ex -> ((EmailAccessDeniedException) ex).getStatus())
                 .isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
 
         assertThat(greenMail.getReceivedMessages()).isEmpty();
+        assertThat(countLogs(RECIPIENT, NotificationEvent.RECOVERY_PASSWORD)).isEqualTo(3);
+    }
+
+    private void seedRecoveryLogs(int count) {
+        for (int i = 0; i < count; i++) {
+            emailLogRepository.saveAndFlush(new EmailLog("Сброс пароля", FROM, RECIPIENT, NotificationEvent.RECOVERY_PASSWORD));
+        }
     }
 
     // ────────────────────────────────────────────────
@@ -292,9 +308,9 @@ class EmailSendingIT {
         @Bean
         EmailDeliveryService emailDeliveryService(JavaMailSender mailSender, UserDomainService userDomainService,
                 EmailProperties emailProperties, EmailPolicyService emailPolicyService, CurrentUserProvider currentUserProvider,
-                EmailLogService emailLogService, EmailLogRepository emailLogRepository, RateLimitProperties rateLimitProperties) {
+                EmailLogService emailLogService, RateLimitProperties rateLimitProperties) {
             return new EmailDeliveryService(mailSender, userDomainService, emailProperties, emailPolicyService, currentUserProvider,
-                    emailLogService, emailLogRepository, rateLimitProperties);
+                    emailLogService, rateLimitProperties);
         }
     }
 }

@@ -28,7 +28,7 @@ public class UnsubscribedEmail {
     public UnsubscribedEmail() {
     }
 
-    @Column(nullable = false, updatable = false)
+    @Column(nullable = false)
     private Instant inStopListAt;
 
     public UnsubscribedEmail(String email, NotificationEvent muteEvent) {
@@ -47,6 +47,10 @@ public class UnsubscribedEmail {
 
     public Long getId() {
         return id;
+    }
+
+    public Instant getInStopListAt() {
+        return inStopListAt;
     }
 
     public NotificationEvent getMuteEvent() {
