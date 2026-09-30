@@ -47,7 +47,7 @@ public class PortalDomainService {
     @Transactional
     public PortalModel savePortal(PortalModel portal) {
         Objects.requireNonNull(portal, "portal не должен быть null");
-        logger.info("Сохранение портала: {}", portal);
+        logger.debug("Сохранение портала {}", portal.getId());
         return portalRepository.save(portal);
     }
 
@@ -72,13 +72,13 @@ public class PortalDomainService {
 
     public List<PortalModel> getAllSharedPortals(Long userId) {
         Objects.requireNonNull(userId, "userId не должен быть null");
-        logger.info("Получение всех доступных порталов для пользователя с ID: {}", userId);
+        logger.debug("Получение всех доступных порталов для пользователя с ID: {}", userId);
         return portalRepository.findAllAccessibleByUserId(userId);
     }
 
     public List<Long> getPublicPortalsByUserActivity(Long userId) {
         Objects.requireNonNull(userId, "userId не должен быть null");
-        logger.info("Получение публичных порталов по активности пользователя с ID: {}", userId);
+        logger.debug("Получение публичных порталов по активности пользователя с ID: {}", userId);
         return portalRepository.findPublicPortalIdsWithUserTickets(userId);
     }
 }

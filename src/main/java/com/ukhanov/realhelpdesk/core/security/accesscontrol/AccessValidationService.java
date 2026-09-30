@@ -32,7 +32,7 @@ public class AccessValidationService {
         boolean isPublic = portal.isPublic();
 
         if (!isOwner && !isAllowedUser && !isPublic) {
-            logger.info("Пользователь {} не имеет доступа к порталу {}", currentUserId, portalId);
+            logger.warn("Доступ запрещён: пользователь {} не имеет доступа к порталу {}", currentUserId, portalId);
             return false;
         }
 
@@ -45,7 +45,7 @@ public class AccessValidationService {
         boolean isOwner = portal.getOwner().getId().equals(currentUserId);
 
         if (!isOwner) {
-            logger.info("Пользователь не является владельцем портала {}", portalId);
+            logger.warn("Доступ запрещён: пользователь {} не является владельцем портала {}", currentUserId, portalId);
             return false;
         }
 
@@ -62,7 +62,7 @@ public class AccessValidationService {
         boolean isAllowedUser = portal.getAllowedUserIds() != null && portal.getAllowedUserIds().contains(currentUserId);
 
         if (!isOwner && !isAllowedUser) {
-            logger.info("Пользователь {} не имеет прав управления порталом {}", currentUserId, portalId);
+            logger.warn("Доступ запрещён: пользователь {} не имеет прав управления порталом {}", currentUserId, portalId);
             return false;
         }
 

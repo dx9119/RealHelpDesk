@@ -39,7 +39,7 @@ public class TicketDomainService {
             logger.debug("Заявка сохранена: {}", savedTicket.getId());
             return savedTicket;
         } catch (Exception e) {
-            logger.error("Не удалось сохранить заявку: {}", ticketModel, e);
+            logger.error("Не удалось сохранить заявку «{}»", ticketModel.getTitle(), e);
             throw new PersistenceException("Не удалось сохранить заявку", e);
         }
     }
@@ -49,7 +49,6 @@ public class TicketDomainService {
         Objects.requireNonNull(ticketId, "ID заявки не должен быть null!");
 
         TicketModel ticket = ticketRepository.findByIdAndTicketLiveStatus(ticketId, TicketLiveStatus.ACTIVE).orElseThrow(() -> {
-            logger.warn("Заявка с ID {} не найдена!", ticketId);
             return TicketException.notFound("Заявка не найдена!");
         });
 

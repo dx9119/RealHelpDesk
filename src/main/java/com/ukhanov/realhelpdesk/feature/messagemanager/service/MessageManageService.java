@@ -70,7 +70,7 @@ public class MessageManageService {
         Objects.requireNonNull(ticketId, "ID заявки не должен быть null");
 
         List<MessageModel> messages = messageDomainService.getMessagesByTicketId(ticketId);
-        logger.info("Найдено {} сообщений для заявки с ID: {}", messages.size(), ticketId);
+        logger.debug("Найдено {} сообщений для заявки с ID: {}", messages.size(), ticketId);
 
         return messages.stream().map(messageMapper::toResponse).toList();
     }

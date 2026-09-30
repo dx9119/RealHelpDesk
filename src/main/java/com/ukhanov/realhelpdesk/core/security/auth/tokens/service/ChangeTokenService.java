@@ -28,16 +28,11 @@ public class ChangeTokenService {
     }
 
     public RefreshTokenModel changeStatusRefreshToken(HttpServletRequest request, TokenStatus newStatus) throws TokenException {
-        logger.debug("Начало изменения статуса токена");
-
         TokenBearer tokenBearer = new Token(decodeTokenService.extractTokenFromCookies(request, "refreshToken"));
-        logger.debug("Извлечён refresh-токен из cookies");
-
         RefreshTokenModel refreshToken = findTokenService.findRefreshToken(tokenBearer);
-        logger.debug("Поиск токена: завершён");
-
+        TokenStatus previousStatus = refreshToken.getStatus();
         refreshToken.setStatus(newStatus);
-        logger.debug("Статус токена изменён на {}", newStatus);
+        logger.debug("Статус refresh-токена {} → {}", previousStatus, newStatus);
 
         return saveTokenService.saveRefreshToken(refreshToken);
     }

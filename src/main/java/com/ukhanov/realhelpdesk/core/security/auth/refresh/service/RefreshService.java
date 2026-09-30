@@ -54,7 +54,6 @@ public class RefreshService {
             return newAccessToken.getToken();
         } catch (TokenException | JwtException e) {
             revokeQuietly(refreshToken);
-            logger.warn("Refresh-токен отклонён: {}", e.getClass().getSimpleName());
             throw new RefreshException("Токен обновления недействителен");
         }
     }

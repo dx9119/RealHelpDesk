@@ -72,7 +72,6 @@ public class GetTokenService {
             throw new TokenException("Cookie с именем " + tokenName + " не найдена");
         }
 
-        logger.debug("Извлечена cookie: {}", tokenName);
         return token;
     }
 

@@ -29,7 +29,6 @@ public class FindTokenService {
 
         RefreshTokenModel refreshTokenModel = jwtRefreshTokenRepository.findByTokenRefresh(TokenHasher.sha256(token.getToken()))
                 .orElseThrow(() -> {
-                    logger.error("Токен обновления не найден");
                     return new TokenException("Токен обновления не найден", null);
                 });
 

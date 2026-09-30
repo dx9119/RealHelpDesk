@@ -50,17 +50,13 @@ public class DecodeTokenService {
     }
 
     public String extractTokenFromCookies(HttpServletRequest request, String cookieName) throws TokenException {
-        logger.debug("Начало извлечения cookie. Запрошенное имя: '{}'", cookieName);
-
         Cookie[] cookies = request.getCookies();
         if (cookies == null) {
-            logger.warn("В запросе не получены cookies");
             throw new TokenException("В запросе не получены cookies");
         }
 
         for (Cookie cookie : cookies) {
             if (cookieName.equals(cookie.getName())) {
-                logger.debug("Целевая cookie '{}' найдена", cookieName);
                 return cookie.getValue();
             }
         }

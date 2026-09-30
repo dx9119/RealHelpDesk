@@ -35,6 +35,8 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import com.ukhanov.realhelpdesk.core.log.LogSanitizer;
+
 import io.jsonwebtoken.JwtException;
 
 @ControllerAdvice
@@ -75,7 +77,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ProblemDetail> handleMethodArgumentNotValid(MethodArgumentNotValidException ex, HttpServletRequest request) {
-        logger.warn("Ошибка валидации тела запроса: {}", request.getRequestURI());
+        logger.warn("Ошибка валидации тела запроса: {}", LogSanitizer.uri(request.getRequestURI()));
 
         Map<String, String> errors = new LinkedHashMap<>();
         ex.getBindingResult().getAllErrors().forEach(error -> {
@@ -120,7 +122,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ProblemDetail> handleUnreadableMessage(HttpMessageNotReadableException ex, HttpServletRequest request) {
-        logger.warn("Нечитаемое тело запроса {}: {}", request.getRequestURI(), ex.getMessage());
+        logger.warn("Нечитаемое тело запроса {}: {}", LogSanitizer.uri(request.getRequestURI()), ex.getMessage());
         return ProblemResponses.entity(HttpStatus.BAD_REQUEST, "Некорректное тело запроса", request);
     }
 
@@ -132,7 +134,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<ProblemDetail> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
-        logger.warn("Метод {} не поддерживается для {}", ex.getMethod(), request.getRequestURI());
+        logger.warn("Метод {} не поддерживается для {}", ex.getMethod(), LogSanitizer.uri(request.getRequestURI()));
         return ProblemResponses.entity(HttpStatus.METHOD_NOT_ALLOWED, "Метод " + ex.getMethod() + " не поддерживается", request);
     }
 
@@ -144,7 +146,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
     public ResponseEntity<ProblemDetail> handleNoHandler(Exception ex, HttpServletRequest request) {
-        logger.warn("Маршрут не найден: {} {}", request.getMethod(), request.getRequestURI());
+        logger.warn("Маршрут не найден: {} {}", request.getMethod(), LogSanitizer.uri(request.getRequestURI()));
         return ProblemResponses.entity(HttpStatus.NOT_FOUND, "Ресурс не найден", request);
     }
 

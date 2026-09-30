@@ -39,7 +39,7 @@ public class TicketAccessValidationService {
         TicketModel ticket = ticketDomainService.findTicketById(ticketId);
 
         if (!belongsToPortal(ticket, portalId)) {
-            logger.info("Заявка {} не относится к порталу {}, доступ отклонён", ticketId, portalId);
+            logger.warn("Доступ запрещён: заявка {} не относится к порталу {}", ticketId, portalId);
             return false;
         }
 
@@ -56,7 +56,7 @@ public class TicketAccessValidationService {
             return allowedUsers.contains(currentUserId);
         }
 
-        logger.debug("Доступ отклонён: политика тикета не соответствует заданным условиям");
+        logger.warn("Доступ запрещён: политика доступа заявки {} не допускает пользователя {}", ticketId, currentUserId);
         return false;
     }
 
@@ -67,7 +67,7 @@ public class TicketAccessValidationService {
         TicketModel ticket = ticketDomainService.findTicketById(ticketId);
 
         if (!belongsToPortal(ticket, portalId)) {
-            logger.info("Заявка {} не относится к порталу {}, изменение отклонено", ticketId, portalId);
+            logger.warn("Доступ запрещён: заявка {} не относится к порталу {}", ticketId, portalId);
             return false;
         }
 
@@ -77,7 +77,11 @@ public class TicketAccessValidationService {
         Long currentUserId = user.getId();
 
         // Изменить статус заявки может либо автор заявки, либо владельцы портала.
-        return allowedUsers.contains(currentUserId);
+        boolean allowed = allowedUsers.contains(currentUserId);
+        if (!allowed) {
+            logger.warn("Доступ запрещён: пользователь {} не может изменять заявку {}", currentUserId, ticketId);
+        }
+        return allowed;
     }
 
     // Заявка должна принадлежать тому порталу, от которого пришёл запрос,

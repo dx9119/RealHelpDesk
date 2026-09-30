@@ -33,7 +33,6 @@ public class CurrentUserProvider {
         try {
             return Long.valueOf(rawId);
         } catch (IllegalArgumentException e) {
-            logger.error("Неверный формат ID: {}", rawId);
             throw new IllegalStateException("Недопустимый идентификатор пользователя");
         }
     }

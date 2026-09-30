@@ -15,6 +15,8 @@ import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.ukhanov.realhelpdesk.core.log.LogSanitizer;
+
 @Component
 public class LoggingFilter extends OncePerRequestFilter {
 
@@ -32,10 +34,12 @@ public class LoggingFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
+        // query-string не кладём в MDC: в GET-параметрах бывают коды восстановления пароля.
+        // Сегменты-секреты в пути (код сброса, токен подтверждения) маскируются.
+        String uri = LogSanitizer.uri(request.getRequestURI());
         MDC.put(REQUEST_ID, resolveRequestId(request));
         MDC.put(CLIENT_IP, getClientIpAddress(request));
-        // query-string не кладём в MDC: в GET-параметрах бывают коды восстановления пароля
-        MDC.put(URI_REQUEST, request.getRequestURI());
+        MDC.put(URI_REQUEST, uri);
 
         long startedNs = System.nanoTime();
         boolean failed = false;
@@ -43,27 +47,26 @@ public class LoggingFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
         } catch (ServletException | IOException | RuntimeException ex) {
             failed = true;
-            logger.error("HTTP {} {} завершился исключением за {} мс", request.getMethod(), request.getRequestURI(), elapsedMs(startedNs),
-                    ex);
+            logger.error("HTTP {} {} завершился исключением за {} мс", request.getMethod(), uri, elapsedMs(startedNs), ex);
             throw ex;
         } finally {
             if (!failed) {
-                logExchange(request, response, startedNs);
+                logExchange(request, uri, response, startedNs);
             }
             MDC.clear();
         }
     }
 
     // Успех — DEBUG (только профиль debug). 4xx — INFO, 5xx — ERROR: это видно в prod.
-    private void logExchange(HttpServletRequest request, HttpServletResponse response, long startedNs) {
+    private void logExchange(HttpServletRequest request, String uri, HttpServletResponse response, long startedNs) {
         int status = response.getStatus();
         long tookMs = elapsedMs(startedNs);
         if (status >= 500) {
-            logger.error("HTTP {} {} -> {} за {} мс", request.getMethod(), request.getRequestURI(), status, tookMs);
+            logger.error("HTTP {} {} -> {} за {} мс", request.getMethod(), uri, status, tookMs);
         } else if (status >= 400) {
-            logger.info("HTTP {} {} -> {} за {} мс", request.getMethod(), request.getRequestURI(), status, tookMs);
+            logger.info("HTTP {} {} -> {} за {} мс", request.getMethod(), uri, status, tookMs);
         } else {
-            logger.debug("HTTP {} {} -> {} за {} мс", request.getMethod(), request.getRequestURI(), status, tookMs);
+            logger.debug("HTTP {} {} -> {} за {} мс", request.getMethod(), uri, status, tookMs);
         }
     }
 

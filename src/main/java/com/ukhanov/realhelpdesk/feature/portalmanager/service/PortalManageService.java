@@ -79,7 +79,6 @@ public class PortalManageService {
 
     public CreatePortalResponse createPortal(CreatePortalRequest request)
             throws PortalException, LimitException, UserManageException, MessagingException, UnsupportedEncodingException {
-        logger.debug("Получен запрос на создание портала: {}", request);
         Objects.requireNonNull(request, "Запрос на создание портала не должен быть null");
 
         UserModel userModel = currentUserProvider.getCurrentUserModel();
@@ -110,14 +109,12 @@ public class PortalManageService {
     }
 
     public List<PortalResponse> getAllPortals() {
-        logger.debug("Получен запрос на получение всех порталов");
 
         UserModel userModel = currentUserProvider.getCurrentUserModel();
         return portalDomainService.getPortalsByOwnerId(userModel.getId()).stream().map(PortalMapper::toResponse).toList();
     }
 
     public List<Long> getAllPortalIds() {
-        logger.debug("Получен запрос на получение всех порталов и отображение их ID");
 
         UserModel userModel = currentUserProvider.getCurrentUserModel();
         return portalDomainService.getPortalsByOwnerId(userModel.getId()).stream().map(PortalModel::getId).toList();
@@ -145,7 +142,7 @@ public class PortalManageService {
 
     public void setPortalStatus(Long portalId, boolean isPublic) throws PortalException {
         Objects.requireNonNull(portalId, "portalId не должен быть null");
-        logger.debug("Получен запрос на изменение статуса портала {} на {}", portalId, isPublic);
+        logger.info("Публичность портала {} изменена на {}", portalId, isPublic);
 
         PortalModel portal;
         try {
@@ -233,7 +230,7 @@ public class PortalManageService {
                             EmailTemplates.deletedPortalBody(portal.getId(), user.getEmail()), NotificationEvent.PORTAL_DELETED);
                 }
             } catch (Exception e) {
-                logger.debug("Не удалось удалить портал с ID: {}", id, e);
+                logger.warn("Не удалось удалить портал с ID {}: {}", id, e.getMessage());
             }
         });
 
@@ -282,7 +279,6 @@ public class PortalManageService {
             logger.info("Портал {} обновлён: имя — {}, описание — {}", portal.getId(), portal.getName(), portal.getDescription());
             return new PortalInfoResponse(portal.getId(), portal.getName(), portal.getDescription());
         } catch (OptimisticLockException e) {
-            logger.warn("Конфликт при обновлении портала {}: данные уже были изменены другим пользователем", portalId);
             throw new PortalException("Данные портала были недавно изменены другим пользователем. "
                     + "Обновите страницу - получите актуальные данные и попробуйте снова.");
         }

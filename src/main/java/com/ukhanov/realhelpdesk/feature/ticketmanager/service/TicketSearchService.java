@@ -64,8 +64,6 @@ public class TicketSearchService {
     }
 
     private Set<Long> getAccessiblePortalIds(Long userId) {
-        logger.debug("Получение доступных порталов для пользователя: {}", userId);
-
         List<PortalModel> ownedPortals = portalRepository.findAllByOwnerIdOrderByCreatedAtDesc(userId);
         List<PortalModel> allowedPortals = portalRepository.findAllAccessibleByUserId(userId);
         List<Long> publicPortalIds = portalRepository.findPublicPortalIdsWithUserTickets(userId);

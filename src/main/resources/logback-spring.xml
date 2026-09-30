@@ -4,9 +4,9 @@
     <!-- prod: request-id есть, IP клиента нет — его подставляют из X-Forwarded-For -->
     <property name="PROD_PATTERN"
               value="%d{yyyy-MM-dd HH:mm:ss.SSS} | %-5level | %X{requestId:--} | %logger{40} | %msg%n"/>
-    <!-- debug: дополнительно IP, чтобы разбирать конкретный вызов -->
+    <!-- debug: дополнительно IP и путь запроса (без query-string и секретных сегментов) -->
     <property name="DEBUG_PATTERN"
-              value="%d{yyyy-MM-dd HH:mm:ss.SSS} | %-5level | %X{requestId:--} | %X{clientIp:--} | %logger{40} | %msg%n"/>
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} | %-5level | %X{requestId:--} | %X{clientIp:--} | %X{uriRequest:--} | %logger{40} | %msg%n"/>
 
     <springProfile name="debug">
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
