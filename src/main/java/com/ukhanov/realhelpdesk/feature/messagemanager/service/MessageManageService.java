@@ -37,14 +37,17 @@ public class MessageManageService {
     private final TicketDomainService ticketDomainService;
     private final MessageDomainService messageDomainService;
     private final EmailDeliveryService emailDeliveryService;
+    private final EmailTemplates emailTemplates;
 
     public MessageManageService(MessageMapper messageMapper, CurrentUserProvider currentUserProvider,
-            TicketDomainService ticketDomainService, MessageDomainService messageDomainService, EmailDeliveryService emailDeliveryService) {
+            TicketDomainService ticketDomainService, MessageDomainService messageDomainService, EmailDeliveryService emailDeliveryService,
+            EmailTemplates emailTemplates) {
         this.messageMapper = messageMapper;
         this.currentUserProvider = currentUserProvider;
         this.ticketDomainService = ticketDomainService;
         this.messageDomainService = messageDomainService;
         this.emailDeliveryService = emailDeliveryService;
+        this.emailTemplates = emailTemplates;
     }
 
     public CreateMessageResponse createMessage(CreateMessageRequest request, Long ticketId, Long portalId)
@@ -59,8 +62,8 @@ public class MessageManageService {
         MessageModel message = messageDomainService.saveMessage(messageMapper.toEntity(request, user, ticket));
 
         // Отправляем письмо с оповещением о новом сообщении в тикете
-        emailDeliveryService.sendUserNotification(ticket.getAuthor().getEmail(), EmailTemplates.ticketReplySubject(ticket.getId()),
-                EmailTemplates.ticketReplyBody(ticket.getId(), portalId), NotificationEvent.NEW_MESSAGE);
+        emailDeliveryService.sendUserNotification(ticket.getAuthor().getEmail(), emailTemplates.ticketReplySubject(ticket.getId()),
+                emailTemplates.ticketReplyBody(ticket.getId(), portalId), NotificationEvent.NEW_MESSAGE);
 
         logger.info("Сообщение сохранено для заявки с ID: {}", ticketId);
         return new CreateMessageResponse(message.getId());

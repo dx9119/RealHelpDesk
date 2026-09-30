@@ -31,6 +31,7 @@ import com.icegreen.greenmail.util.ServerSetup;
 import com.ukhanov.realhelpdesk.core.mail.config.EmailProperties;
 import com.ukhanov.realhelpdesk.core.mail.exception.EmailAccessDeniedException;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailLog;
+import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.model.UnsubscribedEmail;
 import com.ukhanov.realhelpdesk.core.mail.repository.EmailLogRepository;
@@ -38,6 +39,7 @@ import com.ukhanov.realhelpdesk.core.mail.repository.UnsubscribedEmailRepository
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailLogService;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailPolicyService;
+import com.ukhanov.realhelpdesk.core.mail.support.EmailTemplatesFixture;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.config.RateLimitProperties;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
@@ -306,11 +308,16 @@ class EmailSendingIT {
         }
 
         @Bean
+        EmailTemplates emailTemplates() {
+            return EmailTemplatesFixture.emailTemplates();
+        }
+
+        @Bean
         EmailDeliveryService emailDeliveryService(JavaMailSender mailSender, UserDomainService userDomainService,
                 EmailProperties emailProperties, EmailPolicyService emailPolicyService, CurrentUserProvider currentUserProvider,
-                EmailLogService emailLogService, RateLimitProperties rateLimitProperties) {
+                EmailLogService emailLogService, RateLimitProperties rateLimitProperties, EmailTemplates emailTemplates) {
             return new EmailDeliveryService(mailSender, userDomainService, emailProperties, emailPolicyService, currentUserProvider,
-                    emailLogService, rateLimitProperties);
+                    emailLogService, rateLimitProperties, emailTemplates);
         }
     }
 }

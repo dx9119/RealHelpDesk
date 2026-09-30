@@ -63,10 +63,12 @@ public class PortalManageService {
     private final LimitService limitService;
     private final UserDomainService userDomainService;
     private final EmailDeliveryService emailDeliveryService;
+    private final EmailTemplates emailTemplates;
 
     public PortalManageService(CurrentUserProvider currentUserProvider, PortalDomainService portalDomainService,
             PaginationAdapter paginationAdapter, PortalUtilsService portalUtilsService, AccessValidationService accessValidationService,
-            LimitService limitService, UserDomainService userDomainService, EmailDeliveryService emailDeliveryService) {
+            LimitService limitService, UserDomainService userDomainService, EmailDeliveryService emailDeliveryService,
+            EmailTemplates emailTemplates) {
         this.currentUserProvider = currentUserProvider;
         this.portalDomainService = portalDomainService;
         this.paginationAdapter = paginationAdapter;
@@ -75,6 +77,7 @@ public class PortalManageService {
         this.limitService = limitService;
         this.userDomainService = userDomainService;
         this.emailDeliveryService = emailDeliveryService;
+        this.emailTemplates = emailTemplates;
     }
 
     public CreatePortalResponse createPortal(CreatePortalRequest request)
@@ -102,8 +105,8 @@ public class PortalManageService {
         logger.info("Портал создан для пользователя {} с именем '{}'", userModel.getId(), portal.getName());
 
         // Отправляем письмо
-        emailDeliveryService.initNotifyPortalUsers(portal, EmailTemplates.portalCreatedSubject(savePortal.getId()),
-                EmailTemplates.portalCreatedBody(savePortal.getId()), NotificationEvent.NEW_PORTAL);
+        emailDeliveryService.initNotifyPortalUsers(portal, emailTemplates.portalCreatedSubject(savePortal.getId()),
+                emailTemplates.portalCreatedBody(savePortal.getId()), NotificationEvent.NEW_PORTAL);
 
         return new CreatePortalResponse(savePortal.getId());
     }
@@ -226,8 +229,8 @@ public class PortalManageService {
                     deletedIds.add(id);
 
                     // Отправляем письмо
-                    emailDeliveryService.initNotifyPortalUsers(portal, EmailTemplates.deletedPortalSubject(portal.getId()),
-                            EmailTemplates.deletedPortalBody(portal.getId(), user.getEmail()), NotificationEvent.PORTAL_DELETED);
+                    emailDeliveryService.initNotifyPortalUsers(portal, emailTemplates.deletedPortalSubject(portal.getId()),
+                            emailTemplates.deletedPortalBody(portal.getId(), user.getEmail()), NotificationEvent.PORTAL_DELETED);
                 }
             } catch (Exception e) {
                 logger.warn("Не удалось удалить портал с ID {}: {}", id, e.getMessage());

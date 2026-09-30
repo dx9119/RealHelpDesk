@@ -13,6 +13,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
+import com.ukhanov.realhelpdesk.core.mail.support.EmailTemplatesFixture;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.RefreshTokenModel;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenStatus;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.GetTokenService;
@@ -59,10 +60,12 @@ class UserManageServiceTest {
 
     private UserManageService service;
 
+    private final EmailTemplates emailTemplates = EmailTemplatesFixture.emailTemplates();
+
     @BeforeEach
     void setUp() {
         service = new UserManageService(currentUserProvider, userDomainService, emailDeliveryService, passwordEncoder, getTokenService,
-                saveTokenService);
+                saveTokenService, emailTemplates);
     }
 
     // ────────────────────────────────────────────────────────────────
@@ -144,7 +147,7 @@ class UserManageServiceTest {
         assertThat(user.getRecoveryPasswdToken()).isNotEqualTo(88L);
 
         ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
-        verify(emailDeliveryService).sendEmail(eq("email@example.com"), eq(EmailTemplates.passwordResetSubject()), bodyCaptor.capture(),
+        verify(emailDeliveryService).sendEmail(eq("email@example.com"), eq(emailTemplates.passwordResetSubject()), bodyCaptor.capture(),
                 eq(NotificationEvent.RECOVERY_PASSWORD));
         verifyNoMoreInteractions(emailDeliveryService);
 

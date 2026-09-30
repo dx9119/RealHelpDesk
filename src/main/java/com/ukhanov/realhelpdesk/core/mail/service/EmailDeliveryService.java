@@ -39,10 +39,11 @@ public class EmailDeliveryService {
     private final CurrentUserProvider currentUserProvider;
     private final EmailLogService emailLogService;
     private final RateLimitProperties rateLimitProperties;
+    private final EmailTemplates emailTemplates;
 
     public EmailDeliveryService(JavaMailSender mailSender, UserDomainService userDomainService, EmailProperties emailProperties,
             EmailPolicyService emailPolicyService, CurrentUserProvider currentUserProvider, EmailLogService emailLogService,
-            RateLimitProperties rateLimitProperties) {
+            RateLimitProperties rateLimitProperties, EmailTemplates emailTemplates) {
         this.mailSender = mailSender;
         this.userDomainService = userDomainService;
         this.emailProperties = emailProperties;
@@ -50,6 +51,7 @@ public class EmailDeliveryService {
         this.currentUserProvider = currentUserProvider;
         this.emailLogService = emailLogService;
         this.rateLimitProperties = rateLimitProperties;
+        this.emailTemplates = emailTemplates;
     }
 
     public void sendEmail(String recipient, String subject, String text, NotificationEvent sourceEvent)
@@ -144,8 +146,8 @@ public class EmailDeliveryService {
     public void sendConfirmCode() throws MessagingException, UnsupportedEncodingException {
         UserModel user = currentUserProvider.getCurrentUserModel();
 
-        sendUserNotification(user.getEmail(), EmailTemplates.registrationCodeSubject(),
-                EmailTemplates.registrationCodeBody(user.getVerifyEmailToken().toString()), NotificationEvent.NEW_SYSTEM_MESSAGE);
+        sendUserNotification(user.getEmail(), emailTemplates.registrationCodeSubject(),
+                emailTemplates.registrationCodeBody(user.getVerifyEmailToken().toString()), NotificationEvent.NEW_SYSTEM_MESSAGE);
 
     }
 

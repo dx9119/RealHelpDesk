@@ -21,6 +21,7 @@ import org.springframework.data.domain.Pageable;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
+import com.ukhanov.realhelpdesk.core.mail.support.EmailTemplatesFixture;
 import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
 import com.ukhanov.realhelpdesk.core.pagination.service.PaginationAdapter;
 import com.ukhanov.realhelpdesk.core.security.accesscontrol.TicketAccessValidationService;
@@ -77,6 +78,8 @@ class TicketManageServiceTest {
 
     private TicketManageService service;
 
+    private final EmailTemplates emailTemplates = EmailTemplatesFixture.emailTemplates();
+
     private static final Long TICKET_ID = 42L;
     private static final Long PORTAL_ID = 100L;
     private static final Long USER_ID = 77L;
@@ -85,7 +88,7 @@ class TicketManageServiceTest {
     @BeforeEach
     void setUp() {
         service = new TicketManageService(mockTicketDomainService, mockCurrentUserProvider, mockPortalDomainService, mockPaginationAdapter,
-                mockEmailDeliveryService, mockTicketAccessValidationService, mockTicketRepository);
+                mockEmailDeliveryService, mockTicketAccessValidationService, mockTicketRepository, emailTemplates);
 
         UserModel currentUser = new UserModel();
         currentUser.setId(USER_ID);
@@ -159,8 +162,8 @@ class TicketManageServiceTest {
 
         assertThat(ticket.getTicketStatus()).isEqualTo(TicketStatus.CLOSED);
         verify(mockEmailDeliveryService).initNotifyPortalUsers(eq(portal),
-                eq(EmailTemplates.updateStatusTicketSubject(TICKET_ID, TicketStatus.CLOSED)),
-                eq(EmailTemplates.updateStatusTicketBody(TICKET_ID, PORTAL_ID)), eq(NotificationEvent.CHANGE_TICKET));
+                eq(emailTemplates.updateStatusTicketSubject(TICKET_ID, TicketStatus.CLOSED)),
+                eq(emailTemplates.updateStatusTicketBody(TICKET_ID, PORTAL_ID)), eq(NotificationEvent.CHANGE_TICKET));
     }
 
     @Test
@@ -189,8 +192,8 @@ class TicketManageServiceTest {
 
         assertThat(ticket.getTicketPriority()).isEqualTo(TicketPriority.HIGH);
         verify(mockEmailDeliveryService).initNotifyPortalUsers(eq(portal),
-                eq(EmailTemplates.updatePriorityTicketSubject(TICKET_ID, TicketPriority.HIGH)),
-                eq(EmailTemplates.updatePriorityTicketBody(TICKET_ID, PORTAL_ID)), eq(NotificationEvent.CHANGE_TICKET));
+                eq(emailTemplates.updatePriorityTicketSubject(TICKET_ID, TicketPriority.HIGH)),
+                eq(emailTemplates.updatePriorityTicketBody(TICKET_ID, PORTAL_ID)), eq(NotificationEvent.CHANGE_TICKET));
     }
 
     @Test
@@ -206,8 +209,8 @@ class TicketManageServiceTest {
         service.deleteTicket(TICKET_ID, PORTAL_ID);
 
         assertThat(ticket.getTicketLiveStatus()).isEqualTo(TicketLiveStatus.DELETE);
-        verify(mockEmailDeliveryService).initNotifyPortalUsers(eq(portal), eq(EmailTemplates.deletedTicketSubject(TICKET_ID)),
-                eq(EmailTemplates.deletedTicketBody(TICKET_ID, "test@user.com")), eq(NotificationEvent.TICKET_DELETED));
+        verify(mockEmailDeliveryService).initNotifyPortalUsers(eq(portal), eq(emailTemplates.deletedTicketSubject(TICKET_ID)),
+                eq(emailTemplates.deletedTicketBody(TICKET_ID, "test@user.com")), eq(NotificationEvent.TICKET_DELETED));
     }
 
     @Test

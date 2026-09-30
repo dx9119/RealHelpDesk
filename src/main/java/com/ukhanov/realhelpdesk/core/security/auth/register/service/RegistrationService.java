@@ -33,14 +33,16 @@ public class RegistrationService {
     private final GetTokenService getTokenService;
     private final EmailDeliveryService emailDeliveryService;
     private final CaptchaService captchaService;
+    private final EmailTemplates emailTemplates;
 
     public RegistrationService(PasswordEncoder passwordEncoder, UserDomainService userDomainService, GetTokenService getTokenService,
-            EmailDeliveryService emailDeliveryService, CaptchaService captchaService) {
+            EmailDeliveryService emailDeliveryService, CaptchaService captchaService, EmailTemplates emailTemplates) {
         this.passwordEncoder = passwordEncoder;
         this.userDomainService = userDomainService;
         this.getTokenService = getTokenService;
         this.emailDeliveryService = emailDeliveryService;
         this.captchaService = captchaService;
+        this.emailTemplates = emailTemplates;
     }
 
     public UserModel addUser(RegisterRequest registerRequest)
@@ -69,8 +71,8 @@ public class RegistrationService {
         emailDeliveryService.sendAdminNotification("Новая регистрация:" + newUser.getEmail(), "Кто,что:" + newUser.toString(),
                 NotificationEvent.NEW_SYSTEM_MESSAGE);
 
-        emailDeliveryService.sendUserNotification(newUser.getEmail(), EmailTemplates.registrationLinkSubject(),
-                EmailTemplates.registrationLinkBody(newUser.getVerifyEmailToken().toString()), NotificationEvent.NEW_SYSTEM_MESSAGE);
+        emailDeliveryService.sendUserNotification(newUser.getEmail(), emailTemplates.registrationLinkSubject(),
+                emailTemplates.registrationLinkBody(newUser.getVerifyEmailToken().toString()), NotificationEvent.NEW_SYSTEM_MESSAGE);
 
         return newUser;
     }
