@@ -19,6 +19,19 @@ services:
     container_name: realhelpdesk
     ports:
       - "8443:8443"
+
+    # Укрепление контейнера (sec.md §7.9).
+    read_only: true
+    tmpfs:
+      - /tmp                    # GC-лог, JFR, heap dump, java_error.log
+      - /app/ssl:rw,uid=999,gid=999   # keystore; 999 — spring-user
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 768m
+    memswap_limit: 768m
+
     environment:
       # Профиль
       SPRING_PROFILES_ACTIVE: debug
@@ -98,6 +111,18 @@ services:
       # Лимит писем восстановления пароля на один адрес (окно 86400 сек = 24 часа)
       RATE_LIMIT_EMAIL_RECOVERY_REQUESTS: 3
       RATE_LIMIT_EMAIL_RECOVERY_WINDOW_SECONDS: 86400
+
+      # JVM-диагностика по умолчанию выключена (sec.md §7.8): эти ключи
+      # перекрывают ENV образа. Включение — docker-compose.debug.yaml.
+      JAVA_JFR_OPTS: ""
+      JAVA_HEAP_DUMP_OPTS: ""
+      JAVA_NMT_OPTS: ""
+      JAVA_JMX_OPTS: ""
+
+      # Память: пустой JAVA_XMX переключает entrypoint на -XX:MaxRAMPercentage,
+      # то есть heap масштабируется вместе с mem_limit (45% от 768m ≈ 345M).
+      JAVA_XMX: ""
+      JAVA_RAM_PERCENTAGE: "45"
 
     # Ждём именно готовность postgres (не просто «контейнер запущен»),
     # иначе Hibernate может успеть упасть до старта СУБД, а restart: on-failure:2

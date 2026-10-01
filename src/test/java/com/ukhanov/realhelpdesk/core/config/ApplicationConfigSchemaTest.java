@@ -36,6 +36,12 @@ class ApplicationConfigSchemaTest {
     private static final Pattern SCHEMA_VALUE = Pattern.compile("\\$\\{[A-Z_][A-Z0-9_]*}");
     private static final Pattern SCHEMA_VARIABLE = Pattern.compile("\\$\\{([A-Z_][A-Z0-9_]*)}");
 
+    /**
+     * Ключи {@code services.app.environment}, которых нет в схеме приложения: они переопределяют {@code ENV} образа (JVM-флаги, см. sec.md
+     * §7.8) и приложению не нужны.
+     */
+    private static final String NON_SCHEMA_ENV_PREFIX = "JAVA_";
+
     @Test
     @DisplayName("application.properties — чистая схема: только обязательные ${VAR}, без дефолтов и литералов")
     void applicationPropertiesIsSchemaWithoutValues() throws Exception {
@@ -88,7 +94,8 @@ class ApplicationConfigSchemaTest {
             Map<String, Object> environment = (Map<String, Object>) app.get("environment");
 
             assertThat(environment).as("services.app.environment в docker-compose.yaml").isNotNull();
-            return new LinkedHashSet<>(environment.keySet());
+            return environment.keySet().stream().filter(key -> !key.startsWith(NON_SCHEMA_ENV_PREFIX))
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
         }
     }
 }
