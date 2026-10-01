@@ -19,8 +19,9 @@ RUN cp $(ls target/*.jar | grep -v '\.original$' | head -n 1) app.jar
 # Самоподписанный keystore для HTTPS.
 # В репозитории *.p12 не хранится (см. .gitignore), поэтому он генерируется
 # при сборке. Для продакшна положите свой файл в /app/ssl/keystore.p12 (volume).
-ARG KEY_STORE_PASS=demo-keystore-pass
-ARG KEY_STORE_ALIAS=tomcat
+# Пароль и alias приходят из docker-compose.yaml (build.args) — дефолтов нет.
+ARG KEY_STORE_PASS
+ARG KEY_STORE_ALIAS
 RUN keytool -genkeypair \
         -alias ${KEY_STORE_ALIAS} \
         -keyalg RSA -keysize 2048 \

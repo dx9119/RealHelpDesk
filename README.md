@@ -25,7 +25,7 @@
 - Устанавливает аутентификацию в `SecurityContextHolder` (роль берётся из БД).
 - Помечает ошибки токена (истёкший токен, некорректный формат и т.д.) через доп. заголовки.
 
-Refresh-токен в БД хранится в виде SHA-256 хеша; выдаётся клиенту в http-only cookie с `path=/api/v1/auth`. При каждом входе refresh-токен ротируется. Настройка `jwt.cookie.same-site` (`None` по умолчанию) — см. `docs/jwt-audit.md`.
+Refresh-токен в БД хранится в виде SHA-256 хеша; выдаётся клиенту в http-only cookie с `path=/api/v1/auth`. При каждом входе refresh-токен ротируется. Настройка `jwt.cookie.same-site` (`JWT_COOKIE_SAMESITE` в `docker-compose.yaml`) — см. `docs/jwt-audit.md`.
 
 ## Структура проекта
 
@@ -33,32 +33,61 @@ Refresh-токен в БД хранится в виде SHA-256 хеша; выд
 - Domain - базовые entity, репозитории и сервисы.
 - Feature - управление порталами, заявками, сообщениями, пользователями.
 
+## Конфигурация
+
+Конфигурация держится в одном месте, значений по умолчанию в коде нет:
+
+| Файл | Что в нём |
+|---|---|
+| `src/main/resources/application.properties` | Только схема: обязательные `${VAR}` без дефолтов, ни одного значения |
+| `docker-compose.yaml` → `services.app.environment` | Единственное место со значениями |
+| `.env` (см. `.env.example`) | Только секреты: `JWT_SECRET`, `DB_PASSWORD`, `MAIL_PASSWORD`, `KEY_STORE_PASS` |
+
+Отсутствующая переменная валит приложение на старте с
+`Could not resolve placeholder '<VAR>'`, отсутствующий или пустой секрет —
+`docker compose` ещё до запуска. Проект рассчитан на работу **только внутри
+Docker-контейнера**: без переменных окружения локальный `java -jar`
+не поднимется.
+
+Схему и `services.app.environment` держит в согласии тест
+`EmailPropertiesTest`: значения вида `${VAR}` без литералов и дефолтов,
+а список переменных совпадает с ключами compose один в один.
+
+Тесты и сборка остаются на хосте (`mvn test`): тесты поднимают собственную
+конфигурацию из `src/test/resources/application.properties` и в Docker не ходят.
+
 ## Запуск проекта
-1. `cp .env.example .env` и заполните секреты: `JWT_SECRET` (`openssl rand -base64 32`) и `DB_PASSWORD`. Без них compose не стартует.
+1. `cp .env.example .env` и заполните секреты: `JWT_SECRET` (`openssl rand -base64 32`), `DB_PASSWORD`, `MAIL_PASSWORD` и `KEY_STORE_PASS`. Без них compose не стартует.
 2. `docker compose up --build -d`
 
-Без Docker секреты задаются переменными окружения приложения (`JWT_SECRET`, `SPRING_DATASOURCE_PASSWORD` и т.д.).
+Всё остальное (порты, почта, капча, рейт-лимиты) правится в
+`docker-compose.yaml` → `services.app.environment` — пересборка не нужна,
+достаточно `docker compose up -d`. Исключение — `KEY_STORE_PASS`: он же
+build-arg, при его смене нужен `docker compose build`.
 PostgreSQL (`5432`) и SMTP (`25`) слушают только `127.0.0.1`; API — `8443`, интерфейс smtp4dev — `3000`.
 
 Сборка создаёт самоподписанный `keystore.p12` (файлы `*.p12` в репозиторий не попадают). Для продакшна замените его, смонтировав свой файл в `/app/ssl/keystore.p12`.
 
 ## Профили
 
-Два профиля: `debug` и `prod`. Без `SPRING_PROFILES_ACTIVE` приложение стартует в `prod`. Локальный `docker compose` подставляет `debug`.
+Два профиля: `debug` и `prod`. Переменная `SPRING_PROFILES_ACTIVE` обязательна —
+значения по умолчанию в `application.properties` больше нет. Локальный
+`docker compose` задаёт `debug` в `services.app.environment`.
 
 | Профиль | Логи |
 |---|---|
 | `debug` | код приложения на `DEBUG`, SQL Hibernate без параметров, в строке request-id и IP |
 | `prod` | `INFO` и выше по своему коду, без SQL и без пошаговой трассировки. Успешный HTTP-запрос не пишется |
 
-```bash
-SPRING_PROFILES_ACTIVE=prod java -jar app.jar
+```yaml
+# docker-compose.yaml, services.app.environment
+SPRING_PROFILES_ACTIVE: prod
 ```
 
 В `prod` остаются бизнес-события, отказы входа, превышение лимитов и ошибки. Тело запроса, код восстановления пароля, значение токена и query-string в лог не попадают.
 
-## Регистрация если капча включена (по умолчанию отключена)
-Если капча отключена (`CAPTCHA_ENABLED=false`), поля `capCode` и параметр `capId` в запросе не нужны.
+## Регистрация если капча включена (в docker-compose.yaml по умолчанию отключена)
+Если капча отключена (`CAPTCHA_ENABLED: "false"` в `docker-compose.yaml`), поля `capCode` и параметр `capId` в запросе не нужны.
 1. В Postman отправляем запрос на получение капчи (capId это ID посетителя, генерируем руками или на фронте):
 https://example.com:8443/api/v1/captcha?capId=abc123xyz9
 2. Смотрим картинку с кодом капчи, указываем его в теле (поле capCode) в запросе на регистрацию:
@@ -79,7 +108,7 @@ https://example.com:8443/api/v1/auth/register?capId=abc123xyz9
 
 Счетчик идет по IP и эндпоинту и работает одинаково при включенной и выключенной капче. При превышении — ответ `429` с заголовком `Retry-After`.
 
-| Эндпоинт | Ключ (`ratelimit.limits.<key>`) | Лимит по умолчанию |
+| Эндпоинт | Ключ (`ratelimit.limits.<key>`) | Лимит |
 |---|---|---|
 | `GET /api/v1/captcha` | `captcha` | 30 за 60 сек |
 | `POST /api/v1/auth/register` | `auth-register` | 10 за 5 мин |
@@ -90,11 +119,11 @@ https://example.com:8443/api/v1/auth/register?capId=abc123xyz9
 | `POST /api/v1/email/codes` | `email-code` | 3 за 10 мин |
 | письма восстановления пароля (лимит на адрес) | `email-recovery` | 3 за 24 часа |
 
-Пороги живут в `application.properties` (`ratelimit.limits.<key>.requests` и `ratelimit.limits.<key>.window-seconds`) и переопределяются переменными окружения `RATE_LIMIT_<KEY>_REQUESTS` / `RATE_LIMIT_<KEY>_WINDOW_SECONDS` — примеры в `.env.example`.
+Пороги заданы в `docker-compose.yaml` → `services.app.environment`: `RATE_LIMIT_<KEY>_REQUESTS` — число запросов, `RATE_LIMIT_<KEY>_WINDOW_SECONDS` — окно в секундах. В `.env` их больше нет — все значения лежат в одном месте.
 
-Новый лимит — аннотация `@RateLimit(key = "...")` на методе контроллера плюс запись порога в `application.properties` под тем же ключом (без порога в конфиге запрос упадет с 500 и сообщением об отсутствующем ключе). Счетчики хранятся в памяти приложения и сбрасываются при рестарте.
+Новый лимит — аннотация `@RateLimit(key = "...")` на методе контроллера плюс два порога в `docker-compose.yaml` под тем же ключом, переведённым в верхний регистр через подчёркивание (`auth-register` → `RATE_LIMIT_AUTH_REGISTER_REQUESTS` и `RATE_LIMIT_AUTH_REGISTER_WINDOW_SECONDS`). Без порогов в конфиге запрос упадет с 500 и сообщением об отсутствующем ключе. Счетчики хранятся в памяти приложения и сбрасываются при рестарте.
 
-За прокси (nginx и т.п.) задайте `TRUST_PROXY_HEADERS=true`, иначе все пользователи будут считаться одним IP самого прокси. Без прокси держите `false` — иначе заголовок `X-Forwarded-For` можно подделать и обойти лимит.
+За прокси (nginx и т.п.) задайте `TRUST_PROXY_HEADERS: "true"` в `docker-compose.yaml`, иначе все пользователи будут считаться одним IP самого прокси. Без прокси держите `false` — иначе заголовок `X-Forwarded-For` можно подделать и обойти лимит.
 
 ## Тестирование
 
