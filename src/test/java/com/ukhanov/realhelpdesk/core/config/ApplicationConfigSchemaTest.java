@@ -19,26 +19,27 @@ import org.yaml.snakeyaml.Yaml;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Контракт конфигурации приложения: {@code application.properties} — только схема из обязательных {@code ${VAR}}, а значения живут в
- * {@code docker-compose.yaml}.
+ * Контракт конфигурации приложения: {@code application.properties} — только схема из обязательных {@code ${VAR}}, а значения лежат в двух
+ * местах: {@code docker/app.env} (продукт) и {@code services.app.environment} в {@code docker-compose.yaml} (окружение и секреты).
  *
  * <p>
  * Файл читается напрямую по пути {@code src/main/resources/...}, а не с classpath, поэтому на результат не влияет даже
  * {@code src/test/resources/application.properties}, который перекрывает main-конфиг в тестовом класслоаде.
  * </p>
  */
-@DisplayName("Конфигурация: схема application.properties и docker-compose.yaml")
+@DisplayName("Конфигурация: схема application.properties, docker-compose.yaml и docker/app.env")
 class ApplicationConfigSchemaTest {
 
     private static final Path APPLICATION_PROPERTIES = Path.of("src", "main", "resources", "application.properties");
     private static final Path DOCKER_COMPOSE = Path.of("docker-compose.yaml");
+    private static final Path APP_ENV = Path.of("docker", "app.env");
     /** Ровно ${VAR}: без дефолта после двоеточия и без литерала до/после. */
     private static final Pattern SCHEMA_VALUE = Pattern.compile("\\$\\{[A-Z_][A-Z0-9_]*}");
     private static final Pattern SCHEMA_VARIABLE = Pattern.compile("\\$\\{([A-Z_][A-Z0-9_]*)}");
 
     /**
      * Ключи {@code services.app.environment}, которых нет в схеме приложения: они переопределяют {@code ENV} образа (JVM-флаги, см. sec.md
-     * §7.8) и приложению не нужны.
+     * §7.8) и приложению не нужны. В {@code docker/app.env} такого быть не должно.
      */
     private static final String NON_SCHEMA_ENV_PREFIX = "JAVA_";
 
@@ -56,14 +57,23 @@ class ApplicationConfigSchemaTest {
     }
 
     @Test
-    @DisplayName("Переменные схемы и ключи services.app.environment в docker-compose.yaml совпадают один в один")
-    void everySchemaVariableIsDeclaredInDockerCompose() throws Exception {
+    @DisplayName("Переменные схемы и ключи docker-compose.yaml + docker/app.env совпадают один в один")
+    void everySchemaVariableIsDeclaredInDockerComposeOrAppEnv() throws Exception {
         Properties schema = loadSchema();
 
         Set<String> schemaVariables = schema.stringPropertyNames().stream().map(schema::getProperty)
                 .flatMap(value -> variables(value).stream()).collect(Collectors.toCollection(LinkedHashSet::new));
 
-        assertThat(composeAppEnvironment()).containsExactlyInAnyOrderElementsOf(schemaVariables);
+        Set<String> composeKeys = composeAppEnvironment();
+        Set<String> appEnvKeys = appEnvKeys();
+
+        assertThat(composeKeys.stream().filter(appEnvKeys::contains).toList())
+                .as("одно значение может быть задано только в одном месте: docker-compose.yaml или docker/app.env").isEmpty();
+
+        Set<String> declaredValues = new LinkedHashSet<>(composeKeys);
+        declaredValues.addAll(appEnvKeys);
+        assertThat(declaredValues).as("схема application.properties и ключи compose + app.env")
+                .containsExactlyInAnyOrderElementsOf(schemaVariables);
     }
 
     private Properties loadSchema() throws Exception {
@@ -97,5 +107,25 @@ class ApplicationConfigSchemaTest {
             return environment.keySet().stream().filter(key -> !key.startsWith(NON_SCHEMA_ENV_PREFIX))
                     .collect(Collectors.toCollection(LinkedHashSet::new));
         }
+    }
+
+    /**
+     * Ключи {@code docker/app.env}: только имя до первого {@code =}, комментарии и пустые строки пропускаются. Значения здесь не
+     * проверяются — их смысл зависит от ключа, а не от формы.
+     */
+    private Set<String> appEnvKeys() throws Exception {
+        assertThat(Files.exists(APP_ENV)).as(APP_ENV.toString()).isTrue();
+        Set<String> keys = new LinkedHashSet<>();
+        for (String line : Files.readAllLines(APP_ENV, StandardCharsets.UTF_8)) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+                continue;
+            }
+            int separator = trimmed.indexOf('=');
+            assertThat(separator).as("строка без = : " + line).isPositive();
+            keys.add(trimmed.substring(0, separator).trim());
+        }
+        assertThat(keys).as(APP_ENV.toString()).isNotEmpty();
+        return keys;
     }
 }
