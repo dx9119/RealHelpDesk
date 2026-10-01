@@ -1,0 +1,28 @@
+# Контекст сборки Docker. Dockerfile копирует только pom.xml, src/, config/
+# и docker/, но в контекст daemon'а уходит ВСЯ рабочая директория — поэтому
+# здесь явно отсекается то, что не должно покидать рабочую станцию.
+
+# Секреты и ключи
+.env
+.env.*
+*.p12
+*.key
+*.pem
+*.jks
+ssl/
+
+# Артефакты локальной сборки и VCS
+target/
+bin/
+build/
+.gradle/
+.idea/
+.git/
+*.iml
+
+# Документация и скрипты для образа не нужны
+docs/
+scripts/
+postman_collection.json
+*.md
+*.log
