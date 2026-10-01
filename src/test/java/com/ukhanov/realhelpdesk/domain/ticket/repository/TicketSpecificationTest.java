@@ -78,7 +78,7 @@ class TicketSpecificationTest {
     }
 
     // ────────────────────────────────────────────────
-    // search(): поиск по заголовку и телу
+    // search(): поиск по заголовку, телу и ФИО автора
     // ────────────────────────────────────────────────
 
     @Test
@@ -112,6 +112,30 @@ class TicketSpecificationTest {
     @DisplayName("search → совпадение только по телу, но не по заголовку → находит заявку")
     void search_matchesOnlyBodyField() {
         assertThat(run(TicketSpecification.search("статистику"))).containsExactly(t3.getId());
+    }
+
+    @Test
+    @DisplayName("search → ищет по ФИО автора: имя и фамилия")
+    void search_matchesAuthorName() {
+        assertThat(run(TicketSpecification.search("алиса"))).containsExactlyInAnyOrder(t1.getId(), t3.getId(), t5.getId());
+        assertThat(run(TicketSpecification.search("СИДОРОВ"))).containsExactlyInAnyOrder(t2.getId(), t4.getId());
+    }
+
+    @Test
+    @DisplayName("search → учитывает отчество автора")
+    void search_matchesAuthorMiddleName() {
+        bob.setMiddleName("Петрович");
+
+        assertThat(run(TicketSpecification.search("петрович"))).containsExactlyInAnyOrder(t2.getId(), t4.getId());
+    }
+
+    @Test
+    @DisplayName("search → совпадение по автору не подмешивает заявки с чужим ФИО")
+    void search_authorMatchDoesNotLeakForeignAuthors() {
+        Set<Long> result = run(TicketSpecification.search("борис"));
+
+        assertThat(result).containsExactlyInAnyOrder(t2.getId(), t4.getId());
+        assertThat(result).doesNotContain(t1.getId(), t3.getId(), t5.getId());
     }
 
     // ────────────────────────────────────────────────

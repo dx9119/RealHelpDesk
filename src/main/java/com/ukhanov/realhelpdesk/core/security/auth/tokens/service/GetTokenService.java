@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenBearerResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenStatusResponse;
@@ -44,17 +45,33 @@ public class GetTokenService {
         this.decodeTokenService = decodeTokenService;
     }
 
-    // Новые токены: access + свежий refresh (ротация при каждом входе/регистрации)
+    // Новые токены: access + свежий refresh. Ротация при каждом входе/регистрации:
+    // предыдущие активные refresh-токены пользователя отзываются, поэтому старый
+    // токен перестаёт быть валидным сразу после выдачи нового.
+    @Transactional
     public TokensResponse getNewTokens(UserModel user) {
         SecurityUser securityUser = new SecurityUser(user);
 
         TokenBearerResponse tokenBearerResponse = genTokenService.generateAccessJwtToken(securityUser);
         RefreshTokenModel refreshToken = genTokenService.generateRefreshJwtToken(securityUser);
 
+        int revoked = revokeActiveRefreshTokens(user);
+        if (revoked > 0) {
+            logger.info("Ротация refresh-токенов: отозвано {}, userId={}", revoked, user.getId());
+        }
         saveTokenService.saveRefreshToken(refreshToken);
 
         return TokensResponse.builder().accessToken(tokenBearerResponse.getToken()).refreshToken(refreshToken.getRawToken())
                 .message(securityUser.getUsername()).build();
+    }
+
+    private int revokeActiveRefreshTokens(UserModel user) {
+        List<RefreshTokenModel> active = jwtRefreshTokenRepository.findAllByUserEmailAndStatus(user.getEmail(), TokenStatus.ACTIVE);
+        for (RefreshTokenModel token : active) {
+            token.setStatus(TokenStatus.REVOKED);
+            saveTokenService.saveRefreshToken(token);
+        }
+        return active.size();
     }
 
     // Все активные refresh-токены пользователя (для отзыва, например при смене пароля)

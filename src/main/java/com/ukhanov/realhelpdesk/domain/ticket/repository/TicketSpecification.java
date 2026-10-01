@@ -3,9 +3,13 @@ package com.ukhanov.realhelpdesk.domain.ticket.repository;
 import java.time.Instant;
 import java.util.Set;
 
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
 
+import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketLiveStatus;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
@@ -31,7 +35,7 @@ public final class TicketSpecification {
         return (root, query, cb) -> cb.equal(root.get("author").get("id"), userId);
     }
 
-    // Фильтр: поиск по заголовку и телу тикета
+    // Фильтр: поиск по заголовку, телу тикета и ФИО автора
     public static Specification<TicketModel> search(String text) {
         if (!StringUtils.hasText(text)) {
             return null;
@@ -39,7 +43,10 @@ public final class TicketSpecification {
 
         return (root, query, cb) -> {
             String pattern = "%" + text.toLowerCase() + "%";
-            return cb.or(cb.like(cb.lower(root.get("title")), pattern), cb.like(cb.lower(root.get("body")), pattern));
+            Join<TicketModel, UserModel> author = root.join("author", JoinType.LEFT);
+            return cb.or(cb.like(cb.lower(root.get("title")), pattern), cb.like(cb.lower(root.get("body")), pattern),
+                    cb.like(cb.lower(author.get("firstName")), pattern), cb.like(cb.lower(author.get("lastName")), pattern),
+                    cb.like(cb.lower(author.get("middleName")), pattern));
         };
     }
 
