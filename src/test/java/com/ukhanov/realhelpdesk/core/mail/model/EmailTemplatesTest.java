@@ -29,8 +29,8 @@ class EmailTemplatesTest {
         assertThat(emailTemplates.registrationLinkSubject()).isEqualTo("Подтверждение регистрации");
 
         String body = emailTemplates.registrationLinkBody("123456");
-        assertThat(body).contains("123456").contains("https://" + EmailTemplates.DOMAIN + "/notify-settings")
-                .contains(EmailTemplates.PROJECT_NAME);
+        assertThat(body).contains("123456").contains("https://" + EmailTemplatesFixture.DOMAIN + "/notify-settings")
+                .contains(EmailTemplatesFixture.PROJECT_NAME);
     }
 
     @Test
@@ -39,7 +39,7 @@ class EmailTemplatesTest {
         assertThat(emailTemplates.registrationCodeSubject()).isEqualTo("Код подтверждения");
 
         String body = emailTemplates.registrationCodeBody("654321");
-        assertThat(body).contains("654321").contains("https://" + EmailTemplates.DOMAIN + "/notify-settings");
+        assertThat(body).contains("654321").contains("https://" + EmailTemplatesFixture.DOMAIN + "/notify-settings");
     }
 
     @Test
@@ -48,7 +48,8 @@ class EmailTemplatesTest {
         assertThat(emailTemplates.passwordResetSubject()).isEqualTo("Сброс пароля");
 
         String body = emailTemplates.passwordResetBody("999888");
-        assertThat(body).contains("https://" + EmailTemplates.DOMAIN + "/pass-reset?code=999888").contains("проигнорируйте это письмо");
+        assertThat(body).contains("https://" + EmailTemplatesFixture.DOMAIN + "/pass-reset?code=999888")
+                .contains("проигнорируйте это письмо");
     }
 
     @Test
@@ -81,7 +82,7 @@ class EmailTemplatesTest {
     }
 
     private String ticketLink() {
-        return "https://" + EmailTemplates.DOMAIN + "/ticket-show/portal/" + PORTAL_ID + "/ticket/" + TICKET_ID;
+        return "https://" + EmailTemplatesFixture.DOMAIN + "/ticket-show/portal/" + PORTAL_ID + "/ticket/" + TICKET_ID;
     }
 
     @Test
@@ -90,7 +91,7 @@ class EmailTemplatesTest {
         assertThat(emailTemplates.portalCreatedSubject(PORTAL_ID)).isEqualTo("Создан новый портал #5");
 
         assertThat(emailTemplates.portalCreatedBody(PORTAL_ID)).contains("Создан портал #5")
-                .contains("https://" + EmailTemplates.DOMAIN + "/portal-manager");
+                .contains("https://" + EmailTemplatesFixture.DOMAIN + "/portal-manager");
     }
 
     @Test
@@ -99,7 +100,7 @@ class EmailTemplatesTest {
         assertThat(emailTemplates.portalAddUserSubject(PORTAL_ID)).isEqualTo("Вас добавили к порталу #5");
 
         assertThat(emailTemplates.portalAddUserBody(PORTAL_ID)).contains("Общие порталы")
-                .contains("https://" + EmailTemplates.DOMAIN + "/portal-manager");
+                .contains("https://" + EmailTemplatesFixture.DOMAIN + "/portal-manager");
     }
 
     @Test
@@ -108,7 +109,7 @@ class EmailTemplatesTest {
         assertThat(emailTemplates.updateStatusTicketSubject(TICKET_ID, TicketStatus.CLOSED)).isEqualTo("Задан статус:CLOSED для заявки#77");
 
         assertThat(emailTemplates.updateStatusTicketBody(TICKET_ID, PORTAL_ID))
-                .contains("https://" + EmailTemplates.DOMAIN + "/ticket-show/portal/" + PORTAL_ID + "/ticket/" + TICKET_ID);
+                .contains("https://" + EmailTemplatesFixture.DOMAIN + "/ticket-show/portal/" + PORTAL_ID + "/ticket/" + TICKET_ID);
     }
 
     @Test
@@ -118,7 +119,7 @@ class EmailTemplatesTest {
                 .isEqualTo("Задан приоритет:CRITICAL для заявки#77");
 
         assertThat(emailTemplates.updatePriorityTicketBody(TICKET_ID, PORTAL_ID))
-                .contains("https://" + EmailTemplates.DOMAIN + "/ticket-show/portal/" + PORTAL_ID + "/ticket/" + TICKET_ID);
+                .contains("https://" + EmailTemplatesFixture.DOMAIN + "/ticket-show/portal/" + PORTAL_ID + "/ticket/" + TICKET_ID);
     }
 
     @Test
@@ -144,6 +145,6 @@ class EmailTemplatesTest {
     void largeIds_areNotGroupedByMessageFormat() {
         assertThat(emailTemplates.ticketCreatedSubject(12345L)).isEqualTo("Создана новая заявка #12345");
         assertThat(emailTemplates.ticketCreatedBody(12345L, 67890L))
-                .contains("https://" + EmailTemplates.DOMAIN + "/ticket-show/portal/67890/ticket/12345");
+                .contains("https://" + EmailTemplatesFixture.DOMAIN + "/ticket-show/portal/67890/ticket/12345");
     }
 }

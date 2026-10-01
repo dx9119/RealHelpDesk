@@ -151,7 +151,8 @@ class UserManageServiceTest {
                 eq(NotificationEvent.RECOVERY_PASSWORD));
         verifyNoMoreInteractions(emailDeliveryService);
 
-        assertThat(bodyCaptor.getValue()).contains("/pass-reset?code=" + user.getRecoveryPasswdToken()).contains(EmailTemplates.DOMAIN);
+        assertThat(bodyCaptor.getValue()).contains("/pass-reset?code=" + user.getRecoveryPasswdToken())
+                .contains(EmailTemplatesFixture.DOMAIN);
     }
 
     // ────────────────────────────────────────────────────────────────

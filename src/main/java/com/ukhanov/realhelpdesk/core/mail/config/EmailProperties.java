@@ -8,6 +8,8 @@ import org.springframework.stereotype.Component;
 public class EmailProperties {
     private String notify;
     private String from;
+    private String domain;
+    private String projectName;
 
     public String getNotify() {
         return notify;
@@ -23,5 +25,21 @@ public class EmailProperties {
 
     public void setFrom(String from) {
         this.from = from;
+    }
+
+    public String getDomain() {
+        return domain;
+    }
+
+    public void setDomain(String domain) {
+        this.domain = domain;
+    }
+
+    public String getProjectName() {
+        return projectName;
+    }
+
+    public void setProjectName(String projectName) {
+        this.projectName = projectName;
     }
 }

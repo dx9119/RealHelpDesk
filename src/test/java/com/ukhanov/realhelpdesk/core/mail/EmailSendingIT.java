@@ -274,7 +274,7 @@ class EmailSendingIT {
 
         @Bean
         EmailProperties emailProperties() {
-            EmailProperties properties = new EmailProperties();
+            EmailProperties properties = EmailTemplatesFixture.emailProperties();
             properties.setFrom(FROM);
             properties.setNotify(ADMIN);
             return properties;
@@ -308,8 +308,8 @@ class EmailSendingIT {
         }
 
         @Bean
-        EmailTemplates emailTemplates() {
-            return EmailTemplatesFixture.emailTemplates();
+        EmailTemplates emailTemplates(EmailProperties emailProperties) {
+            return new EmailTemplates(EmailTemplatesFixture.messageSource(), emailProperties);
         }
 
         @Bean

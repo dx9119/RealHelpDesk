@@ -34,6 +34,9 @@ services:
       EMAIL_DOMAIN: "example.com"
       MAIL_FROM: "noreply@example.com"
       MAIL_NOTIFY: "admin@example.com"
+      # Домен ссылок и название проекта в подписи писем
+      FRONT_DOMAIN: "front.example.ru"
+      APP_PROJECT_NAME: "real help desk"
       CAPTCHA_ENABLED: "${CAPTCHA_ENABLED:-false}"
 
     depends_on:
