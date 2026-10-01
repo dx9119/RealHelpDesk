@@ -44,14 +44,16 @@ Refresh-токен в БД хранится в виде SHA-256 хеша; выд
 | `.env` (см. `.env.example`) | Только секреты: `JWT_SECRET`, `DB_PASSWORD`, `MAIL_PASSWORD`, `KEY_STORE_PASS` |
 
 Отсутствующая переменная валит приложение на старте с
-`Could not resolve placeholder '<VAR>'`, отсутствующий или пустой секрет —
-`docker compose` ещё до запуска. Проект рассчитан на работу **только внутри
-Docker-контейнера**: без переменных окружения локальный `java -jar`
-не поднимется.
+`Could not resolve placeholder '<VAR>'`, отсутствующий или пустой
+обязательный секрет (`JWT_SECRET`, `DB_PASSWORD`, `KEY_STORE_PASS`) —
+`docker compose` ещё до запуска. `MAIL_PASSWORD` пустым быть может.
+Проект рассчитан на работу **только внутри Docker-контейнера**: без
+переменных окружения локальный `java -jar` не поднимется.
 
 Схему и `services.app.environment` держит в согласии тест
-`EmailPropertiesTest`: значения вида `${VAR}` без литералов и дефолтов,
+`ApplicationConfigSchemaTest`: значения вида `${VAR}` без литералов и дефолтов,
 а список переменных совпадает с ключами compose один в один.
+Детали сборки, контекста и секретов — в [`sec.md`](sec.md).
 
 Тесты и сборка остаются на хосте (`mvn test`): тесты поднимают собственную
 конфигурацию из `src/test/resources/application.properties` и в Docker не ходят.

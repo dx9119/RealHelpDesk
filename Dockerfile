@@ -36,19 +36,17 @@ RUN groupadd -r spring-group && \
 
 # Директория для SSL: keystore.p12 появляется здесь при старте контейнера,
 # если свой файл не смонтирован volume (см. docker/entrypoint.sh)
-RUN mkdir -p /app/ssl
+RUN mkdir -p /app/ssl && chown spring-user:spring-group /app /app/ssl
 
 # Точка входа: поднимает keystore (пароль берёт из окружения, не из сборки)
-# и запускает приложение
-COPY docker/entrypoint.sh /app/entrypoint.sh
+# и запускает приложение. --chown/--chmod задаются здесь же, чтобы не делать
+# отдельный слой chown -R: он повторял бы содержимое app.jar (+73 МБ).
+COPY --chown=spring-user:spring-group --chmod=755 docker/entrypoint.sh /app/entrypoint.sh
 
 # Файл приложения: java -jar app.jar запускает жирный jar
 # (слои Spring Boot при таком запуске не используются, поэтому этап
 # извлечения слоёв не нужен — он оставлял в образе app.jsa/app.jar)
-COPY --from=build /app/app.jar app.jar
-
-# Даём права пользователю spring-user на всё нужное
-RUN chmod +x /app/entrypoint.sh && chown -R spring-user:spring-group /app
+COPY --from=build --chown=spring-user:spring-group /app/app.jar app.jar
 
 # Переключаемся на непривилегированного пользователя
 USER spring-user

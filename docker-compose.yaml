@@ -1,7 +1,7 @@
 # Единственное место со значениями конфигурации приложения.
 #
 # src/main/resources/application.properties — только схема (обязательные ${VAR}
-# без дефолтов); тест EmailPropertiesTest сверяет схему и services.app.environment
+# без дефолтов); тест ApplicationConfigSchemaTest сверяет схему и services.app.environment
 # один в один. Секреты берутся из .env (см. .env.example) и подставляются
 # через ${VAR:?...} — отсутствующий или пустой секрет валит compose на старте.
 
@@ -99,9 +99,14 @@ services:
       RATE_LIMIT_EMAIL_RECOVERY_REQUESTS: 3
       RATE_LIMIT_EMAIL_RECOVERY_WINDOW_SECONDS: 86400
 
+    # Ждём именно готовность postgres (не просто «контейнер запущен»),
+    # иначе Hibernate может успеть упасть до старта СУБД, а restart: on-failure:2
+    # даст приложению только две попытки.
     depends_on:
-      - postgres
-      - smtp
+      postgres:
+        condition: service_healthy
+      smtp:
+        condition: service_started
     restart: on-failure:2
 
   postgres:
@@ -111,6 +116,12 @@ services:
       POSTGRES_USER: *database-user
       POSTGRES_PASSWORD: "${DB_PASSWORD:?DB_PASSWORD is required - copy .env.example to .env}"
       POSTGRES_DB: *database-name
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
     ports:
       - "127.0.0.1:5432:5432"
     volumes:

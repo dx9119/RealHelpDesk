@@ -21,16 +21,21 @@
 | **Секреты** | пароли и ключи | `.env` (шаблон — `.env.example`) | **нет** (`.gitignore`) |
 
 Второй и третий слой подставляются в контейнер как переменные окружения.
-Тест `EmailPropertiesTest` не даёт слоям разойтись:
+Тест `ApplicationConfigSchemaTest` не даёт слоям разойтись:
 
 - значения в `application.properties` обязаны быть ровно `${VAR}` — без
   дефолта после `:` и без литерала до/после;
 - список переменных схемы обязан совпадать со списком ключей
-  `services.app.environment` **один в один** (сейчас 50/50).
+  `services.app.environment` **один в один** (сверяется в тесте, а не вручную).
 
 Если добавить ключ в `application.properties` и забыть про compose —
 упадёт `mvn test`. Если добавить значение в compose и забыть про схему —
 упадёт там же.
+
+Тест читает файл напрямую по пути `src/main/resources/application.properties`,
+а не с classpath. Поэтому на результат не влияет
+`src/test/resources/application.properties`, который перекрывает продовую
+конфигурацию в тестовом класслоаде.
 
 ---
 
@@ -55,33 +60,74 @@
 **Стадия `runtime`** (`eclipse-temurin:21-jre`, только JRE):
 
 1. Пользователь `spring-user` — контейнер работает **не от root**.
-2. `mkdir /app/ssl` — сюда при старте ляжет keystore.
-3. `COPY docker/entrypoint.sh` + `chmod +x`.
-4. `COPY --from=build app.jar` — слои сборочной стадии в образ не
+2. `mkdir /app/ssl` + `chown` — сюда при старте ляжет keystore.
+3. `COPY --chown --chmod docker/entrypoint.sh`.
+4. `COPY --from=build --chown ... app.jar` — слои сборочной стадии в образ не
    переносятся, `target/` в runtime-образе отсутствует.
-5. `chown -R spring-user:spring-group /app`.
-6. `ENV JAVA_*` — флаги JVM (память, GC-лог, JFR, JMX, heap dump при OOM).
+   Права задаются здесь же: отдельный `chown -R /app` после `COPY` создавал
+   слой **73.3 МБ** — полную копию jar только ради смены владельца.
+5. `ENV JAVA_*` — флаги JVM (память, GC-лог, JFR, JMX, heap dump при OOM).
    Это конфигурация JVM, она живёт в образе и переопределяется
-   переменными окружения.
-7. `EXPOSE 8443`, `ENTRYPOINT ["/app/entrypoint.sh"]`.
+   переменными окружения. Часть из них пишет в `/tmp` — см. §7.
+6. `EXPOSE 8443`, `ENTRYPOINT ["/app/entrypoint.sh"]`.
 
 ### 2.2. Чего в образе нет
 
 | | Почему |
 |---|---|
-| `.env` и все 4 секрета | в контекст сборки он не копируется, а в Dockerfile не упоминается |
-| `keystore.p12` и `KEY_STORE_PASS` | генерируется при старте контейнера, см. §4 |
+| `.env` и все 4 секрета | отсекается `.dockerignore` ещё до отправки контекста в daemon, а в Dockerfile не упоминается |
+| `keystore.p12` и `KEY_STORE_PASS` | генерируется при старте контейнера, см. §4.3 |
 | Значения конфигурации | они в `docker-compose.yaml`, а не в jar |
 | Исходники, `target/`, тесты | только в стадии `build`, в runtime не переносятся |
 
-Проверяется так:
+Как это проверяется на самом деле:
 
 ```bash
-docker history --no-trunc realhelpdesk:latest | grep -iE "keytool|storepass"
-# пусто
+# 1. Docker предупреждает, если ARG/ENV несёт чувствительное значение:
+#    "SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data".
+#    Предупреждения нет — сборка секретов не касается.
+docker build --no-cache . 2>&1 | grep -i SecretsUsedInArgOrEnv    # пусто
+
+# 2. Имена секретов не должны встречаться ни в одной инструкции сборки.
+#    (Значения build-arg'ов BuildKit раскрывает в истории: там видно
+#     и "ARG SECRET=...", и "RUN |1 SECRET=... keytool ...".)
+docker history --no-trunc realhelpdesk:latest \
+  | grep -iE "JWT_SECRET|DB_PASSWORD|KEY_STORE_PASS|storepass"     # пусто
+
+# 3. Переменные окружения итогового образа — только конфиг, без секретов.
+docker inspect realhelpdesk:latest \
+  --format '{{range .Config.Env}}{{println .}}{{end}}'
+
+# 4. Файловая система контейнера: нет ни .env, ни *.p12.
+docker run --rm --entrypoint sh realhelpdesk:latest \
+  -c 'find / -xdev \( -name ".env" -o -name "*.p12" \) -not -path "/proc/*"'
+
+# 5. Скан образа на секреты (trivy умеет ищущие правила).
+trivy image --scanners secret realhelpdesk:latest
 ```
 
-### 2.3. `docker build` против `docker compose build`
+Раньше здесь была одна команда
+`docker history --no-trunc | grep -iE "keytool|storepass"`. Сейчас она
+**ничего не доказывает**: `keytool` переехал в `entrypoint.sh`, то есть в
+сборке его команд больше нет вовсе, а про `JWT_SECRET`, `DB_PASSWORD` и
+`MAIL_PASSWORD` она ничего не спрашивает.
+
+### 2.3. Контекст сборки и `.dockerignore`
+
+`Dockerfile` копирует только `pom.xml`, `src/`, `config/` и `docker/`, но
+daemon получает **всю рабочую директорию** целиком. Без `.dockerignore` в
+контекст вместе с кодом уходят `.env`, `target/`, `.git/` и `*.p12` — файлы
+не попадают в слои образа, но уезжают по сети на демон и оседают в его
+кэше.
+
+`.dockerignore` отсекает: `.env`, `.env.*`, `*.p12`, `*.key`, `*.pem`,
+`*.jks`, `ssl/`, `target/`, `.git/`, `docs/`, `scripts/`, `*.md`, `*.log`.
+
+Проверка: `docker build` не должен ругаться на отсутствующие
+`src`/`pom.xml`/`docker`, а `find /` в контейнере из §2.2 — ничего не
+находить.
+
+### 2.4. `docker build` против `docker compose build`
 
 Это разные вещи, и разница важна:
 
@@ -94,7 +140,7 @@ docker history --no-trunc realhelpdesk:latest | grep -iE "keytool|storepass"
 `services.app.environment` контейнера, в слои образа он не попадает.
 Это fail-fast: без заполненного `.env` не работает ни одна команда compose.
 
-### 2.4. Сборка и проверки на хосте
+### 2.5. Сборка и проверки на хосте
 
 ```bash
 mvn test      # unit- и слайс-тесты (@DataJpaTest) + Spotless + Checkstyle
@@ -118,7 +164,7 @@ mvn verify    # то же плюс интеграционные *IT (maven-fails
         ├─► docker compose интерполирует  ─► environment контейнера
 docker-compose.yaml ─┘                              │
                                                     ▼
-                              JVM: переменная окружения
+                               JVM: переменная окружения
                                                     │
                                                     ▼
         application.properties:  spring.mail.host=${MAIL_HOST}
@@ -144,7 +190,7 @@ Spring резолвит их из окружения контейнера. Ес�
 | Любой секрет | `.env` | `docker compose up -d` |
 | Новый ключ конфига | сначала `application.properties`, потом `docker-compose.yaml` | `mvn test` (сверка) |
 | Тексты и темы писем | `src/main/resources/messages.properties` | пересборка (файл внутри jar) |
-| Уровни логгирования | `application-debug.properties` / `application-prod.properties` | пересборка |
+| Уровни логирования | `application-debug.properties` / `application-prod.properties` | пересборка |
 | Флаги JVM | `Dockerfile` → `ENV JAVA_*` | пересборка |
 
 Пересборка образа не нужна почти никогда: значения приходят в контейнер
@@ -153,7 +199,7 @@ Spring резолвит их из окружения контейнера. Ес�
 
 ### 3.3. Профили
 
-Два профиля — `debug` и `prod`. Они влияют **только на уровни логгирования**
+Два профиля — `debug` и `prod`. Они влияют **только на уровни логирования**
 (файлы `application-debug.properties`, `application-prod.properties`);
 всё остальное живёт в compose.
 
@@ -196,19 +242,27 @@ JWT_SECRET: "${JWT_SECRET:?JWT_SECRET is required - copy .env.example to .env}"
 MAIL_PASSWORD: "${MAIL_PASSWORD-}"
 ```
 
-- `${VAR:?сообщение}` — Compose **падает сразу**, если переменной нет или она
-  пустая. Проверяется до запуска контейнера.
-- `${VAR-}` — падает только если переменной нет вовсе; пустое значение
-  пропускается (нужно для `MAIL_PASSWORD`).
+Синтаксис надо знать точно, иначе из него следует не то, что кажется:
 
-Ни одного дефолта нет: секрет либо пришёл из `.env`, либо запуск не состоялся.
+- `${VAR:?сообщение}` — Compose **падает сразу**, если переменной нет
+  **или она пустая**. Пустая строка тоже ошибка.
+- `${VAR-}` — подставляется **всегда**: переменная не задана → пустая строка,
+  задана (даже пустая) → её значение. **Ни при каких условиях не падает.**
+
+У `MAIL_PASSWORD` этим синтаксисом задан явный пустой дефолт — это
+единственное исключение в проекте. `${VAR:?}` здесь неприменим: он уронил бы
+запуск на пустом пароле, а smtp4dev аутентификацию не требует. Остальные три
+секрета обязаны прийти из `.env`, иначе запуск не состоялся.
 
 ### 4.3. Keystore и его пароль
 
-Keystore **не создаётся при сборке**. Раньше `KEY_STORE_PASS` был build-arg,
+Keystore **не создаётся при сборке**. Раньше `KEY_STORE_PASS` был build-arg:
 Docker подставляет build-arg в `RUN` ещё на этапе парсинга инструкций, и
-реальный пароль оседал в слоях образа — его видно в
-`docker history --no-trunc`. Это документированное предупреждение Docker.
+реальный пароль оседал в слоях образа. BuildKit дополнительно предупреждает
+об этом строкой
+`SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data`,
+а значение остаётся и в `docker history --no-trunc` — видно и
+`ARG SECRET=...`, и `RUN |1 SECRET=... keytool ...`.
 
 Сейчас генерация выполняется в `docker/entrypoint.sh` при старте контейнера:
 
@@ -219,7 +273,19 @@ Docker подставляет build-arg в `RUN` ещё на этапе парс
 3. Без `KEY_STORE_PASS` контейнер падает с внятной ошибкой.
 4. Дальше `exec java ...` — флаги JVM совпадают с прежними байт в байт.
 
-Смена `KEY_STORE_PASS` требует только `docker compose up -d`, без пересборки.
+Два следствия, которые легко пропустить:
+
+- **Смонтированный keystore несёт собственный пароль.** Менять
+  `KEY_STORE_PASS` в `.env` бессмысленно — сверяется пароль самого файла.
+  Несовпадение валит старт Tomcat.
+- **Самоподписанный сертификат пересоздаётся вместе с контейнером.**
+  Всё содержимое `/app/ssl` живёт в слое контейнера, поэтому
+  `docker compose up -d --force-recreate` (и любое пересоздание) даёт новый
+  сертификат с новым отпечатком. Клиенты, прижавшие отпечаток, начнут
+  ругаться. Для стабильности нужно монтировать keystore volume'ом.
+
+Смена `KEY_STORE_PASS` для сгенерированного keystore требует пересоздания
+контейнера (`docker compose up -d`), без пересборки образа.
 
 ### 4.4. Ротация
 
@@ -228,7 +294,7 @@ Docker подставляет build-arg в `RUN` ещё на этапе парс
 openssl rand -base64 32        # → .env → JWT_SECRET
 docker compose up -d
 
-# пароль PostgreSQL: сменить в БД, затем в .env → DB_PASSWORD
+# пароль PostgreSQL: сначала в БД, потом в .env → DB_PASSWORD
 docker compose up -d
 
 # пароль SMTP
@@ -238,7 +304,17 @@ docker compose up -d
 docker compose up -d
 ```
 
-Ни одна ротация не требует пересборки образа.
+Ни одна ротация не требует пересборки образа, но у каждой есть цена:
+
+- **`JWT_SECRET` инвалидирует все выданные токены.** После пересоздания
+  контейнера каждый клиент получит 401 и перелогинится. Это массовый
+  разлогин, а не «бесшовное обновление». Дежурный обход — выдавать новый
+  ключ с `kid` и держать старый в наборе на время жизни токенов; сейчас
+  этого нет, поэтому планируйте ротацию на «тихое» окно.
+- **`DB_PASSWORD`: порядок важен.** Сначала `ALTER ROLE ... PASSWORD` в БД,
+  потом `.env`. В обратном порядке приложение упадёт на первом же запросе.
+- **`KEY_STORE_PASS`:** см. §4.3 — для смонтированного keystore `.env`
+  вообще ни при чём.
 
 ### 4.5. Ограничение, о котором надо знать
 
@@ -256,12 +332,46 @@ docker inspect realhelpdesk --format '{{range .Config.Env}}{{println .}}{{end}}'
 |---|---|---|
 | Локально | `.env`, gitignore, права 600 | всегда |
 | Один хост, доверенные админы | текущая схема | **текущий случай** |
-| Swarm / Compose | `secrets:` — файл в контейнере, Spring читает `file:/run/secrets/...` | когда `docker inspect` виден лишним |
-| Кластер | Kubernetes Secrets / Vault / SOPS + age | прод с ротацией и аудитом |
+| Compose `secrets:` + Spring `configtree:` | секрет — файл, а не переменная окружения | когда `docker inspect` виден лишним |
+| Kubernetes Secrets / Vault / SOPS + age | прод с ротацией и аудитом | кластер |
 
-Переход на `secrets:` — это замена `environment:` на `secrets:` в compose и
-переход свойств Spring на чтение из файла; схема `application.properties`
-при этом не меняется.
+`secrets:` — дешёвый и почти бесплатный шаг, потому что Spring умеет
+читать такой файл **без изменения схемы**. По документации Spring Boot,
+в `configtree:` *имя файла становится ключом, а содержимое — значением*
+(https://docs.spring.io/spring-boot/reference/features/external-config.html#features.external-config.files.configtree).
+Файл `DB_PASS` с содержимым `secret` даёт свойство `DB_PASS`, а в схеме уже
+лежит `${DB_PASS}` — править `application.properties` не нужно.
+
+Как это выглядело бы:
+
+```yaml
+services:
+  app:
+    secrets: [DB_PASS, JWT_SECRET, KEY_STORE_PASS]   # вместо этих ключей в environment
+    environment:
+      SPRING_CONFIG_IMPORT: "optional:configtree:/run/secrets/"
+      MAIL_PASSWORD: "${MAIL_PASSWORD-}"             # остаётся, ей нужен пустой дефолт
+
+secrets:
+  DB_PASS:        { environment: DB_PASSWORD }
+  JWT_SECRET:     { environment: JWT_SECRET }
+  KEY_STORE_PASS: { environment: KEY_STORE_PASS }
+```
+
+Что это меняет и что придётся поправить:
+
+- секреты перестают попадать в `docker inspect ... Config.Env`, но в
+  обычном `docker compose` (не Swarm) они всё равно пишутся во временные
+  файлы на хосте и монтируются в контейнер — на хосте они никуда не деваются;
+- `SPRING_CONFIG_IMPORT` добавит в `services.app.environment` лишний ключ,
+  которого нет в схеме, — тест `ApplicationConfigSchemaTest` (сверка
+  «схема ↔ environment») упадёт и его придётся поправить: сравнивать
+  `environment` + `secrets` либо завести список служебных ключей-исключений;
+- `DB_PASSWORD` нужен и самой PostgreSQL — этот ключ остаётся
+  в `environment` сервиса `postgres`, как и сейчас.
+
+Поэтому переход — не «всего лишь замена секции», а правка compose **и**
+теста. Ровно по этой причине переход пока не сделан.
 
 ### 4.6. Что запрещено
 
@@ -271,7 +381,8 @@ docker inspect realhelpdesk --format '{{range .Config.Env}}{{println .}}{{end}}'
 - `ARG`/`ENV` со значением секрета в `Dockerfile`;
 - дефолт секрета (`${JWT_SECRET:какой-то-текст}`) — это скрытый пароль
   в репозитории;
-- `*.p12`, `*.key`, `*.pem`, `ssl/` в git — отсекает `.gitignore`.
+- `*.p12`, `*.key`, `*.pem`, `ssl/` в git — отсекает `.gitignore`;
+- `.env`, `*.p12` и т. п. в контексте сборки — отсекает `.dockerignore`.
 
 ---
 
@@ -293,8 +404,16 @@ docker compose up --build -d
 | `postgres` | `postgres:15` | `127.0.0.1:5432` |
 | `smtp` | `rnwood/smtp4dev` | `127.0.0.1:25`, `3000` (веб) |
 
-PostgreSQL и SMTP слушают только `localhost`. Данные БД — в томологии
-`postgres_data`. Политика перезапуска — `on-failure:2`.
+PostgreSQL и SMTP слушают только `localhost`. Данные БД — в томе
+`postgres_data`.
+
+Готовность: у `postgres` есть `healthcheck` (`pg_isready`), и `app` ждёт
+`condition: service_healthy`, а не просто «контейнер запущен». Без этого
+Hibernate мог успеть упасть до старта СУБД, а `restart: on-failure:2` давал
+приложению только две попытки.
+
+Политика перезапуска у всех сервисов — `on-failure:2`: две попытки, дальше
+контейнер остаётся остановленным. См. §7.
 
 ---
 
@@ -307,5 +426,76 @@ PostgreSQL и SMTP слушают только `localhost`. Данные БД �
 - [ ] Секрет — только в `.env`, в compose подставлен через `${VAR:?}`.
 - [ ] Ничего нового не появилось в `Dockerfile` вида `ARG`/`ENV` со
       значением.
+- [ ] Новые типы файлов (ключи, `.env`, логи) отражены в `.dockerignore`.
+- [ ] Образ чист: `docker history --no-trunc | grep -iE
+      "JWT_SECRET|DB_PASSWORD|KEY_STORE_PASS|storepass"` пуст,
+      `trivy image --scanners secret` без находок.
 - [ ] Изменение сконфигурировано без пересборки (или в README явно
       сказано, почему нужна пересборка).
+
+---
+
+## 7. Что явно не решено
+
+Ограничения текущей схемы, которые надо держать в голове. Ни одно из них
+не критично для доверенного одиночного хоста, но знать о них нужно.
+
+### 7.1. JVM пишет артефакты в `/tmp` контейнера
+
+| Файл | Откуда | Ограничение в образе |
+|---|---|---|
+| `/tmp/<pid>.hprof` | `-XX:+HeapDumpOnOutOfMemoryError` | нет |
+| `/tmp/<имя>.jfr` | `-XX:StartFlightRecording` | `maxsize=10g`, `maxage=24h` |
+| `/tmp/java_error.log` | `-XX:ErrorFile` | нет |
+| `/tmp/gc.log*` | `-Xlog:gc*` | `filesize=100M`, `filecount=10` |
+
+Эти файлы лежат в слое контейнера, их видит любой, у кого есть
+`docker exec` или доступ к данным хоста. **Heap dump — это снимок памяти,
+включая значения секретов, оказавшихся в куче.** JFR может дорасти до
+10 ГБ в `/tmp`, где лежит и GC-лог.
+
+Что сделать: в прод вынести `/tmp` в volume с квотой, отключить
+`JAVA_JFR_OPTS` и/или `JAVA_HEAP_DUMP_OPTS`, либо ужать `maxsize`.
+
+### 7.2. JMX без аутентификации
+
+`JAVA_JMX_OPTS` включает `jmxremote.authenticate=false`,
+`jmxremote.ssl=false`, порт 5005, `java.rmi.server.hostname=127.0.0.1`.
+Порт **не** объявлен в `EXPOSE` и **не** опубликован в `ports:`, то есть с
+хоста он недоступен. Но внутри контейнерной сети к нему может подключиться
+любой соседний контейнер, а аутентификации нет.
+
+Что сделать: в прод выставить `JAVA_JMX_OPTS=""` или включить
+аутентификацию/SSL.
+
+### 7.3. Нет healthcheck у `app`
+
+`postgres` проверяется через `pg_isready`, у `app` healthcheck не описан —
+`docker compose ps` и внешние мониторы не отличат живой процесс от зависшего.
+
+### 7.4. `restart: on-failure:2`
+
+Две попытки, дальше контейнер лежит остановленным. Сейчас это безопаснее
+раньше, потому что гонка «app стартует раньше postgres» устранена
+`condition: service_healthy`. Но если нужна самовосстановляемость —
+менять на `unless-stopped`.
+
+### 7.5. Образы по тегу, не по digest
+
+`maven:3.9.6-eclipse-temurin-21`, `eclipse-temurin:21-jre`, `postgres:15`,
+`rnwood/smtp4dev` — теги могут «уехать» вместе с апстримом. Для прода
+нужен pin по digest + Renovate/Dependabot.
+
+### 7.6. Сборка: кэш Maven и слои jar
+
+`mvn dependency:go-offline` не использует BuildKit cache-mount, а jar
+собирается жирным (в Dockerfile это задумано: при запуске через `java -jar`
+слои Spring Boot не используются, поэтому `-Djarmode=tools extract` и не
+нужен — команда `extract` в Boot 4.1.1 подтверждена). Это вопрос
+**скорости сборки**, не безопасности.
+
+### 7.7. Терминация TLS в приложении
+
+Сейчас HTTPS поднимает сам Tomcat. Прод-альтернативы: Spring SSL bundles
+(PEM-файлы, без keytool) или терминация на reverse proxy с отключением
+HTTPS в приложении.
