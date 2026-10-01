@@ -2,7 +2,7 @@
 
 **RealHelpDesk API** — это REST API для построения системы управления заявками или внутренней системы обработки запросов.
 
-На данный момент реализован MVP (Minimum Viable Product):
+Реализован MVP (Minimum Viable Product):
 - Регистрация, аутентификация, авторизация, верификация email пользователя, восстановление пароля.
 - Создание порталов - точки в рамках которых формируется тематика заявок.
 - Создание заявок в рамках портала.
@@ -25,7 +25,7 @@
 - Устанавливает аутентификацию в `SecurityContextHolder` (роль берётся из БД).
 - Помечает ошибки токена (истёкший токен, некорректный формат и т.д.) через доп. заголовки.
 
-Refresh-токен в БД хранится в виде SHA-256 хеша; выдаётся клиенту в http-only cookie с `path=/api/v1/auth`. При каждом входе refresh-токен ротируется. Настройка `jwt.cookie.same-site` (`JWT_COOKIE_SAMESITE` в `docker/app.env`) — см. `docs/jwt-audit.md`.
+Refresh-токен в БД хранится в виде SHA-256 хеша; выдаётся клиенту в http-only cookie с `path=/api/v1/auth`. При каждом входе и регистрации выдаётся свежий refresh, а все ранее активные refresh-токены пользователя переводятся в `REVOKED` — старый перестаёт работать сразу. Настройка `jwt.cookie.same-site` (`JWT_COOKIE_SAMESITE` в `docker/app.env`) — см. `docs/jwt-audit.md`.
 
 ## Структура проекта
 
@@ -35,34 +35,43 @@ Refresh-токен в БД хранится в виде SHA-256 хеша; выд
 
 ## Конфигурация
 
-Конфигурация разложена по смыслу, значений по умолчанию в коде нет:
+Конфигурация разложена по смыслу: значения — в трёх файлах,
+`application.properties` — схема без дефолтов.
 
 | Файл | Что в нём |
 |---|---|
 | `src/main/resources/application.properties` | Только схема: обязательные `${VAR}` без дефолтов, ни одного значения |
 | `docker/app.env` | Продукт: рейт-лимиты, капча, сроки токенов, брендинг, адреса писем |
-| `docker-compose.yaml` → `services.app.environment` | Окружение: порты, хосты, профиль, ресурсы, JVM — и секреты через `${VAR:?}` |
+| `docker-compose.yaml` → `services.app.environment` | Окружение: порты, хосты, профиль, ресурсы, JVM — и секреты через `${VAR:?}` (пустой `MAIL_PASSWORD` допустим) |
 | `.env` (см. `.env.example`) | Только секреты: `JWT_SECRET`, `DB_PASSWORD`, `MAIL_PASSWORD`, `KEY_STORE_PASS` |
 
 Отсутствующая переменная валит приложение на старте с
 `Could not resolve placeholder '<VAR>'`, отсутствующий или пустой
 обязательный секрет (`JWT_SECRET`, `DB_PASSWORD`, `KEY_STORE_PASS`) —
-`docker compose` ещё до запуска. `MAIL_PASSWORD` пустым быть может.
-Проект рассчитан на работу **только внутри Docker-контейнера**: без
-переменных окружения локальный `java -jar` не поднимется.
+`docker compose` ещё до запуска. `MAIL_PASSWORD` пустым быть может:
+smtp4dev работает без аутентификации. Проект рассчитан на работу
+**только внутри Docker-контейнера**: без переменных окружения локальный
+`java -jar` не поднимется.
+
+Единственный дефолт в коде — `:None` у `jwt.cookie.same-site` в `AuthController`.
+Настройка в `application.properties` обязательна (`${JWT_COOKIE_SAMESITE}`),
+фолбэк не используется.
 
 Схему и оба места со значениями (`services.app.environment` + `docker/app.env`)
 держит в согласии тест `ApplicationConfigSchemaTest`: значения вида `${VAR}`
-без литералов и дефолтов, списки переменных совпадают один в один, а один
-ключ не может быть задан в обоих файлах.
-Детали сборки, контекста и секретов — в [`sec.md`](sec.md).
-
-Тесты и сборка остаются на хосте (`mvn test`): тесты поднимают собственную
-конфигурацию из `src/test/resources/application.properties` и в Docker не ходят.
+без литералов, списки переменных совпадают один в один, а один ключ не может
+быть задан в обоих файлах. Детали сборки, контекста и секретов — в
+[`sec.md`](sec.md).
 
 ## Запуск проекта
-1. `cp .env.example .env` и заполните секреты: `JWT_SECRET` (`openssl rand -base64 32`), `DB_PASSWORD`, `MAIL_PASSWORD` и `KEY_STORE_PASS`. Без них compose не стартует.
+1. `cp .env.example .env` и заполните секреты: `JWT_SECRET` (`openssl rand -base64 32`),
+   `DB_PASSWORD` и `KEY_STORE_PASS` — без них `docker compose` не стартует.
+   `MAIL_PASSWORD` может остаться пустым (smtp4dev без аутентификации);
+   в `.env.example` для `KEY_STORE_PASS` задано демо-значение.
 2. `docker compose up --build -d`
+
+> **Внимание.** Рестарт контейнера `app` уничтожает данные: пользователей,
+> порталы, заявки и токены (`JPA_DDL_AUTO=create-drop`).
 
 Всё остальное правится в `docker/app.env` (капча, рейт-лимиты, сроки,
 адреса писем), в `docker-compose.yaml` → `services.app.environment`
@@ -75,17 +84,17 @@ PostgreSQL (`5432`) и SMTP (`25`) слушают только `127.0.0.1`; API 
 Самоподписанный `keystore.p12` создаётся **при старте контейнера**
 (`docker/entrypoint.sh`), а не при сборке: пароль не попадает в слои образа
 и в `docker history`, смена `KEY_STORE_PASS` требует только
-`docker compose up -d`, а сборка образа от секрета не зависит вовсе.
+`docker compose up -d`, а сборка образа от секрета не зависит.
 Файлы `*.p12` в репозиторий не попадают.
 
 Для продакшна смонтируйте свой файл в `/app/ssl/keystore.p12` (volume) —
-генерация в этом случае пропускается. `KEY_STORE_PASS` нужен всё равно:
+генерация в этом случае пропускается. `KEY_STORE_PASS` обязателен:
 Tomcat открывает PKCS12 этим паролем.
 
 ## Профили
 
-Два профиля: `debug` и `prod`. Переменная `SPRING_PROFILES_ACTIVE` обязательна —
-значения по умолчанию в `application.properties` больше нет. Локальный
+Два профиля: `debug` и `prod`. Переменная `SPRING_PROFILES_ACTIVE` обязательна:
+в `application.properties` нет значения по умолчанию. Локальный
 `docker compose` задаёт `debug` в `services.app.environment`.
 
 | Профиль | Логи |
@@ -100,12 +109,19 @@ SPRING_PROFILES_ACTIVE: prod
 
 В `prod` остаются бизнес-события, отказы входа, превышение лимитов и ошибки. Тело запроса, код восстановления пароля, значение токена и query-string в лог не попадают.
 
-## Регистрация если капча включена (в docker/app.env по умолчанию отключена)
-Если капча отключена (`CAPTCHA_ENABLED=false` в `docker/app.env`), поля `capCode` и параметр `capId` в запросе не нужны.
-1. В Postman отправляем запрос на получение капчи (capId это ID посетителя, генерируем руками или на фронте):
-https://example.com:8443/api/v1/captcha?capId=abc123xyz9
+## Регистрация
+
+По умолчанию капча выключена (`CAPTCHA_ENABLED=false` в `docker/app.env`) —
+тогда поля `capCode` и параметр `capId` не нужны: отправляйте
+`POST /api/v1/auth/register` сразу с телом из `firstName`, `lastName`,
+`email` и `password`.
+
+Если капча включена:
+
+1. В Postman отправляем запрос на получение капчи (capId — ID посетителя, генерируем руками или на фронте):
+https://localhost:8443/api/v1/captcha?capId=abc123xyz9
 2. Смотрим картинку с кодом капчи, указываем его в теле (поле capCode) в запросе на регистрацию:
-https://example.com:8443/api/v1/auth/register?capId=abc123xyz9
+https://localhost:8443/api/v1/auth/register?capId=abc123xyz9
 ```
 {
   "firstName": "Иван",
@@ -115,8 +131,8 @@ https://example.com:8443/api/v1/auth/register?capId=abc123xyz9
   "capCode": "356dd"
 }
 ```
-3. После регистрации будет получен jwt токен, Postman его запомнит сам.
-4. Profit!
+3. После регистрации сервер отвечает `201` и ставит cookies `accessToken` и `refreshToken`
+   (тела ответа нет) — Postman запомнит их сам.
 
 ## Рейт-лимиты
 
@@ -133,15 +149,29 @@ https://example.com:8443/api/v1/auth/register?capId=abc123xyz9
 | `POST /api/v1/email/codes` | `email-code` | 3 за 10 мин |
 | письма восстановления пароля (лимит на адрес) | `email-recovery` | 3 за 24 часа |
 
-Пороги заданы в `docker/app.env`: `RATE_LIMIT_<KEY>_REQUESTS` — число запросов, `RATE_LIMIT_<KEY>_WINDOW_SECONDS` — окно в секундах. В `.env` их больше нет — продукт лежит в `docker/app.env`, окружение в `docker-compose.yaml` (sec.md §1).
+Пороги заданы в `docker/app.env`: `RATE_LIMIT_<KEY>_REQUESTS` — число запросов, `RATE_LIMIT_<KEY>_WINDOW_SECONDS` — окно в секундах. `.env` содержит только секреты; продукт — в `docker/app.env`, окружение — в `docker-compose.yaml` (sec.md §1).
 
-Новый лимит — аннотация `@RateLimit(key = "...")` на методе контроллера плюс два порога в `docker/app.env` под тем же ключом, переведённым в верхний регистр через подчёркивание (`auth-register` → `RATE_LIMIT_AUTH_REGISTER_REQUESTS` и `RATE_LIMIT_AUTH_REGISTER_WINDOW_SECONDS`). Без порогов в конфиге запрос упадет с 500 и сообщением об отсутствующем ключе. Счетчики хранятся в памяти приложения и сбрасываются при рестарте.
+Новый лимит — аннотация `@RateLimit(key = "...")` на методе контроллера плюс два порога в `docker/app.env` под тем же ключом, переведённым в верхний регистр через подчёркивание (`auth-register` → `RATE_LIMIT_AUTH_REGISTER_REQUESTS` и `RATE_LIMIT_AUTH_REGISTER_WINDOW_SECONDS`). Без порогов в конфиге запрос упадает с 500: текст
+`Rate limit не задан в конфиге: ratelimit.limits.<key>` уходит в лог
+приложения, тело ответа — generic «Операция завершилась неудачей».
+Счетчики хранятся в памяти приложения и сбрасываются при рестарте.
 
 За прокси (nginx и т.п.) задайте `TRUST_PROXY_HEADERS: "true"` в `docker-compose.yaml`, иначе все пользователи будут считаться одним IP самого прокси. Без прокси держите `false` — иначе заголовок `X-Forwarded-For` можно подделать и обойти лимит.
 
-## Тестирование
+## Тесты и проверки
 
-- `postman_collection.json` - Коллекция для импорта в Postman.
+Тесты гоняются **на хосте, без Docker**: они поднимают собственную
+конфигурацию из `src/test/resources/application.properties`, которая
+перекрывает продовую схему в classpath.
+
+| Команда | Что делает |
+|---|---|
+| `mvn test` | юнит-тесты и срезы (`@DataJpaTest` на встроенной H2), 254, включая парность-тест `ApplicationConfigSchemaTest` |
+| `mvn verify` | то же + интеграционные `*IT` через failsafe (17): письма через GreenMail, репозитории на H2 |
+| `mvn spotless:apply` | форматирование; `spotless:check` и `checkstyle` (`config/checkstyle/checkstyle.xml`) висят на фазе `validate`, поэтому выполняются при любом `mvn test`/`mvn verify` |
+| `postman_collection.json` | коллекция для импорта в Postman |
+
+Запуск e2e-сценариев по живому стеку — в разделе ниже.
 
 ## Скрипты e2e-проверок
 
@@ -164,8 +194,8 @@ bash scripts/e2e-ratelimit.sh
 bash scripts/e2e-jwt-flow.sh
 ```
 
-`e2e-ratelimit.sh` исчерпывает лимиты на 5–10 минут: при повторном
-запуске до истечения окна он попросит перезапустить приложение
+`e2e-ratelimit.sh` исчерпывает лимиты на 5–10 минут: при повторном запуске
+до истечения окна он попросит перезапустить приложение
 (`docker compose restart app`). `e2e-jwt-flow.sh` после нескольких запусков
 упирается в лимит `users/password-resets` (3 / 10 мин) и также порекомендует
 перезапуск. Все скрипты создают тестовых пользователей в БД.
