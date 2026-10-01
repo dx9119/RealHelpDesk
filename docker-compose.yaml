@@ -9,17 +9,12 @@
 x-database-url: &database-url "jdbc:postgresql://postgres:5432/desk"
 x-database-user: &database-user "user"
 x-database-name: &database-name "desk"
-# Alias keystore нужен и при сборке (keytool -alias), и при запуске (server.ssl.key-alias).
-x-keystore-alias: &keystore-alias "tomcat"
 
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        KEY_STORE_PASS: "${KEY_STORE_PASS:?KEY_STORE_PASS is required - copy .env.example to .env}"
-        KEY_STORE_ALIAS: *keystore-alias
     image: realhelpdesk:latest
     container_name: realhelpdesk
     ports:
@@ -35,7 +30,9 @@ services:
       SERVER_PORT: 8443
       KEY_STORE_PATH: "file:ssl/keystore.p12"
       KEY_STORE_TYPE: "PKCS12"
-      KEY_STORE_ALIAS: *keystore-alias
+      # Keystore генерируется при старте контейнера (docker/entrypoint.sh),
+      # если свой файл не смонтирован в /app/ssl/keystore.p12.
+      KEY_STORE_ALIAS: "tomcat"
       KEY_STORE_PASS: "${KEY_STORE_PASS:?KEY_STORE_PASS is required - copy .env.example to .env}"
 
       # PostgreSQL

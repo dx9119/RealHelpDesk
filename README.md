@@ -60,13 +60,22 @@ Docker-контейнера**: без переменных окружения л
 1. `cp .env.example .env` и заполните секреты: `JWT_SECRET` (`openssl rand -base64 32`), `DB_PASSWORD`, `MAIL_PASSWORD` и `KEY_STORE_PASS`. Без них compose не стартует.
 2. `docker compose up --build -d`
 
-Всё остальное (порты, почта, капча, рейт-лимиты) правится в
-`docker-compose.yaml` → `services.app.environment` — пересборка не нужна,
-достаточно `docker compose up -d`. Исключение — `KEY_STORE_PASS`: он же
-build-arg, при его смене нужен `docker compose build`.
+Всё остальное (порты, почта, капча, рейт-лимиты, пароли) правится в
+`docker-compose.yaml` → `services.app.environment` или в `.env` — пересборка
+образа не нужна, достаточно `docker compose up -d`.
 PostgreSQL (`5432`) и SMTP (`25`) слушают только `127.0.0.1`; API — `8443`, интерфейс smtp4dev — `3000`.
 
-Сборка создаёт самоподписанный `keystore.p12` (файлы `*.p12` в репозиторий не попадают). Для продакшна замените его, смонтировав свой файл в `/app/ssl/keystore.p12`.
+### HTTPS и keystore
+
+Самоподписанный `keystore.p12` создаётся **при старте контейнера**
+(`docker/entrypoint.sh`), а не при сборке: пароль не попадает в слои образа
+и в `docker history`, смена `KEY_STORE_PASS` требует только
+`docker compose up -d`, а сборка образа от секрета не зависит вовсе.
+Файлы `*.p12` в репозиторий не попадают.
+
+Для продакшна смонтируйте свой файл в `/app/ssl/keystore.p12` (volume) —
+генерация в этом случае пропускается. `KEY_STORE_PASS` нужен всё равно:
+Tomcat открывает PKCS12 этим паролем.
 
 ## Профили
 
