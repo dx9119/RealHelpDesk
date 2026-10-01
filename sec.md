@@ -77,40 +77,50 @@
 |---|---|
 | `.env` и все 4 секрета | отсекается `.dockerignore` ещё до отправки контекста в daemon, а в Dockerfile не упоминается |
 | `keystore.p12` и `KEY_STORE_PASS` | генерируется при старте контейнера, см. §4.3 |
-| Значения конфигурации | они в `docker-compose.yaml`, а не в jar |
+| Значения конфигурации | они в `docker-compose.yaml`, а не в jar. В jar остаются только то, что живёт внутри кода: уровни логинга профилей, тексты писем, сообщения об ошибках — см. §3.2 |
 | Исходники, `target/`, тесты | только в стадии `build`, в runtime не переносятся |
 
 Как это проверяется на самом деле:
 
 ```bash
-# 1. Docker предупреждает, если ARG/ENV несёт чувствительное значение:
-#    "SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data".
-#    Предупреждения нет — сборка секретов не касается.
+# 1. BuildKit ругается на ARG/ENV, чьё ИМЯ содержит целым фрагментом
+#    (по подчёркиванию) KEY, SECRET, TOKEN или PASSWORD. Смотрит только
+#    имя, значение не проверяется:
+#      ARG KEY_STORE_PASS=x  -> предупреждение
+#      ARG MY_KEY=x          -> предупреждение
+#      ARG KEYSTONE=x        -> нет (не целое слово)
+#      ARG FOO=secretpw      -> нет (чувствительное слово только в значении)
+#    В Dockerfile таких имён нет, поэтому предупреждения нет.
 docker build --no-cache . 2>&1 | grep -i SecretsUsedInArgOrEnv    # пусто
 
 # 2. Имена секретов не должны встречаться ни в одной инструкции сборки.
 #    (Значения build-arg'ов BuildKit раскрывает в истории: там видно
 #     и "ARG SECRET=...", и "RUN |1 SECRET=... keytool ...".)
 docker history --no-trunc realhelpdesk:latest \
-  | grep -iE "JWT_SECRET|DB_PASSWORD|KEY_STORE_PASS|storepass"     # пусто
+  | grep -iE "JWT_SECRET|DB_PASSWORD|KEY_STORE_PASS|MAIL_PASSWORD|storepass"  # пусто
 
 # 3. Переменные окружения итогового образа — только конфиг, без секретов.
 docker inspect realhelpdesk:latest \
   --format '{{range .Config.Env}}{{println .}}{{end}}'
 
-# 4. Файловая система контейнера: нет ни .env, ни *.p12.
+# 4. Файловая система контейнера: нет ни .env, ни keystore.
+#    --entrypoint sh отключает entrypoint, то есть keytool не успел
+#    сработать и мы смотрим образ как есть (keystore появится только после
+#    старта обычного контейнера, см. §4.3). 2>/dev/null обязателен:
+#    контейнер работает не от root, и find иначе печатает Permission denied.
 docker run --rm --entrypoint sh realhelpdesk:latest \
-  -c 'find / -xdev \( -name ".env" -o -name "*.p12" \) -not -path "/proc/*"'
+  -c 'find / -xdev \( -name ".env" -o -name "*.p12" \) -not -path "/proc/*" 2>/dev/null'
 
-# 5. Скан образа на секреты (trivy умеет ищущие правила).
+# 5. Скан образа на секреты — по образцу trivy (нужен установленный trivy:
+#    https://trivy.dev/latest/getting-started/installation/).
 trivy image --scanners secret realhelpdesk:latest
 ```
 
 Раньше здесь была одна команда
 `docker history --no-trunc | grep -iE "keytool|storepass"`. Сейчас она
 **ничего не доказывает**: `keytool` переехал в `entrypoint.sh`, то есть в
-сборке его команд больше нет вовсе, а про `JWT_SECRET`, `DB_PASSWORD` и
-`MAIL_PASSWORD` она ничего не спрашивает.
+сборке его команд больше нет вовсе, а про `JWT_SECRET`, `DB_PASSWORD`,
+`KEY_STORE_PASS` и `MAIL_PASSWORD` она ничего не спрашивает.
 
 ### 2.3. Контекст сборки и `.dockerignore`
 
@@ -120,12 +130,14 @@ daemon получает **всю рабочую директорию** цели�
 не попадают в слои образа, но уезжают по сети на демон и оседают в его
 кэше.
 
-`.dockerignore` отсекает: `.env`, `.env.*`, `*.p12`, `*.key`, `*.pem`,
-`*.jks`, `ssl/`, `target/`, `.git/`, `docs/`, `scripts/`, `*.md`, `*.log`.
+`.dockerignore` отсекает от контекста: `.env`, `.env.*`, `*.p12`, `*.key`,
+`*.pem`, `*.jks`, `ssl/`, `target/`, `bin/`, `build/`, `.gradle/`, `.idea/`,
+`*.iml`, `.git/`, `docs/`, `scripts/`, `postman_collection.json`, `*.md`,
+`*.log`.
 
 Проверка: `docker build` не должен ругаться на отсутствующие
-`src`/`pom.xml`/`docker`, а `find /` в контейнере из §2.2 — ничего не
-находить.
+`src`/`pom.xml`/`docker`, а `find /` в контейнере из §2.2 — не должен
+ничего находить.
 
 ### 2.4. `docker build` против `docker compose build`
 
@@ -260,8 +272,9 @@ Keystore **не создаётся при сборке**. Раньше `KEY_STOR
 Docker подставляет build-arg в `RUN` ещё на этапе парсинга инструкций, и
 реальный пароль оседал в слоях образа. BuildKit дополнительно предупреждает
 об этом строкой
-`SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data`,
-а значение остаётся и в `docker history --no-trunc` — видно и
+`SecretsUsedInArgOrEnv: Do not use ARG or ENV instructions for sensitive data`
+(срабатывает по **имени** переменной: `KEY_STORE_PASS` содержит `KEY`), а
+значение остаётся и в `docker history --no-trunc` — видно и
 `ARG SECRET=...`, и `RUN |1 SECRET=... keytool ...`.
 
 Сейчас генерация выполняется в `docker/entrypoint.sh` при старте контейнера:
@@ -270,7 +283,8 @@ Docker подставляет build-arg в `RUN` ещё на этапе парс
    сертификат через `keytool`, пароль берётся из окружения.
 2. Если файл **смонтирован извне** (прод: свой сертификат) — генерация
    пропускается, используется монтированный файл.
-3. Без `KEY_STORE_PASS` контейнер падает с внятной ошибкой.
+3. Без `KEY_STORE_PASS` **или `KEY_STORE_ALIAS`** контейнер падает с внятной
+   ошибкой (`set -eu` и `:?`) — обе переменные обязаны быть в окружении.
 4. Дальше `exec java ...` — флаги JVM совпадают с прежними байт в байт.
 
 Два следствия, которые легко пропустить:
@@ -318,9 +332,11 @@ docker compose up -d
 
 ### 4.5. Ограничение, о котором надо знать
 
-Переменные окружения видны любому, у кого есть доступ к Docker:
+Переменные окружения видны любому, у кого есть доступ к Docker (нужен
+запущенный контейнер, иначе `docker inspect` отвечает «No such object»):
 
 ```bash
+docker compose up -d
 docker inspect realhelpdesk --format '{{range .Config.Env}}{{println .}}{{end}}'
 ```
 
@@ -424,12 +440,17 @@ Hibernate мог успеть упасть до старта СУБД, а `resta
       проверит).
 - [ ] Значение — литерал в compose, не `${VAR:-дефолт}`.
 - [ ] Секрет — только в `.env`, в compose подставлен через `${VAR:?}`.
-- [ ] Ничего нового не появилось в `Dockerfile` вида `ARG`/`ENV` со
-      значением.
+- [ ] Ничего нового в `Dockerfile` вида `ARG`/`ENV` с чувствительным именем
+      (содержит целым фрагментом `SECRET`, `PASSWORD`, `TOKEN`, `KEY`) —
+      такие BuildKit подсветит предупреждением `SecretsUsedInArgOrEnv`,
+      а значение осядет в `docker history`.
 - [ ] Новые типы файлов (ключи, `.env`, логи) отражены в `.dockerignore`.
 - [ ] Образ чист: `docker history --no-trunc | grep -iE
-      "JWT_SECRET|DB_PASSWORD|KEY_STORE_PASS|storepass"` пуст,
-      `trivy image --scanners secret` без находок.
+      "JWT_SECRET|DB_PASSWORD|KEY_STORE_PASS|MAIL_PASSWORD|storepass"` пуст,
+      `docker inspect <image> --format '{{range .Config.Env}}{{println .}}{{end}}'`
+      без секретов, `find` по `.env`/`*.p12` пуст.
+      `trivy image --scanners secret` без находок — если trivy установлен
+      (отдельная утилита, в образ проекта не входит).
 - [ ] Изменение сконфигурировано без пересборки (или в README явно
       сказано, почему нужна пересборка).
 
@@ -462,8 +483,15 @@ Hibernate мог успеть упасть до старта СУБД, а `resta
 `JAVA_JMX_OPTS` включает `jmxremote.authenticate=false`,
 `jmxremote.ssl=false`, порт 5005, `java.rmi.server.hostname=127.0.0.1`.
 Порт **не** объявлен в `EXPOSE` и **не** опубликован в `ports:`, то есть с
-хоста он недоступен. Но внутри контейнерной сети к нему может подключиться
-любой соседний контейнер, а аутентификации нет.
+хоста он недоступен.
+
+Проверено: в контейнере сокет 5005 реально слушает на **всех** интерфейсах
+(`/proc/net/tcp6` → `:::138D`, состояние LISTEN), а не только на localhost.
+То есть TCP-соединение с ним возможен из любого соседнего контейнера той же
+сети. Аутентификации нет. Полноценная удалённая JMX-сессия при этом обычно
+не состоялась бы: `java.rmi.server.hostname=127.0.0.1` зашивает в stub'ах
+адрес localhost, и клиент подключался бы к собственному 127.0.0.1. Но сам
+открытый порт — это и точка обнаружения, и лишняя поверхность атаки.
 
 Что сделать: в прод выставить `JAVA_JMX_OPTS=""` или включить
 аутентификацию/SSL.
