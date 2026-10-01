@@ -16,20 +16,9 @@ RUN mvn -q package -DskipTests
 # Переименовываем jar (в target лежит ещё *.jar.original)
 RUN cp $(ls target/*.jar | grep -v '\.original$' | head -n 1) app.jar
 
-# Самоподписанный keystore для HTTPS.
-# В репозитории *.p12 не хранится (см. .gitignore), поэтому он генерируется
-# при сборке. Для продакшна положите свой файл в /app/ssl/keystore.p12 (volume).
-# Пароль и alias приходят из docker-compose.yaml (build.args) — дефолтов нет.
-ARG KEY_STORE_PASS
-ARG KEY_STORE_ALIAS
-RUN keytool -genkeypair \
-        -alias ${KEY_STORE_ALIAS} \
-        -keyalg RSA -keysize 2048 \
-        -storetype PKCS12 \
-        -keystore /app/keystore.p12 \
-        -storepass ${KEY_STORE_PASS} \
-        -dname "CN=localhost" \
-        -validity 3650
+# Самоподписанный keystore при сборке НЕ генерируется: пароль не должен
+# попадать в слои образа и в `docker history`. Он создаётся при старте
+# контейнера — см. docker/entrypoint.sh.
 
 
 # ---------- STAGE 2: Runtime ----------
@@ -45,9 +34,13 @@ RUN groupadd -r spring-group && \
             -c "Spring Boot application user" \
             spring-user
 
-# Директория для SSL и самоподписанный keystore из этапа сборки
+# Директория для SSL: keystore.p12 появляется здесь при старте контейнера,
+# если свой файл не смонтирован volume (см. docker/entrypoint.sh)
 RUN mkdir -p /app/ssl
-COPY --from=build /app/keystore.p12 /app/ssl/keystore.p12
+
+# Точка входа: поднимает keystore (пароль берёт из окружения, не из сборки)
+# и запускает приложение
+COPY docker/entrypoint.sh /app/entrypoint.sh
 
 # Файл приложения: java -jar app.jar запускает жирный jar
 # (слои Spring Boot при таком запуске не используются, поэтому этап
@@ -55,7 +48,7 @@ COPY --from=build /app/keystore.p12 /app/ssl/keystore.p12
 COPY --from=build /app/app.jar app.jar
 
 # Даём права пользователю spring-user на всё нужное
-RUN chown -R spring-user:spring-group /app
+RUN chmod +x /app/entrypoint.sh && chown -R spring-user:spring-group /app
 
 # Переключаемся на непривилегированного пользователя
 USER spring-user
@@ -91,18 +84,5 @@ ENV JAVA_JMX_OPTS="-Djava.rmi.server.hostname=127.0.0.1 \
 # Предполагается работа на порту 8443
 EXPOSE 8443
 
-# Запуск приложения
-ENTRYPOINT exec java \
-    -XX:ReservedCodeCacheSize=${JAVA_RESERVED_CODE_CACHE_SIZE} \
-    -XX:MaxDirectMemorySize=${JAVA_MAX_DIRECT_MEMORY_SIZE} \
-    -XX:MaxMetaspaceSize=${JAVA_MAX_METASPACE_SIZE} \
-    -Xss${JAVA_XSS} \
-    -Xmx${JAVA_XMX} \
-    ${JAVA_HEAP_DUMP_OPTS} \
-    ${JAVA_ON_OOM_OPTS} \
-    ${JAVA_ERROR_FILE_OPTS} \
-    ${JAVA_NMT_OPTS} \
-    ${JAVA_GC_LOG_OPTS} \
-    ${JAVA_JFR_OPTS} \
-    ${JAVA_JMX_OPTS} \
-    -jar app.jar
+# Запуск приложения. Entrypoint сначала поднимает keystore, затем exec java.
+ENTRYPOINT ["/app/entrypoint.sh"]
