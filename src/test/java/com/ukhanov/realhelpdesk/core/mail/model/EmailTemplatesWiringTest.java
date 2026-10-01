@@ -9,6 +9,8 @@ import org.springframework.boot.autoconfigure.context.MessageSourceAutoConfigura
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.MessageSource;
 
+import com.ukhanov.realhelpdesk.core.mail.support.EmailTemplatesFixture;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DisplayName("Шаблоны писем: подключение MessageSource в контексте Spring")
@@ -33,7 +35,8 @@ class EmailTemplatesWiringTest {
     @Test
     void emailTemplatesRendersThroughAutoConfiguredMessageSource() {
         runner.run(context -> {
-            EmailTemplates emailTemplates = new EmailTemplates(context.getBean(MessageSource.class));
+            EmailTemplates emailTemplates = new EmailTemplates(context.getBean(MessageSource.class),
+                    EmailTemplatesFixture.emailProperties());
 
             assertThat(emailTemplates.ticketReplyBody(77L, 5L)).contains("https://front.example.ru/ticket-show/portal/5/ticket/77");
             assertThat(emailTemplates.passwordResetSubject()).isEqualTo("Сброс пароля");

@@ -4,19 +4,19 @@ import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Component;
 
+import com.ukhanov.realhelpdesk.core.mail.config.EmailProperties;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 
 @Component
 public class EmailTemplates {
 
-    public static final String DOMAIN = "front.example.ru";
-    public static final String PROJECT_NAME = "real help desk";
-
     private final MessageSource messageSource;
+    private final EmailProperties emailProperties;
 
-    public EmailTemplates(MessageSource messageSource) {
+    public EmailTemplates(MessageSource messageSource, EmailProperties emailProperties) {
         this.messageSource = messageSource;
+        this.emailProperties = emailProperties;
     }
 
     public String registrationLinkSubject() {
@@ -24,7 +24,7 @@ public class EmailTemplates {
     }
 
     public String registrationLinkBody(String token) {
-        return text("email.registration.link.body", PROJECT_NAME, DOMAIN, token);
+        return text("email.registration.link.body", projectName(), domain(), token);
     }
 
     public String registrationCodeSubject() {
@@ -32,7 +32,7 @@ public class EmailTemplates {
     }
 
     public String registrationCodeBody(String code) {
-        return text("email.registration.code.body", PROJECT_NAME, DOMAIN, code);
+        return text("email.registration.code.body", projectName(), domain(), code);
     }
 
     public String passwordResetSubject() {
@@ -40,7 +40,7 @@ public class EmailTemplates {
     }
 
     public String passwordResetBody(String code) {
-        return text("email.password.reset.body", PROJECT_NAME, DOMAIN, code);
+        return text("email.password.reset.body", projectName(), domain(), code);
     }
 
     public String ticketReplySubject(Long ticketId) {
@@ -48,7 +48,7 @@ public class EmailTemplates {
     }
 
     public String ticketReplyBody(Long ticketId, Long portalId) {
-        return text("email.ticket.reply.body", String.valueOf(ticketId), DOMAIN, String.valueOf(portalId), PROJECT_NAME);
+        return text("email.ticket.reply.body", String.valueOf(ticketId), domain(), String.valueOf(portalId), projectName());
     }
 
     public String ticketCreatedSubject(Long ticketId) {
@@ -56,7 +56,7 @@ public class EmailTemplates {
     }
 
     public String ticketCreatedBody(Long ticketId, Long portalId) {
-        return text("email.ticket.created.body", String.valueOf(ticketId), DOMAIN, String.valueOf(portalId), PROJECT_NAME);
+        return text("email.ticket.created.body", String.valueOf(ticketId), domain(), String.valueOf(portalId), projectName());
     }
 
     public String portalCreatedSubject(Long portalId) {
@@ -64,7 +64,7 @@ public class EmailTemplates {
     }
 
     public String portalCreatedBody(Long portalId) {
-        return text("email.portal.created.body", String.valueOf(portalId), DOMAIN, PROJECT_NAME);
+        return text("email.portal.created.body", String.valueOf(portalId), domain(), projectName());
     }
 
     public String portalAddUserSubject(Long portalId) {
@@ -72,7 +72,7 @@ public class EmailTemplates {
     }
 
     public String portalAddUserBody(Long portalId) {
-        return text("email.portal.add.user.body", DOMAIN, PROJECT_NAME);
+        return text("email.portal.add.user.body", domain(), projectName());
     }
 
     public String updateStatusTicketSubject(Long ticketId, TicketStatus ticketStatus) {
@@ -80,7 +80,7 @@ public class EmailTemplates {
     }
 
     public String updateStatusTicketBody(Long ticketId, Long portalId) {
-        return text("email.ticket.status.body", DOMAIN, String.valueOf(portalId), String.valueOf(ticketId), PROJECT_NAME);
+        return text("email.ticket.status.body", domain(), String.valueOf(portalId), String.valueOf(ticketId), projectName());
     }
 
     public String updatePriorityTicketSubject(Long ticketId, TicketPriority ticketPriority) {
@@ -88,7 +88,7 @@ public class EmailTemplates {
     }
 
     public String updatePriorityTicketBody(Long ticketId, Long portalId) {
-        return text("email.ticket.priority.body", DOMAIN, String.valueOf(portalId), String.valueOf(ticketId), PROJECT_NAME);
+        return text("email.ticket.priority.body", domain(), String.valueOf(portalId), String.valueOf(ticketId), projectName());
     }
 
     public String deletedTicketSubject(Long ticketId) {
@@ -96,7 +96,7 @@ public class EmailTemplates {
     }
 
     public String deletedTicketBody(Long ticketId, String email) {
-        return text("email.ticket.deleted.body", String.valueOf(ticketId), email, PROJECT_NAME);
+        return text("email.ticket.deleted.body", String.valueOf(ticketId), email, projectName());
     }
 
     public String deletedPortalSubject(Long portalId) {
@@ -104,10 +104,18 @@ public class EmailTemplates {
     }
 
     public String deletedPortalBody(Long portalId, String email) {
-        return text("email.portal.deleted.body", String.valueOf(portalId), email, PROJECT_NAME);
+        return text("email.portal.deleted.body", String.valueOf(portalId), email, projectName());
     }
 
     private String text(String code, Object... args) {
         return messageSource.getMessage(code, args, LocaleContextHolder.getLocale());
+    }
+
+    private String domain() {
+        return emailProperties.getDomain();
+    }
+
+    private String projectName() {
+        return emailProperties.getProjectName();
     }
 }
