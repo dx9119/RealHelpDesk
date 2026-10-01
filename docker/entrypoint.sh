@@ -17,15 +17,29 @@ if [[ ! -f "$KEY_STORE_FILE" ]]; then
     : "${KEY_STORE_PASS:?KEY_STORE_PASS is required - copy .env.example to .env}"
     : "${KEY_STORE_ALIAS:?KEY_STORE_ALIAS is required - set it in services.app.environment}"
 
+    # Пароли уходят в keytool через переменную окружения (:env), а не как
+    # аргумент командной строки: иначе они видны в списке процессов (`ps aux`)
+    # и в `/proc/<pid>/cmdline` внутри контейнера.
     keytool -genkeypair \
         -alias "$KEY_STORE_ALIAS" \
         -keyalg RSA \
         -keysize 2048 \
         -storetype PKCS12 \
         -keystore "$KEY_STORE_FILE" \
-        -storepass "$KEY_STORE_PASS" \
+        -storepass:env KEY_STORE_PASS \
+        -keypass:env KEY_STORE_PASS \
         -dname "CN=localhost" \
         -validity 3650
+fi
+
+# Память: JAVA_XMX задаёт жёсткий -Xmx. Пустой JAVA_XMX переключает JVM на
+# долю от лимита контейнера (-XX:MaxRAMPercentage) — этот режим корректен
+# только вместе с mem_limit в docker-compose.yaml, иначе JVM возьмёт долю
+# от памяти хоста. При заданном JAVA_XMX доля игнорируется (проверено).
+if [[ -n "${JAVA_XMX:-}" ]]; then
+    MEM_OPTS=(-Xmx"${JAVA_XMX}")
+else
+    MEM_OPTS=(-XX:MaxRAMPercentage="${JAVA_RAM_PERCENTAGE:-75}")
 fi
 
 exec java \
@@ -33,7 +47,7 @@ exec java \
     -XX:MaxDirectMemorySize="${JAVA_MAX_DIRECT_MEMORY_SIZE}" \
     -XX:MaxMetaspaceSize="${JAVA_MAX_METASPACE_SIZE}" \
     "-Xss${JAVA_XSS}" \
-    "-Xmx${JAVA_XMX}" \
+    "${MEM_OPTS[@]}" \
     ${JAVA_HEAP_DUMP_OPTS} \
     ${JAVA_ON_OOM_OPTS} \
     ${JAVA_ERROR_FILE_OPTS} \
