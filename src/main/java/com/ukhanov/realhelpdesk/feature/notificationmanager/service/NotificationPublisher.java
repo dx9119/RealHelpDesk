@@ -40,6 +40,9 @@ public class NotificationPublisher {
             NotificationEvent.NEW_SYSTEM_MESSAGE, NotificationEvent.CHANGE_TICKET, NotificationEvent.TICKET_DELETED,
             NotificationEvent.NEW_PORTAL, NotificationEvent.PORTAL_DELETED);
 
+    /** События, которые повторяются, пока не прочитаны (см. NotificationRepeatService). */
+    public static final Set<NotificationEvent> REPEATABLE_EVENTS = Set.of(NotificationEvent.NEW_TICKET, NotificationEvent.NEW_MESSAGE);
+
     private static final int TITLE_MAX_LENGTH = 255;
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationPublisher.class);
@@ -120,7 +123,11 @@ public class NotificationPublisher {
         return disabledByUser;
     }
 
-    private void wakeAfterCommit(Collection<Long> userIds) {
+    /**
+     * Будит ожидающих long polling после коммита текущей транзакции — иначе ожидающий мог бы перечитать БД раньше, чем запись станет
+     * видимой. Используется публикацией и повторами ({@link NotificationRepeatService}).
+     */
+    public void wakeAfterCommit(Collection<Long> userIds) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override

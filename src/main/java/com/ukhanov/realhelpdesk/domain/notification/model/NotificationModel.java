@@ -18,6 +18,11 @@ import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 /**
  * In-app оповещение пользователя о событии в доступных ему порталах. Одна строка — одно событие для одного получателя: читается через
  * {@code /api/v1/notifications}, событие выбирается в настройках ({@link UserNotificationPreferencesModel}).
+ *
+ * <p>
+ * Оповещения о новых заявках и сообщениях повторяются, пока не прочитаны: повтор — новая строка с той же группой ({@link #getGroupId()}),
+ * прочтение любой строки гасит всю группу.
+ * </p>
  */
 @Entity
 @Table(name = "notifications", indexes = {@Index(name = "idx_notifications_recipient_created", columnList = "recipient_id, created_at"),
@@ -51,6 +56,10 @@ public class NotificationModel {
     @Column(name = "is_read", nullable = false)
     private boolean read;
 
+    /** Группа повторов: id первоисточной строки; null — событие не повторяется (или строка — не повторяемое событие). */
+    @Column(name = "group_id", updatable = false)
+    private Long groupId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -58,11 +67,17 @@ public class NotificationModel {
     }
 
     public NotificationModel(Long recipientId, NotificationEvent event, Long ticketId, Long portalId, String title) {
+        this(recipientId, event, ticketId, portalId, title, null);
+    }
+
+    /** {@code groupId} задаётся только при insert (колонка updatable=false): так создаются строки-напоминания повторов. */
+    public NotificationModel(Long recipientId, NotificationEvent event, Long ticketId, Long portalId, String title, Long groupId) {
         this.recipientId = recipientId;
         this.event = event;
         this.ticketId = ticketId;
         this.portalId = portalId;
         this.title = title;
+        this.groupId = groupId;
         this.read = false;
     }
 
@@ -105,7 +120,16 @@ public class NotificationModel {
         this.read = read;
     }
 
+    public Long getGroupId() {
+        return groupId;
+    }
+
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    /** Только для тестов и восстановления данных: в обычном потоке время выставляет {@link #onCreate()}. */
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
     }
 }

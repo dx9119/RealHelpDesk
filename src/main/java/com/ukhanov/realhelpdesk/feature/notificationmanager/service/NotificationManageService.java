@@ -109,9 +109,10 @@ public class NotificationManageService {
                 .orElseThrow(() -> NotificationException.notFound("Уведомление не найдено"));
 
         if (!notification.isRead()) {
-            notification.setRead(true);
-            notificationRepository.save(notification);
-            logger.debug("Уведомление {} отмечено прочитанным для пользователя {}", notificationId, userId);
+            // прочтение строки гасит всю её группу повторов: напоминания о том же событии больше не нужны
+            Long groupId = notification.getGroupId() != null ? notification.getGroupId() : notification.getId();
+            int updated = notificationRepository.markGroupReadByRecipientId(userId, groupId);
+            logger.debug("Уведомление {} пользователя {} отмечено прочитанным вместе с группой: строк {}", notificationId, userId, updated);
         }
     }
 
@@ -123,8 +124,12 @@ public class NotificationManageService {
 
     public NotificationPreferencesResponse getPreferences() {
         Long userId = currentUserProvider.getCurrentUserId();
-        return new NotificationPreferencesResponse(preferencesRepository.findByUserId(userId)
-                .map(UserNotificationPreferencesModel::getEnabledEvents).orElse(NotificationPublisher.SUPPORTED_EVENTS));
+        return preferencesRepository.findByUserId(userId)
+                .map(preferences -> new NotificationPreferencesResponse(preferences.getEnabledEvents(), preferences.isRepeatEnabled(),
+                        preferences.getRepeatIntervalMinutes()))
+                .orElseGet(() -> new NotificationPreferencesResponse(NotificationPublisher.SUPPORTED_EVENTS,
+                        UserNotificationPreferencesModel.DEFAULT_REPEAT_ENABLED,
+                        UserNotificationPreferencesModel.DEFAULT_REPEAT_INTERVAL_MINUTES));
     }
 
     public NotificationPreferencesResponse updatePreferences(NotificationPreferencesRequest request) throws NotificationException {
@@ -136,13 +141,38 @@ public class NotificationManageService {
             throw NotificationException.badRequest("Неподдерживаемые события оповещений: " + unsupported(events));
         }
 
-        UserNotificationPreferencesModel preferences = preferencesRepository.findByUserId(userId)
-                .orElseGet(() -> new UserNotificationPreferencesModel(userId, events));
-        preferences.setEnabledEvents(events);
-        preferencesRepository.save(preferences);
-        logger.info("Пользователь {} обновил настройки оповещений: {} событий", userId, events.size());
+        UserNotificationPreferencesModel preferences = preferencesRepository.findByUserId(userId).orElse(null);
+        boolean repeatEnabled = repeatEnabled(request, preferences);
+        int repeatIntervalMinutes = repeatIntervalMinutes(request, preferences);
 
-        return new NotificationPreferencesResponse(preferences.getEnabledEvents());
+        if (preferences == null) {
+            preferences = new UserNotificationPreferencesModel(userId, events);
+        }
+        preferences.setEnabledEvents(events);
+        preferences.setRepeatEnabled(repeatEnabled);
+        preferences.setRepeatIntervalMinutes(repeatIntervalMinutes);
+        preferencesRepository.save(preferences);
+        logger.info("Пользователь {} обновил настройки оповещений: {} событий, повтор {} каждые {} мин", userId, events.size(),
+                repeatEnabled ? "включён" : "выключен", repeatIntervalMinutes);
+
+        return new NotificationPreferencesResponse(preferences.getEnabledEvents(), repeatEnabled, repeatIntervalMinutes);
+    }
+
+    // null в запросе — не менять: у существующей строки берётся её значение, у новой — дефолт
+    private boolean repeatEnabled(NotificationPreferencesRequest request, UserNotificationPreferencesModel preferences) {
+        if (request.getRepeatEnabled() != null) {
+            return request.getRepeatEnabled();
+        }
+        return preferences != null ? preferences.isRepeatEnabled() : UserNotificationPreferencesModel.DEFAULT_REPEAT_ENABLED;
+    }
+
+    private int repeatIntervalMinutes(NotificationPreferencesRequest request, UserNotificationPreferencesModel preferences) {
+        if (request.getRepeatIntervalMinutes() != null) {
+            return request.getRepeatIntervalMinutes();
+        }
+        return preferences != null
+                ? preferences.getRepeatIntervalMinutes()
+                : UserNotificationPreferencesModel.DEFAULT_REPEAT_INTERVAL_MINUTES;
     }
 
     private PageResponse<NotificationResponse> fetchAfter(Long userId, long afterId, int size) {

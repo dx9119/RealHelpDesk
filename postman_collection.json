@@ -1517,7 +1517,7 @@
                 }
               ]
             },
-            "description": "Страница оповещений пользователя. unreadOnly=true — только непрочитанные."
+            "description": "Страница оповещений пользователя, новые сверху; повторы приходят как отдельные строки с тем же ticketId/event. unreadOnly=true — только непрочитанные."
           },
           "response": []
         },
@@ -1601,7 +1601,7 @@
                 "read"
               ]
             },
-            "description": "Отмечает уведомление прочитанным. Ответ 204, чужое уведомление — 404."
+            "description": "Отмечает уведомление прочитанным и гасит всю его группу повторов (напоминания о том же событии). Ответ 204, чужое уведомление — 404."
           },
           "response": []
         },
@@ -1647,7 +1647,7 @@
                 "preferences"
               ]
             },
-            "description": "Текущие настройки оповещений. Нет строки настроек — все события включены."
+            "description": "Фактические настройки: events, repeatEnabled, repeatIntervalMinutes; без сохранённой строки — все события, повтор включён на 30 минут."
           },
           "response": []
         },
@@ -1664,7 +1664,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"events\": [\n        \"NEW_TICKET\",\n        \"NEW_MESSAGE\",\n        \"NEW_SYSTEM_MESSAGE\",\n        \"CHANGE_TICKET\",\n        \"TICKET_DELETED\",\n        \"NEW_PORTAL\",\n        \"PORTAL_DELETED\"\n    ]\n}"
+              "raw": "{\n    \"events\": [\n        \"NEW_TICKET\",\n        \"NEW_MESSAGE\",\n        \"NEW_SYSTEM_MESSAGE\",\n        \"CHANGE_TICKET\",\n        \"TICKET_DELETED\",\n        \"NEW_PORTAL\",\n        \"PORTAL_DELETED\"\n    ],\n    \"repeatEnabled\": true,\n    \"repeatIntervalMinutes\": 30\n}"
             },
             "url": {
               "raw": "https://localhost:8443/api/v1/api/v1/notifications/preferences",
@@ -1680,7 +1680,7 @@
                 "preferences"
               ]
             },
-            "description": "Полный набор включённых событий. Пустой список или неизвестное событие — 400."
+            "description": "События + повтор непрочитанных NEW_TICKET/NEW_MESSAGE: repeatEnabled, repeatIntervalMinutes (1..10080 минут). null — не менять; без строки настроек — включён на 30 минут. Пустой список событий или интервал вне диапазона — 400."
           },
           "response": []
         }

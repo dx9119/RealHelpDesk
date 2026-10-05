@@ -193,24 +193,26 @@ class NotificationControllerTest {
     // ────────────────────────────────────────────────
 
     @Test
-    @DisplayName("GET /preferences → 200 с набором событий")
+    @DisplayName("GET /preferences → 200 с событиями и настройками повтора")
     void getPreferences_ok() throws Exception {
         when(mockNotificationManageService.getPreferences())
-                .thenReturn(new NotificationPreferencesResponse(Set.of(NotificationEvent.NEW_TICKET)));
+                .thenReturn(new NotificationPreferencesResponse(Set.of(NotificationEvent.NEW_TICKET), true, 15));
 
         mockMvc.perform(get("/api/v1/notifications/preferences")).andExpect(status().isOk())
-                .andExpect(jsonPath("$.events[0]").value("NEW_TICKET"));
+                .andExpect(jsonPath("$.events[0]").value("NEW_TICKET")).andExpect(jsonPath("$.repeatEnabled").value(true))
+                .andExpect(jsonPath("$.repeatIntervalMinutes").value(15));
     }
 
     @Test
-    @DisplayName("PUT /preferences → 200 с сохранённым набором")
+    @DisplayName("PUT /preferences → 200: события и настройки повтора возвращаются как сохранённые")
     void updatePreferences_ok() throws Exception {
         when(mockNotificationManageService.updatePreferences(any(NotificationPreferencesRequest.class)))
-                .thenReturn(new NotificationPreferencesResponse(Set.of(NotificationEvent.NEW_MESSAGE)));
-        String body = "{\"events\":[\"NEW_MESSAGE\"]}";
+                .thenReturn(new NotificationPreferencesResponse(Set.of(NotificationEvent.NEW_MESSAGE), false, 5));
+        String body = "{\"events\":[\"NEW_MESSAGE\"],\"repeatEnabled\":false,\"repeatIntervalMinutes\":5}";
 
         mockMvc.perform(put("/api/v1/notifications/preferences").contentType("application/json").content(body)).andExpect(status().isOk())
-                .andExpect(jsonPath("$.events[0]").value("NEW_MESSAGE"));
+                .andExpect(jsonPath("$.events[0]").value("NEW_MESSAGE")).andExpect(jsonPath("$.repeatEnabled").value(false))
+                .andExpect(jsonPath("$.repeatIntervalMinutes").value(5));
     }
 
     @Test
@@ -228,6 +230,18 @@ class NotificationControllerTest {
         String body = "{\"events\":[\"SOME_UNKNOWN_EVENT\"]}";
 
         mockMvc.perform(put("/api/v1/notifications/preferences").contentType("application/json").content(body))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("PUT /preferences → интервал повтора вне 1..10080 минут → 400")
+    void updatePreferences_intervalOutOfRange_badRequest() throws Exception {
+        String tooSmall = "{\"events\":[\"NEW_TICKET\"],\"repeatIntervalMinutes\":0}";
+        String tooLarge = "{\"events\":[\"NEW_TICKET\"],\"repeatIntervalMinutes\":10081}";
+
+        mockMvc.perform(put("/api/v1/notifications/preferences").contentType("application/json").content(tooSmall))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(put("/api/v1/notifications/preferences").contentType("application/json").content(tooLarge))
                 .andExpect(status().isBadRequest());
     }
 

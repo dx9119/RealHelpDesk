@@ -39,6 +39,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -133,31 +134,49 @@ class NotificationManageServiceTest {
 
         assertThatThrownBy(() -> service.markRead(NOTIFICATION_ID)).isInstanceOf(NotificationException.class)
                 .hasMessageContaining("не найдено");
-        verify(notificationRepository, never()).save(any(NotificationModel.class));
+        verify(notificationRepository, never()).markGroupReadByRecipientId(anyLong(), anyLong());
     }
 
     @Test
-    @DisplayName("markRead: непрочитанное → сохраняется прочитанным")
-    void markRead_unread_saves() throws NotificationException {
-        NotificationModel model = new NotificationModel(USER_ID, NotificationEvent.NEW_TICKET, 11L, null, "З");
+    @DisplayName("markRead: непрочитанный оригинал гасит группу по его id")
+    void markRead_unread_marksGroupById() throws NotificationException {
+        NotificationModel model = mock(NotificationModel.class);
+        when(model.getId()).thenReturn(NOTIFICATION_ID);
+        when(model.getGroupId()).thenReturn(null);
+        when(model.isRead()).thenReturn(false);
         when(notificationRepository.findByIdAndRecipientId(NOTIFICATION_ID, USER_ID)).thenReturn(Optional.of(model));
 
         service.markRead(NOTIFICATION_ID);
 
-        assertThat(model.isRead()).isTrue();
-        verify(notificationRepository).save(model);
+        verify(notificationRepository).markGroupReadByRecipientId(USER_ID, NOTIFICATION_ID);
+        verify(notificationRepository, never()).save(any(NotificationModel.class));
     }
 
     @Test
-    @DisplayName("markRead: уже прочитанное → без записи в БД")
-    void markRead_alreadyRead_skipsSave() throws NotificationException {
-        NotificationModel model = new NotificationModel(USER_ID, NotificationEvent.NEW_TICKET, 11L, null, "З");
-        model.setRead(true);
+    @DisplayName("markRead: напоминание гасит группу по group_id первоисточника")
+    void markRead_reminder_marksSourceGroup() throws NotificationException {
+        NotificationModel model = mock(NotificationModel.class);
+        when(model.getId()).thenReturn(NOTIFICATION_ID);
+        when(model.getGroupId()).thenReturn(55L);
+        when(model.isRead()).thenReturn(false);
         when(notificationRepository.findByIdAndRecipientId(NOTIFICATION_ID, USER_ID)).thenReturn(Optional.of(model));
 
         service.markRead(NOTIFICATION_ID);
 
-        verify(notificationRepository, never()).save(any(NotificationModel.class));
+        verify(notificationRepository).markGroupReadByRecipientId(USER_ID, 55L);
+    }
+
+    @Test
+    @DisplayName("markRead: уже прочитанное → группа не трогается")
+    void markRead_alreadyRead_skipsUpdate() throws NotificationException {
+        NotificationModel model = mock(NotificationModel.class);
+        when(model.getId()).thenReturn(NOTIFICATION_ID);
+        when(model.isRead()).thenReturn(true);
+        when(notificationRepository.findByIdAndRecipientId(NOTIFICATION_ID, USER_ID)).thenReturn(Optional.of(model));
+
+        service.markRead(NOTIFICATION_ID);
+
+        verify(notificationRepository, never()).markGroupReadByRecipientId(anyLong(), anyLong());
     }
 
     @Test
@@ -175,24 +194,30 @@ class NotificationManageServiceTest {
     // ────────────────────────────────────────────────
 
     @Test
-    @DisplayName("Настройки без сохранённой строки → все события каталога включены")
+    @DisplayName("Настройки без сохранённой строки → все события каталога, повтор включён на 30 минут")
     void getPreferences_defaultsToAllSupportedEvents() {
         when(preferencesRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
 
         NotificationPreferencesResponse response = service.getPreferences();
 
         assertThat(response.getEvents()).containsExactlyInAnyOrderElementsOf(NotificationPublisher.SUPPORTED_EVENTS);
+        assertThat(response.isRepeatEnabled()).isTrue();
+        assertThat(response.getRepeatIntervalMinutes()).isEqualTo(UserNotificationPreferencesModel.DEFAULT_REPEAT_INTERVAL_MINUTES);
     }
 
     @Test
-    @DisplayName("Настройки: сохранённая строка возвращается как есть")
+    @DisplayName("Настройки: сохранённая строка возвращается как есть, включая повтор")
     void getPreferences_savedRowReturned() {
-        when(preferencesRepository.findByUserId(USER_ID))
-                .thenReturn(Optional.of(new UserNotificationPreferencesModel(USER_ID, Set.of(NotificationEvent.NEW_MESSAGE))));
+        UserNotificationPreferencesModel saved = new UserNotificationPreferencesModel(USER_ID, Set.of(NotificationEvent.NEW_MESSAGE));
+        saved.setRepeatEnabled(false);
+        saved.setRepeatIntervalMinutes(5);
+        when(preferencesRepository.findByUserId(USER_ID)).thenReturn(Optional.of(saved));
 
         NotificationPreferencesResponse response = service.getPreferences();
 
         assertThat(response.getEvents()).containsExactly(NotificationEvent.NEW_MESSAGE);
+        assertThat(response.isRepeatEnabled()).isFalse();
+        assertThat(response.getRepeatIntervalMinutes()).isEqualTo(5);
     }
 
     @Test
@@ -206,7 +231,7 @@ class NotificationManageServiceTest {
     }
 
     @Test
-    @DisplayName("Настройки: без строки создаётся новая, со строкой — обновляется")
+    @DisplayName("Настройки: без строки создаётся с дефолтами повтора, со строкой — повтор меняется")
     void updatePreferences_createsAndUpdates() throws NotificationException {
         when(preferencesRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
         NotificationPreferencesRequest request = new NotificationPreferencesRequest(Set.of(NotificationEvent.NEW_TICKET));
@@ -214,19 +239,43 @@ class NotificationManageServiceTest {
         NotificationPreferencesResponse created = service.updatePreferences(request);
 
         assertThat(created.getEvents()).containsExactly(NotificationEvent.NEW_TICKET);
+        assertThat(created.isRepeatEnabled()).isTrue();
+        assertThat(created.getRepeatIntervalMinutes()).isEqualTo(UserNotificationPreferencesModel.DEFAULT_REPEAT_INTERVAL_MINUTES);
         ArgumentCaptor<UserNotificationPreferencesModel> captor = ArgumentCaptor.forClass(UserNotificationPreferencesModel.class);
         verify(preferencesRepository).save(captor.capture());
         assertThat(captor.getValue().getUserId()).isEqualTo(USER_ID);
         assertThat(captor.getValue().getEnabledEvents()).containsExactly(NotificationEvent.NEW_TICKET);
+        assertThat(captor.getValue().isRepeatEnabled()).isTrue();
 
         UserNotificationPreferencesModel existing = new UserNotificationPreferencesModel(USER_ID, Set.of(NotificationEvent.NEW_TICKET));
         when(preferencesRepository.findByUserId(USER_ID)).thenReturn(Optional.of(existing));
-        NotificationPreferencesRequest second = new NotificationPreferencesRequest(Set.of(NotificationEvent.CHANGE_TICKET));
+        NotificationPreferencesRequest second = new NotificationPreferencesRequest(Set.of(NotificationEvent.CHANGE_TICKET), false, 5);
 
         NotificationPreferencesResponse updated = service.updatePreferences(second);
 
         assertThat(updated.getEvents()).containsExactly(NotificationEvent.CHANGE_TICKET);
         assertThat(existing.getEnabledEvents()).containsExactly(NotificationEvent.CHANGE_TICKET);
+        assertThat(updated.isRepeatEnabled()).isFalse();
+        assertThat(updated.getRepeatIntervalMinutes()).isEqualTo(5);
+        assertThat(existing.isRepeatEnabled()).isFalse();
+        assertThat(existing.getRepeatIntervalMinutes()).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("Настройки: null полей повтора не меняет сохранённые значения")
+    void updatePreferences_nullRepeat_keepsCurrent() throws NotificationException {
+        UserNotificationPreferencesModel existing = new UserNotificationPreferencesModel(USER_ID, Set.of(NotificationEvent.NEW_TICKET));
+        existing.setRepeatEnabled(false);
+        existing.setRepeatIntervalMinutes(7);
+        when(preferencesRepository.findByUserId(USER_ID)).thenReturn(Optional.of(existing));
+
+        NotificationPreferencesResponse response = service
+                .updatePreferences(new NotificationPreferencesRequest(Set.of(NotificationEvent.NEW_TICKET)));
+
+        assertThat(response.isRepeatEnabled()).isFalse();
+        assertThat(response.getRepeatIntervalMinutes()).isEqualTo(7);
+        assertThat(existing.isRepeatEnabled()).isFalse();
+        assertThat(existing.getRepeatIntervalMinutes()).isEqualTo(7);
     }
 
     // ────────────────────────────────────────────────

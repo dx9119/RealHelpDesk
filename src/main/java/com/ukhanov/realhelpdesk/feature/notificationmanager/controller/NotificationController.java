@@ -80,7 +80,10 @@ public class NotificationController {
         return ResponseEntity.ok(notificationManageService.getPreferences());
     }
 
-    /** Задать события, о которых пользователь хочет получать оповещения; полный набор in-app событий — в ответе GET preferences. */
+    /**
+     * Задать события оповещений (полный набор in-app событий — в ответе GET preferences) и повтор непрочитанных NEW_TICKET/NEW_MESSAGE:
+     * {@code repeatEnabled} и интервал {@code repeatIntervalMinutes} (1..10080); null — не менять.
+     */
     @PutMapping("/preferences")
     public ResponseEntity<NotificationPreferencesResponse> updatePreferences(@Valid @RequestBody NotificationPreferencesRequest request)
             throws NotificationException {

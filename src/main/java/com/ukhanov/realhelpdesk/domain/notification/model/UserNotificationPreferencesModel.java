@@ -19,12 +19,23 @@ import jakarta.persistence.Table;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 
 /**
- * Настройки in-app оповещений пользователя: набор событий, о которых он хочет получать оповещения. Строки нет — включены все события из
- * каталога in-app (opt-out); email-мьют ({@code unsubscribed_emails}) от этих настроек не зависит.
+ * Настройки in-app оповещений пользователя: набор событий, о которых он хочет получать оповещения, и повтор непрочитанных
+ * NEW_TICKET/NEW_MESSAGE. Строки нет — включены все события и повтор (opt-out, интервал {@value #DEFAULT_REPEAT_INTERVAL_MINUTES} минут);
+ * email-мьют ({@code unsubscribed_emails}) от этих настроек не зависит.
  */
 @Entity
 @Table(name = "user_notification_preferences")
 public class UserNotificationPreferencesModel {
+
+    /** Повтор включён, пока пользователь не выключил его в настройках. */
+    public static final boolean DEFAULT_REPEAT_ENABLED = true;
+
+    /** Интервал между повторами по умолчанию, минут. */
+    public static final int DEFAULT_REPEAT_INTERVAL_MINUTES = 30;
+
+    /** Допустимый интервал между повторами в API, минут. */
+    public static final int MIN_REPEAT_INTERVAL_MINUTES = 1;
+    public static final int MAX_REPEAT_INTERVAL_MINUTES = 10080;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,6 +49,12 @@ public class UserNotificationPreferencesModel {
     @Column(name = "event", nullable = false)
     @Enumerated(EnumType.STRING)
     private Set<NotificationEvent> enabledEvents = new HashSet<>();
+
+    @Column(name = "repeat_enabled", nullable = false)
+    private boolean repeatEnabled = DEFAULT_REPEAT_ENABLED;
+
+    @Column(name = "repeat_interval_minutes", nullable = false)
+    private int repeatIntervalMinutes = DEFAULT_REPEAT_INTERVAL_MINUTES;
 
     protected UserNotificationPreferencesModel() {
     }
@@ -61,5 +78,21 @@ public class UserNotificationPreferencesModel {
 
     public void setEnabledEvents(Set<NotificationEvent> enabledEvents) {
         this.enabledEvents = new HashSet<>(enabledEvents);
+    }
+
+    public boolean isRepeatEnabled() {
+        return repeatEnabled;
+    }
+
+    public void setRepeatEnabled(boolean repeatEnabled) {
+        this.repeatEnabled = repeatEnabled;
+    }
+
+    public int getRepeatIntervalMinutes() {
+        return repeatIntervalMinutes;
+    }
+
+    public void setRepeatIntervalMinutes(int repeatIntervalMinutes) {
+        this.repeatIntervalMinutes = repeatIntervalMinutes;
     }
 }

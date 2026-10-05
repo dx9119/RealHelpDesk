@@ -118,6 +118,47 @@ class NotificationRepositoryIT {
         assertThat(preferencesRepository.findByUserIdIn(Set.of(USER_ID, OTHER_USER_ID))).hasSize(1);
     }
 
+    @Test
+    @DisplayName("Кандидаты на повтор: последние непрочитанные строки повторяемых событий; копия теснит оригинал")
+    void findRepeatCandidates() {
+        NotificationModel original = save(USER_ID, NotificationEvent.NEW_TICKET, "оригинал");
+        NotificationModel reminder = reminderOf(USER_ID, original, "напоминание");
+        NotificationModel read = save(USER_ID, NotificationEvent.NEW_MESSAGE, "прочитанное");
+        read.setRead(true);
+        notificationRepository.save(read);
+        save(USER_ID, NotificationEvent.CHANGE_TICKET, "не повторяется");
+        NotificationModel otherUser = save(OTHER_USER_ID, NotificationEvent.NEW_TICKET, "чужой");
+
+        List<NotificationModel> candidates = notificationRepository
+                .findRepeatCandidates(Set.of(NotificationEvent.NEW_TICKET, NotificationEvent.NEW_MESSAGE), PageRequest.of(0, 10));
+
+        // оригинал теснится более новой копией той же группы, прочитанное и неповторяемое событие не кандидаты
+        assertThat(candidates).extracting(NotificationModel::getId).containsExactlyInAnyOrder(reminder.getId(), otherUser.getId());
+    }
+
+    @Test
+    @DisplayName("markGroupRead: гасит оригинал и напоминания группы, чужие и другие группы не трогает")
+    void markGroupRead() {
+        NotificationModel original = save(USER_ID, NotificationEvent.NEW_TICKET, "оригинал");
+        NotificationModel reminder = reminderOf(USER_ID, original, "напоминание");
+        NotificationModel sameEventOtherGroup = save(USER_ID, NotificationEvent.NEW_MESSAGE, "другое сообщение");
+        save(OTHER_USER_ID, NotificationEvent.NEW_TICKET, "чужая");
+
+        int updated = notificationRepository.markGroupReadByRecipientId(USER_ID, original.getId());
+        em.clear();
+
+        assertThat(updated).isEqualTo(2);
+        assertThat(notificationRepository.findById(original.getId())).hasValueSatisfying(row -> assertThat(row.isRead()).isTrue());
+        assertThat(notificationRepository.findById(reminder.getId())).hasValueSatisfying(row -> assertThat(row.isRead()).isTrue());
+        assertThat(notificationRepository.findById(sameEventOtherGroup.getId()))
+                .hasValueSatisfying(row -> assertThat(row.isRead()).isFalse());
+        assertThat(notificationRepository.countByRecipientIdAndReadFalse(OTHER_USER_ID)).isEqualTo(1);
+    }
+
+    private NotificationModel reminderOf(Long recipientId, NotificationModel source, String title) {
+        return notificationRepository.save(new NotificationModel(recipientId, source.getEvent(), 11L, 2L, title, source.getId()));
+    }
+
     private NotificationModel save(Long recipientId, NotificationEvent event, String title) {
         return notificationRepository.save(new NotificationModel(recipientId, event, 11L, 2L, title));
     }
