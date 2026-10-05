@@ -1,0 +1,135 @@
+package com.ukhanov.realhelpdesk.domain.notification.model;
+
+import java.time.Instant;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
+
+import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
+
+/**
+ * In-app оповещение пользователя о событии в доступных ему порталах. Одна строка — одно событие для одного получателя: читается через
+ * {@code /api/v1/notifications}, событие выбирается в настройках ({@link UserNotificationPreferencesModel}).
+ *
+ * <p>
+ * Оповещения о новых заявках и сообщениях повторяются, пока не прочитаны: повтор — новая строка с той же группой ({@link #getGroupId()}),
+ * прочтение любой строки гасит всю группу.
+ * </p>
+ */
+@Entity
+@Table(name = "notifications", indexes = {@Index(name = "idx_notifications_recipient_created", columnList = "recipient_id, created_at"),
+        @Index(name = "idx_notifications_recipient_read", columnList = "recipient_id, is_read")})
+public class NotificationModel {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    /** Кому: пользователь, у которого есть доступ к порталу (владелец или доверенный), без автора действия. */
+    @Column(name = "recipient_id", nullable = false, updatable = false)
+    private Long recipientId;
+
+    @Column(name = "event", nullable = false, updatable = false)
+    @Enumerated(EnumType.STRING)
+    private NotificationEvent event;
+
+    /** Заявка, породившая оповещение; null для событий уровня портала. */
+    @Column(name = "ticket_id", updatable = false)
+    private Long ticketId;
+
+    /** Портал, к которому относится событие; null, если неизвестен. */
+    @Column(name = "portal_id", updatable = false)
+    private Long portalId;
+
+    /** Снапшот названия (заявки или портала) на момент события — чтобы показать строку без запроса к заявке. */
+    @Column(name = "title", updatable = false)
+    private String title;
+
+    @Column(name = "is_read", nullable = false)
+    private boolean read;
+
+    /** Группа повторов: id первоисточной строки; null — событие не повторяется (или строка — не повторяемое событие). */
+    @Column(name = "group_id", updatable = false)
+    private Long groupId;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    protected NotificationModel() {
+    }
+
+    public NotificationModel(Long recipientId, NotificationEvent event, Long ticketId, Long portalId, String title) {
+        this(recipientId, event, ticketId, portalId, title, null);
+    }
+
+    /** {@code groupId} задаётся только при insert (колонка updatable=false): так создаются строки-напоминания повторов. */
+    public NotificationModel(Long recipientId, NotificationEvent event, Long ticketId, Long portalId, String title, Long groupId) {
+        this.recipientId = recipientId;
+        this.event = event;
+        this.ticketId = ticketId;
+        this.portalId = portalId;
+        this.title = title;
+        this.groupId = groupId;
+        this.read = false;
+    }
+
+    @PrePersist
+    void onCreate() {
+        if (createdAt == null) {
+            createdAt = Instant.now();
+        }
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public Long getRecipientId() {
+        return recipientId;
+    }
+
+    public NotificationEvent getEvent() {
+        return event;
+    }
+
+    public Long getTicketId() {
+        return ticketId;
+    }
+
+    public Long getPortalId() {
+        return portalId;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public boolean isRead() {
+        return read;
+    }
+
+    public void setRead(boolean read) {
+        this.read = read;
+    }
+
+    public Long getGroupId() {
+        return groupId;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    /** Только для тестов и восстановления данных: в обычном потоке время выставляет {@link #onCreate()}. */
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+}

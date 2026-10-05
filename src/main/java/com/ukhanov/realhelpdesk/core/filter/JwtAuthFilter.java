@@ -51,6 +51,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         this.antPathMatcher = antPathMatcher;
     }
 
+    // Результат long polling приходит через ASYNC-dispatch того же запроса: без повторной
+    // аутентификации security-цепочка не найдёт контекст и закроет готовый ответ 403.
+    @Override
+    protected boolean shouldNotFilterAsyncDispatch() {
+        return false;
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {

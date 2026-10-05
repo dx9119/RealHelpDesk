@@ -1,0 +1,98 @@
+package com.ukhanov.realhelpdesk.domain.notification.model;
+
+import java.util.HashSet;
+import java.util.Set;
+
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Table;
+
+import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
+
+/**
+ * Настройки in-app оповещений пользователя: набор событий, о которых он хочет получать оповещения, и повтор непрочитанных
+ * NEW_TICKET/NEW_MESSAGE. Строки нет — включены все события и повтор (opt-out, интервал {@value #DEFAULT_REPEAT_INTERVAL_MINUTES} минут);
+ * email-мьют ({@code unsubscribed_emails}) от этих настроек не зависит.
+ */
+@Entity
+@Table(name = "user_notification_preferences")
+public class UserNotificationPreferencesModel {
+
+    /** Повтор включён, пока пользователь не выключил его в настройках. */
+    public static final boolean DEFAULT_REPEAT_ENABLED = true;
+
+    /** Интервал между повторами по умолчанию, минут. */
+    public static final int DEFAULT_REPEAT_INTERVAL_MINUTES = 30;
+
+    /** Допустимый интервал между повторами в API, минут. */
+    public static final int MIN_REPEAT_INTERVAL_MINUTES = 1;
+    public static final int MAX_REPEAT_INTERVAL_MINUTES = 10080;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "user_id", nullable = false, unique = true)
+    private Long userId;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_notification_preferences_events", joinColumns = @JoinColumn(name = "preferences_id"))
+    @Column(name = "event", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private Set<NotificationEvent> enabledEvents = new HashSet<>();
+
+    @Column(name = "repeat_enabled", nullable = false)
+    private boolean repeatEnabled = DEFAULT_REPEAT_ENABLED;
+
+    @Column(name = "repeat_interval_minutes", nullable = false)
+    private int repeatIntervalMinutes = DEFAULT_REPEAT_INTERVAL_MINUTES;
+
+    protected UserNotificationPreferencesModel() {
+    }
+
+    public UserNotificationPreferencesModel(Long userId, Set<NotificationEvent> enabledEvents) {
+        this.userId = userId;
+        this.enabledEvents = new HashSet<>(enabledEvents);
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public Set<NotificationEvent> getEnabledEvents() {
+        return enabledEvents;
+    }
+
+    public void setEnabledEvents(Set<NotificationEvent> enabledEvents) {
+        this.enabledEvents = new HashSet<>(enabledEvents);
+    }
+
+    public boolean isRepeatEnabled() {
+        return repeatEnabled;
+    }
+
+    public void setRepeatEnabled(boolean repeatEnabled) {
+        this.repeatEnabled = repeatEnabled;
+    }
+
+    public int getRepeatIntervalMinutes() {
+        return repeatIntervalMinutes;
+    }
+
+    public void setRepeatIntervalMinutes(int repeatIntervalMinutes) {
+        this.repeatIntervalMinutes = repeatIntervalMinutes;
+    }
+}

@@ -1473,6 +1473,218 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "Список оповещений",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://localhost:8443/api/v1/api/v1/notifications?page=0&size=10&sortBy=createdAt&order=desc&unreadOnly=false",
+              "protocol": "https",
+              "host": [
+                "localhost"
+              ],
+              "port": "8443",
+              "path": [
+                "api",
+                "v1",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "10"
+                },
+                {
+                  "key": "sortBy",
+                  "value": "createdAt"
+                },
+                {
+                  "key": "order",
+                  "value": "desc"
+                },
+                {
+                  "key": "unreadOnly",
+                  "value": "false"
+                }
+              ]
+            },
+            "description": "Страница оповещений пользователя, новые сверху; повторы приходят как отдельные строки с тем же ticketId/event. unreadOnly=true — только непрочитанные."
+          },
+          "response": []
+        },
+        {
+          "name": "Непрочитанные: счётчик",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://localhost:8443/api/v1/api/v1/notifications/unread-count",
+              "protocol": "https",
+              "host": [
+                "localhost"
+              ],
+              "port": "8443",
+              "path": [
+                "api",
+                "v1",
+                "notifications",
+                "unread-count"
+              ]
+            },
+            "description": "Число непрочитанных оповещений. Ответ 200 + {\"count\": N}."
+          },
+          "response": []
+        },
+        {
+          "name": "Long polling: ждать новые",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://localhost:8443/api/v1/api/v1/notifications/wait?afterId=0&timeoutSec=15&size=10",
+              "protocol": "https",
+              "host": [
+                "localhost"
+              ],
+              "port": "8443",
+              "path": [
+                "api",
+                "v1",
+                "notifications",
+                "wait"
+              ],
+              "query": [
+                {
+                  "key": "afterId",
+                  "value": "0"
+                },
+                {
+                  "key": "timeoutSec",
+                  "value": "15"
+                },
+                {
+                  "key": "size",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Ожидает новые оповещения с id больше afterId (курсор), максимум timeoutSec=30 сек. Ответ сразу при событии или пустой страницей по таймауту. Rate limit: 30 запросов за 60 сек."
+          },
+          "response": []
+        },
+        {
+          "name": "Отметить прочитанным",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "https://localhost:8443/api/v1/api/v1/notifications/{{notificationId}}/read",
+              "protocol": "https",
+              "host": [
+                "localhost"
+              ],
+              "port": "8443",
+              "path": [
+                "api",
+                "v1",
+                "notifications",
+                "{{notificationId}}",
+                "read"
+              ]
+            },
+            "description": "Отмечает уведомление прочитанным и гасит всю его группу повторов (напоминания о том же событии). Ответ 204, чужое уведомление — 404."
+          },
+          "response": []
+        },
+        {
+          "name": "Отметить все прочитанными",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "https://localhost:8443/api/v1/api/v1/notifications/read-all",
+              "protocol": "https",
+              "host": [
+                "localhost"
+              ],
+              "port": "8443",
+              "path": [
+                "api",
+                "v1",
+                "notifications",
+                "read-all"
+              ]
+            },
+            "description": "Отмечает все уведомления пользователя прочитанными. Ответ 204."
+          },
+          "response": []
+        },
+        {
+          "name": "Настройки: получить",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://localhost:8443/api/v1/api/v1/notifications/preferences",
+              "protocol": "https",
+              "host": [
+                "localhost"
+              ],
+              "port": "8443",
+              "path": [
+                "api",
+                "v1",
+                "notifications",
+                "preferences"
+              ]
+            },
+            "description": "Фактические настройки: events, repeatEnabled, repeatIntervalMinutes; без сохранённой строки — все события, повтор включён на 30 минут."
+          },
+          "response": []
+        },
+        {
+          "name": "Настройки: сохранить",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"events\": [\n        \"NEW_TICKET\",\n        \"NEW_MESSAGE\",\n        \"NEW_SYSTEM_MESSAGE\",\n        \"CHANGE_TICKET\",\n        \"TICKET_DELETED\",\n        \"NEW_PORTAL\",\n        \"PORTAL_DELETED\"\n    ],\n    \"repeatEnabled\": true,\n    \"repeatIntervalMinutes\": 30\n}"
+            },
+            "url": {
+              "raw": "https://localhost:8443/api/v1/api/v1/notifications/preferences",
+              "protocol": "https",
+              "host": [
+                "localhost"
+              ],
+              "port": "8443",
+              "path": [
+                "api",
+                "v1",
+                "notifications",
+                "preferences"
+              ]
+            },
+            "description": "События + повтор непрочитанных NEW_TICKET/NEW_MESSAGE: repeatEnabled, repeatIntervalMinutes (1..10080 минут). null — не менять; без строки настроек — включён на 30 минут. Пустой список событий или интервал вне диапазона — 400."
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "event": [
@@ -1521,6 +1733,11 @@
     {
       "key": "emailToken",
       "value": "",
+      "type": "string"
+    },
+    {
+      "key": "notificationId",
+      "value": "1",
       "type": "string"
     }
   ]
