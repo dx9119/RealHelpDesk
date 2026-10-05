@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Базовая схема: снимок ddl-auto Hibernate на 2026-10-05 (все entity в src/main/java).
+
+  Существующие базы, где таблицы уже созданы Hibernate (ddl-auto=create-drop/update/none
+  со скриптами в scripts/sql), отмечаются как выполненные и не трогаются: precondition
+  tableExists('users') -> MARK_RAN. На свежей базе создаётся вся схема целиком.
+-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="001-baseline-schema" author="ukhanov">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="users"/>
+            </not>
+        </preConditions>
+        <!-- Путь от корня classpath, не от этого файла: рядом лежат и changes/, и sql/. -->
+        <sqlFile path="db/changelog/sql/001-baseline-schema.sql"
+                 encoding="UTF-8"
+                 splitStatements="true"
+                 endDelimiter=";"/>
+    </changeSet>
+
+</databaseChangeLog>

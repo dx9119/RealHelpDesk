@@ -65,6 +65,13 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Liquibase: миграции схемы в src/main/resources/db/changelog.
+             Hibernate в режиме validate сверяет entity с тем, что создала миграция. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-liquibase</artifactId>
+        </dependency>
+
         <!-- Logging (уже в starter, но можно явно если нужно) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

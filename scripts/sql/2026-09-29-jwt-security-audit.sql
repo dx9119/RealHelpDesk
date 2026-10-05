@@ -1,6 +1,7 @@
 -- Миграция к аудиту JWT (ветка audit/jwt-security)
--- СУБД: PostgreSQL. Выполняется вручную для сред с spring.jpa.hibernate.ddl-auto=none.
--- В docker-compose ddl-auto=create-drop — схема создаётся Hibernate из entity, скрипт не нужен.
+-- СУБД: PostgreSQL. Скрипт исторический: с ветки feat/liquibase-migrations
+-- структуру ведёт Liquibase (src/main/resources/db/changelog), эти изменения
+-- входят в baseline 001-baseline-schema, вручную ничего выполнять не нужно.
 
 -- 1) Отзыв access-токенов: версия токенов пользователя (claim "ver" в access-JWT).
 --    Инкремент происходит при логауте и при смене пароля.

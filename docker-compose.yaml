@@ -61,8 +61,17 @@ services:
       DB_USER: *database-user
       DB_PASS: "${DB_PASSWORD:?DB_PASSWORD is required - copy .env.example to .env}"
 
-      # JPA/Hibernate: политика схемы и отладочный вывод — свойства окружения
-      JPA_DDL_AUTO: "create-drop"
+      # Миграции схемы (Liquibase): структуру создаёт changelog
+      # src/main/resources/db/changelog, Hibernate в validate только сверяет
+      # entity с ней. Изменения структуры — новый changeset, не правка руками.
+      # Префикс DB_MIGRATIONS_, а не LIQUIBASE_: Liquibase 5 сам читает
+      # LIQUIBASE_* из окружения и warns об этих именах как о «невалидных».
+      DB_MIGRATIONS_ENABLED: "true"
+      DB_MIGRATIONS_CHANGE_LOG: "classpath:db/changelog/db.changelog-master.xml"
+
+      # JPA/Hibernate: режим задан в коде (application.properties, validate) и
+      # окружением не управляется — так изменяющий схему режим нельзя вернуть
+      # ни отсюда, ни из .env. show-sql/format-sql — отладочный вывод SQL.
       JPA_SHOW_SQL: "false"
       JPA_FORMAT_SQL: "true"
 

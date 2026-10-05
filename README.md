@@ -42,7 +42,7 @@ Refresh-токен в БД хранится в виде SHA-256 хеша; выд
 
 | Файл | Что в нём |
 |---|---|
-| `src/main/resources/application.properties` | Только схема: обязательные `${VAR}` без дефолтов, ни одного значения |
+| `src/main/resources/application.properties` | Схема: обязательные `${VAR}` без дефолтов. Единственное значение — `spring.jpa.hibernate.ddl-auto=validate`, закреплённое в коде (окружением не управляется) |
 | `src/main/resources/application-domains.properties` | Схема доменов (подключается через `spring.config.import`): CORS, issuer/audience токенов, домен фронта в письмах, адреса отправителя |
 | `docker/app.env` | Продукт: рейт-лимиты, капча, сроки токенов, брендинг, адреса писем |
 | `docker-compose.yaml` → `services.app.environment` | Окружение: порты, хосты, профиль, ресурсы, JVM — и секреты через `${VAR:?}` (пустой `MAIL_PASSWORD` допустим) |
@@ -74,14 +74,48 @@ smtp4dev работает без аутентификации. Проект ра
    в `.env.example` для `KEY_STORE_PASS` задано демо-значение.
 2. `docker compose up --build -d`
 
-> **Внимание.** Рестарт контейнера `app` уничтожает данные: пользователей,
-> порталы, заявки и токены (`JPA_DDL_AUTO=create-drop`).
+> **Схема БД.** Структуру создаёт и изменяет Liquibase при старте приложения,
+> Hibernate только сверяет entity с ней (`spring.jpa.hibernate.ddl-auto=validate`,
+> значение закреплено в `application.properties`). Рестарт
+> контейнера `app` данные не трогает; `docker compose down -v` удаляет том
+> PostgreSQL вместе с ними.
 
 Всё остальное правится в `docker/app.env` (капча, рейт-лимиты, сроки,
 адреса писем), в `docker-compose.yaml` → `services.app.environment`
 (порты, почта, профиль) или в `.env` — пересборка образа не нужна,
 достаточно `docker compose up -d`.
 PostgreSQL (`5432`) и SMTP (`25`) слушают только `127.0.0.1`; API — `8443`, интерфейс smtp4dev — `3000`.
+
+### Миграции схемы (Liquibase)
+
+Миграции лежат в `src/main/resources/db/changelog`:
+
+| Файл | Что в нём |
+|---|---|
+| `db.changelog-master.xml` | Корень: подключает changeset'ы по порядку |
+| `changes/NNN-<slug>.xml` | Один шаг: `<changeSet id="NNN-<slug>">` и условие его выполнения |
+| `sql/NNN-<slug>.sql` | SQL шага, подключается через `<sqlFile path="db/changelog/sql/NNN-<slug>.sql">` |
+
+Старт: `DB_MIGRATIONS_ENABLED=true` и `DB_MIGRATIONS_CHANGE_LOG=classpath:db/changelog/db.changelog-master.xml`
+в `docker-compose.yaml` → `services.app.environment` (схема этих ключей — в
+`application.properties`). Liquibase выполняется до Hibernate; после него
+`spring.jpa.hibernate.ddl-auto=validate` валит запуск, если entity не совпадает
+со схемой. Режим задан в коде и переменной окружения не управляется: вернуть
+изменивший схему режим помешает `ApplicationConfigSchemaTest` — он падает, если
+в конфигурации среды появится что-то кроме `validate`.
+
+Новая миграция:
+
+1. `sql/NNN-<slug>.sql` — SQL (DDL) со следующим свободным номером;
+2. `changes/NNN-<slug>.xml` — `<changeSet id="NNN-<slug>" author="...">` c `<sqlFile>`;
+3. `<include>` нового файла в `db.changelog-master.xml`.
+
+Applied changeset'ы не редактируются: меняется контрольная сумма и Liquibase
+остановит запуск — правка только новым changeset'ом. CHECK-ограничения колонок
+с enum зафиксированы в baseline: новое значение enum требует отдельного changeset
+с пересозданием ограничения. Baseline (`001-baseline-schema`) на базе, где таблицы
+уже есть, помечается выполненным и ничего не меняет — схема новых сред создаётся
+полностью, существующие не трогаются.
 
 ### HTTPS и keystore
 

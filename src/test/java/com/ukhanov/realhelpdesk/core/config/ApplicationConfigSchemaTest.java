@@ -41,9 +41,24 @@ class ApplicationConfigSchemaTest {
 
     /**
      * Ключи, которым позволено содержать литерал: {@code spring.config.import} подключает application-domains.properties — значение это
-     * адрес файла, а не переменная окружения.
+     * адрес файла, а не переменная окружения. {@code spring.jpa.hibernate.ddl-auto} закреплён в коде (validate): режим, изменяющий схему,
+     * нельзя оставить на откуп окружения — им управляют только миграции Liquibase; исключение отдельно охраняется
+     * {@link #ddlAutoIsPinnedToValidateAndNeverDestructive()}.
      */
-    private static final Set<String> NON_SCHEMA_KEYS = Set.of("spring.config.import");
+    private static final Set<String> NON_SCHEMA_KEYS = Set.of("spring.config.import", "spring.jpa.hibernate.ddl-auto");
+
+    /**
+     * Конфигурация среды: файлы схемы и места со значениями. В них не должно появиться деструктивного режима ddl-auto — иначе рестарт
+     * уничтожит данные. Тестовые конфиги и {@code @DataJpaTest(properties=...)} не входят: там схему создаёт H2, это не прод.
+     */
+    private static final List<Path> ENVIRONMENT_FILES = List.of(Path.of("src", "main", "resources", "application.properties"),
+            Path.of("src", "main", "resources", "application-domains.properties"),
+            Path.of("src", "main", "resources", "application-debug.properties"),
+            Path.of("src", "main", "resources", "application-prod.properties"), Path.of("docker-compose.yaml"),
+            Path.of("docker-compose.debug.yaml"), Path.of("docker", "app.env"));
+
+    /** Любой ddl-auto в конфигурации среды: имя ключа и режим после {@code =}/{@code :}, кавычки опциональны. */
+    private static final Pattern DDL_AUTO_ASSIGNMENT = Pattern.compile("(?i)ddl[-_]auto\\s*[=:]\\s*\"?([a-z-]+)\"?");
 
     /**
      * Ключи {@code services.app.environment}, которых нет в схеме приложения: они переопределяют {@code ENV} образа (JVM-флаги, см. sec.md
@@ -82,6 +97,30 @@ class ApplicationConfigSchemaTest {
         declaredValues.addAll(appEnvKeys);
         assertThat(declaredValues).as("схема application.properties + application-domains.properties и ключи compose + app.env")
                 .containsExactlyInAnyOrderElementsOf(schemaVariables);
+    }
+
+    @Test
+    @DisplayName("ddl-auto закреплён в коде: validate, деструктивный режим не появится в конфигурации среды")
+    void ddlAutoIsPinnedToValidateAndNeverDestructive() throws Exception {
+        Properties schema = loadSchema();
+
+        assertThat(schema.getProperty("spring.jpa.hibernate.ddl-auto")).as("режим схемы задан в коде, а не в окружении")
+                .isEqualTo("validate");
+
+        assertThat(composeAppEnvironment()).as("переменной ddl-auto в docker-compose.yaml быть не должно").doesNotContain("JPA_DDL_AUTO");
+        assertThat(appEnvKeys()).as("переменной ddl-auto в docker/app.env быть не должно").doesNotContain("JPA_DDL_AUTO");
+
+        for (Path file : ENVIRONMENT_FILES) {
+            assertThat(Files.exists(file)).as(file.toString()).isTrue();
+            String content = Files.readString(file, StandardCharsets.UTF_8);
+
+            Matcher assignment = DDL_AUTO_ASSIGNMENT.matcher(content);
+            while (assignment.find()) {
+                assertThat(assignment.group(1)).as(file.toString() + ": режим ddl-auto").isEqualTo("validate");
+            }
+
+            assertThat(content).as(file.toString()).doesNotContain("create-drop").doesNotContain("drop-create");
+        }
     }
 
     /** Оба файла схемы: основной конфиг и домены (spring.config.import). Дубли ключей между ними — ошибка. */

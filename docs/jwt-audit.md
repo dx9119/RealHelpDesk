@@ -49,7 +49,7 @@ CSRF **не зависит от наличия серверных сессий**
 | — | Роль зашита в JWT claim `role` (используется только для диагностики; авторизация берёт роль из БД) | Низко |
 | — | Мёртвый код: `WhiteUrlConfig.isMyTelegramBot` (сравнение заголовка с пустой строкой), `LogoutResponse` | Низко |
 | — | `pom.xml`: `spring-boot-starter-oauth2-resource-server` подключён, но не настроен | Низко |
-| — | `docker-compose`: `ddl-auto=create-drop` (рестарт = потеря данных/сессий), заглушки issuer/audience | Средне |
+| — | `docker-compose`: `ddl-auto=create-drop` (рестарт = потеря данных/сессий), заглушки issuer/audience — в ветке `feat/liquibase-migrations` схему ведёт Liquibase, `ddl-auto=validate` | Средне |
 | — | Дефолты креденшелов в `application.properties` (`demo-keystore-pass`, `pass`, `password`), капча выключена по умолчанию | Средне |
 | — | `POST /api/v1/auth/check`, `/token`, `DELETE /cookies` — без rate limit | Низко |
 | — | Ранний выход в `LoginService` до BCrypt — потенциальный timing-оракул user enumeration; коды 409 вместо 401 в auth-ошибках | Средне |
@@ -71,6 +71,10 @@ CSRF **не зависит от наличия серверных сессий**
    - `users.token_version` (новая колонка);
    - хеширование существующих `jwt_tokens.token_refresh` + unique-индекс.
    - В docker-compose (`create-drop`) скрипт не нужен.
+   - С веткой `feat/liquibase-migrations` структуру ведёт Liquibase
+     (`src/main/resources/db/changelog`), а этот скрипт вошёл в baseline
+     `001-baseline-schema`: новые среды получают схему целиком, существующие
+     изменения помечаются выполненным — выполнять скрипт вручную больше не нужно.
 2. **Все выданные access-токены перестают действовать** (нет claim `typ`/`ver`) — пользователи войдут заново. Старые refresh-токены валидны (при успешной миграции строк), новые выдаются при входе.
 3. Новая настройка: `jwt.cookie.same-site` / `JWT_COOKIE_SAMESITE` (по умолчанию `None` — без изменения поведения).
 4. Refresh-cookie теперь отправляется только на `/api/v1/auth/*` — фронтону, читающему его с других путей, нужно обновиться (эндпоинты API токен из этой cookie не читают).
