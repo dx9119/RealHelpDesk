@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Корневой changelog Liquibase. Подключается из application.properties:
+      spring.liquibase.change-log=${DB_MIGRATIONS_CHANGE_LOG}
+      DB_MIGRATIONS_CHANGE_LOG=classpath:db/changelog/db.changelog-master.xml
+
+  Правила:
+    * один файл на изменения — changes/NNN-<slug>.xml, нумерация возрастает и не меняется;
+    * тяжёлый SQL лежит рядом в sql/ и подключается через <sqlFile> с путём
+      от корня classpath (db/changelog/sql/NNN-<slug>.sql);
+    * applied changesets не редактируются (контрольная сумма меняется — Liquibase упадёт),
+      правка только через новый changeset;
+    * изменения enum-значений в колонках с CHECK — отдельный changeset с пересозданием ограничения.
+-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <include file="changes/001-baseline-schema.xml" relativeToChangelogFile="true"/>
+
+</databaseChangeLog>
