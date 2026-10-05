@@ -69,8 +69,12 @@ services:
       # JWT: секрет — в .env, адреса выдачи — здесь (URL деплоя).
       # Сроки жизни и cookie — docker/app.env.
       JWT_SECRET: "${JWT_SECRET:?JWT_SECRET is required - copy .env.example to .env}"
+      # Домены (схема — src/main/resources/application-domains.properties):
+      # issuer/audience пишутся в токены и сверяются при валидации.
       JWT_ISSUER: "https://example.com"
       JWT_AUDIENCE: "https://example.com"
+      # Origin'ы фронта для CORS, список через запятую (см. cors.allowed-origins).
+      CORS_ALLOWED_ORIGINS: "https://localhost.ru,https://example.com"
 
       # Mail - SMTP: сервер окружения (smtp4dev). Адреса отправителя и
       # название писем — docker/app.env.
@@ -83,7 +87,7 @@ services:
       SMTP_AUTH: "false"
       SMTP_STARTTLS: "false"
 
-      # Mail content: адрес фронта в письмах зависит от окружения
+      # Mail content: домен фронта в письмах (email.domain) зависит от окружения
       FRONT_DOMAIN: "front.example.ru"
 
       # Rate limit: брать клиентский IP из X-Forwarded-For (включать только

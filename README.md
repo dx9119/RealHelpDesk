@@ -36,11 +36,13 @@ Refresh-токен в БД хранится в виде SHA-256 хеша; выд
 ## Конфигурация
 
 Конфигурация разложена по смыслу: значения — в трёх файлах,
-`application.properties` — схема без дефолтов.
+`application.properties` — схема без дефолтов, домены — в
+`application-domains.properties`.
 
 | Файл | Что в нём |
 |---|---|
 | `src/main/resources/application.properties` | Только схема: обязательные `${VAR}` без дефолтов, ни одного значения |
+| `src/main/resources/application-domains.properties` | Схема доменов (подключается через `spring.config.import`): CORS, issuer/audience токенов, домен фронта в письмах, адреса отправителя |
 | `docker/app.env` | Продукт: рейт-лимиты, капча, сроки токенов, брендинг, адреса писем |
 | `docker-compose.yaml` → `services.app.environment` | Окружение: порты, хосты, профиль, ресурсы, JVM — и секреты через `${VAR:?}` (пустой `MAIL_PASSWORD` допустим) |
 | `.env` (см. `.env.example`) | Только секреты: `JWT_SECRET`, `DB_PASSWORD`, `MAIL_PASSWORD`, `KEY_STORE_PASS` |

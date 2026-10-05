@@ -19,23 +19,31 @@ import org.yaml.snakeyaml.Yaml;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Контракт конфигурации приложения: {@code application.properties} — только схема из обязательных {@code ${VAR}}, а значения лежат в двух
- * местах: {@code docker/app.env} (продукт) и {@code services.app.environment} в {@code docker-compose.yaml} (окружение и секреты).
+ * Контракт конфигурации приложения: {@code application.properties} и {@code application-domains.properties} (домены) — только схема из
+ * обязательных {@code ${VAR}}, а значения лежат в двух местах: {@code docker/app.env} (продукт) и {@code services.app.environment} в
+ * {@code docker-compose.yaml} (окружение и секреты).
  *
  * <p>
- * Файл читается напрямую по пути {@code src/main/resources/...}, а не с classpath, поэтому на результат не влияет даже
+ * Файлы читаются напрямую по пути {@code src/main/resources/...}, а не с classpath, поэтому на результат не влияет даже
  * {@code src/test/resources/application.properties}, который перекрывает main-конфиг в тестовом класслоаде.
  * </p>
  */
-@DisplayName("Конфигурация: схема application.properties, docker-compose.yaml и docker/app.env")
+@DisplayName("Конфигурация: схема application*.properties, docker-compose.yaml и docker/app.env")
 class ApplicationConfigSchemaTest {
 
     private static final Path APPLICATION_PROPERTIES = Path.of("src", "main", "resources", "application.properties");
+    private static final Path APPLICATION_DOMAINS_PROPERTIES = Path.of("src", "main", "resources", "application-domains.properties");
     private static final Path DOCKER_COMPOSE = Path.of("docker-compose.yaml");
     private static final Path APP_ENV = Path.of("docker", "app.env");
     /** Ровно ${VAR}: без дефолта после двоеточия и без литерала до/после. */
     private static final Pattern SCHEMA_VALUE = Pattern.compile("\\$\\{[A-Z_][A-Z0-9_]*}");
     private static final Pattern SCHEMA_VARIABLE = Pattern.compile("\\$\\{([A-Z_][A-Z0-9_]*)}");
+
+    /**
+     * Ключи, которым позволено содержать литерал: {@code spring.config.import} подключает application-domains.properties — значение это
+     * адрес файла, а не переменная окружения.
+     */
+    private static final Set<String> NON_SCHEMA_KEYS = Set.of("spring.config.import");
 
     /**
      * Ключи {@code services.app.environment}, которых нет в схеме приложения: они переопределяют {@code ENV} образа (JVM-флаги, см. sec.md
@@ -44,11 +52,11 @@ class ApplicationConfigSchemaTest {
     private static final String NON_SCHEMA_ENV_PREFIX = "JAVA_";
 
     @Test
-    @DisplayName("application.properties — чистая схема: только обязательные ${VAR}, без дефолтов и литералов")
+    @DisplayName("application*.properties — чистая схема: только обязательные ${VAR}, без дефолтов и литералов")
     void applicationPropertiesIsSchemaWithoutValues() throws Exception {
         Properties schema = loadSchema();
 
-        List<String> notSchema = schema.stringPropertyNames().stream().sorted()
+        List<String> notSchema = schema.stringPropertyNames().stream().sorted().filter(name -> !NON_SCHEMA_KEYS.contains(name))
                 .filter(name -> !SCHEMA_VALUE.matcher(schema.getProperty(name)).matches())
                 .map(name -> name + "=" + schema.getProperty(name)).toList();
 
@@ -57,7 +65,7 @@ class ApplicationConfigSchemaTest {
     }
 
     @Test
-    @DisplayName("Переменные схемы и ключи docker-compose.yaml + docker/app.env совпадают один в один")
+    @DisplayName("Переменные схемы (оба файла) и ключи docker-compose.yaml + docker/app.env совпадают один в один")
     void everySchemaVariableIsDeclaredInDockerComposeOrAppEnv() throws Exception {
         Properties schema = loadSchema();
 
@@ -72,15 +80,23 @@ class ApplicationConfigSchemaTest {
 
         Set<String> declaredValues = new LinkedHashSet<>(composeKeys);
         declaredValues.addAll(appEnvKeys);
-        assertThat(declaredValues).as("схема application.properties и ключи compose + app.env")
+        assertThat(declaredValues).as("схема application.properties + application-domains.properties и ключи compose + app.env")
                 .containsExactlyInAnyOrderElementsOf(schemaVariables);
     }
 
+    /** Оба файла схемы: основной конфиг и домены (spring.config.import). Дубли ключей между ними — ошибка. */
     private Properties loadSchema() throws Exception {
-        assertThat(Files.exists(APPLICATION_PROPERTIES)).as(APPLICATION_PROPERTIES.toString()).isTrue();
         Properties properties = new Properties();
-        try (var reader = Files.newBufferedReader(APPLICATION_PROPERTIES, StandardCharsets.UTF_8)) {
-            properties.load(reader);
+        for (Path file : List.of(APPLICATION_PROPERTIES, APPLICATION_DOMAINS_PROPERTIES)) {
+            assertThat(Files.exists(file)).as(file.toString()).isTrue();
+            Properties part = new Properties();
+            try (var reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+                part.load(reader);
+            }
+            Set<String> duplicates = new LinkedHashSet<>(part.stringPropertyNames());
+            duplicates.retainAll(properties.stringPropertyNames());
+            assertThat(duplicates).as("ключ объявлен в обоих файлах схемы: " + file).isEmpty();
+            properties.putAll(part);
         }
         return properties;
     }

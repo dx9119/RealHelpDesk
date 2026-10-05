@@ -16,7 +16,7 @@
 
 | Слой | Что в нём | Файл | В git |
 |---|---|---|---|
-| **Схема** (контракт) | какие переменные существуют и куда они идут. Ни одного значения, ни одного дефолта | `src/main/resources/application.properties` | да |
+| **Схема** (контракт) | какие переменные существуют и куда они идут. Ни одного значения, ни одного дефолта | `src/main/resources/application.properties` + `application-domains.properties` (домены) | да |
 | **Продукт** | решения проекта: лимиты, капча, сроки токенов, брендинг, адреса писем | `docker/app.env` | да |
 | **Конфиг окружения** | то, что зависит от хоста и развёртывания: порты, хосты, профиль, ресурсы, JVM | `docker-compose.yaml` → `services.app.environment` | да |
 | **Секреты** | пароли и ключи | `.env` (шаблон — `.env.example`) | **нет** (`.gitignore`) |
@@ -32,8 +32,10 @@
 у `environment` (перекрывает `env_file`, §3.1). Тест
 `ApplicationConfigSchemaTest` не даёт слоям разойтись:
 
-- значения в `application.properties` обязаны быть ровно `${VAR}` — без
-  дефолта после `:` и без литерала до/после;
+- значения в файлах схемы (`application.properties` и
+  `application-domains.properties`) обязаны быть ровно `${VAR}` — без
+  дефолта после `:` и без литерала до/после (единственное исключение —
+  `spring.config.import`: это адрес подключаемого файла, а не переменная);
 - список переменных схемы обязан совпадать с объединением ключей
   `services.app.environment` и `docker/app.env` **один в один**
   (сверяется в тесте, а не вручную). Исключение — ключи, начинающиеся
@@ -41,11 +43,11 @@
 - один и тот же ключ не должен быть задан в обоих файлах: тест падает
   и на дубль, и на пропуск.
 
-Если добавить ключ в `application.properties` и забыть про значения —
+Если добавить ключ в один из файлов схемы и забыть про значения —
 упадёт `mvn test`. Если добавить значение в compose или `app.env` и
 забыть про схему — упадёт там же.
 
-Тест читает файл напрямую по пути `src/main/resources/application.properties`,
+Тест читает файлы схемы напрямую по пути `src/main/resources/...`,
 а не с classpath. Поэтому на результат не влияет
 `src/test/resources/application.properties`, который перекрывает продовую
 конфигурацию в тестовом класслоаде.
@@ -272,7 +274,8 @@ docker/app.env ──┘  env_file                       ▼
                       Spring резолвит ${...}  ─►  свойство конфигурации
 ```
 
-Файл `application.properties` **не хранит значений** — только ссылки.
+Файлы схемы (`application.properties`, `application-domains.properties`)
+**не хранят значений** — только ссылки.
 Spring резолвит их из окружения контейнера. Если переменной нет,
 резолв бросает `Could not resolve placeholder 'MAIL_HOST'` и приложение
 не стартует. Тихих подстановок нет.
@@ -293,9 +296,10 @@ Spring резолвит их из окружения контейнера. Ес�
 | Профиль логов | `docker-compose.yaml` → `SPRING_PROFILES_ACTIVE` | `docker compose up -d` |
 | Почта: SMTP-сервер, хост, порт | `docker-compose.yaml` | `docker compose up -d` |
 | Почта: адреса отправителя, название, домен фронта | `docker/app.env` (`FRONT_DOMAIN` — в compose: зависит от окружения) | `docker compose up -d` |
+| Домены: CORS, issuer/audience токенов, ссылки в письмах | схема — `application-domains.properties`, значения — `docker-compose.yaml` (`CORS_ALLOWED_ORIGINS`, `JWT_ISSUER`, `JWT_AUDIENCE`, `FRONT_DOMAIN`) и `docker/app.env` (`MAIL_FROM`, `MAIL_NOTIFY`) | `docker compose up -d` |
 | Любое значение вне `.env` | `docker/app.env` (продукт) или `docker-compose.yaml` (окружение) | `docker compose up -d` |
 | Любой секрет | `.env` | `docker compose up -d` |
-| Новый ключ конфига | сначала `application.properties`, потом `docker/app.env` или `docker-compose.yaml` (нельзя в обоих) | `mvn test` (сверка) |
+| Новый ключ конфига | сначала `application.properties` (домены — `application-domains.properties`), потом `docker/app.env` или `docker-compose.yaml` (нельзя в обоих) | `mvn test` (сверка) |
 | Тексты и темы писем | `src/main/resources/messages.properties` | пересборка (файл внутри jar) |
 | Уровни логирования | `application-debug.properties` / `application-prod.properties` | пересборка |
 | Флаги JVM: диагностика | `docker-compose.yaml` (выкл.) / `docker-compose.debug.yaml` (вкл.) | `docker compose up -d` |
@@ -601,7 +605,8 @@ Hibernate стартует до готовности СУБД и падает, �
 
 ## 6. Чек-лист при ревью
 
-- [ ] Новое свойство в `application.properties` — ровно `${VAR}`, без дефолта.
+- [ ] Новое свойство в `application.properties` (домены — в
+      `application-domains.properties`) — ровно `${VAR}`, без дефолта.
 - [ ] Для него добавлен ключ в `services.app.environment` **или** в
       `docker/app.env` — в обоих сразу тест упадёт на дубле (`mvn test`
       проверит и парность, и дубли). Ключи compose, начинающиеся с `JAVA_`,
