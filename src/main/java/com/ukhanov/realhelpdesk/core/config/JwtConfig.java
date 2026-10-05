@@ -4,11 +4,14 @@ import java.security.Key;
 import java.util.Base64;
 import java.util.Set;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import io.jsonwebtoken.security.Keys;
 
+/**
+ * Готовый к работе конфиг JWT: проверяет настройки из {@link JwtProperties} и собирает ключ подписи. Падает на старте с понятной ошибкой,
+ * если секрет или адреса не заданы.
+ */
 @Component
 public class JwtConfig {
 
@@ -18,9 +21,13 @@ public class JwtConfig {
     private final Integer accessTokenExp;
     private final Integer refreshExp;
 
-    public JwtConfig(@Value("${jwt.secret-for-gen-jwt}") String secretForGenJwt, @Value("${jwt.issuer}") String issuer,
-            @Value("${jwt.audience}") Set<String> audience, @Value("${jwt.access-token-expiration}") Integer accessTokenExp,
-            @Value("${jwt.refresh-token-expiration}") Integer refreshExp) {
+    public JwtConfig(JwtProperties properties) {
+        String secretForGenJwt = properties.getSecretForGenJwt();
+        String issuer = properties.getIssuer();
+        Set<String> audience = properties.getAudience();
+        Integer accessTokenExp = properties.getAccessTokenExpiration();
+        Integer refreshExp = properties.getRefreshTokenExpiration();
+
         if (secretForGenJwt == null || secretForGenJwt.isBlank()) {
             throw new IllegalArgumentException("jwt.secret-for-gen-jwt не содержит значение");
         }

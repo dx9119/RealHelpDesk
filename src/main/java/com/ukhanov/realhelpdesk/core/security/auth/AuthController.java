@@ -8,7 +8,6 @@ import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ukhanov.realhelpdesk.core.config.JwtProperties;
 import com.ukhanov.realhelpdesk.core.mail.exception.EmailAccessDeniedException;
 import com.ukhanov.realhelpdesk.core.security.auth.login.dto.LoginRequest;
 import com.ukhanov.realhelpdesk.core.security.auth.login.service.LoginService;
@@ -56,18 +56,16 @@ public class AuthController {
     private final LogoutService logoutService;
     private final GetTokenService getTokenService;
     private final RefreshService refreshService;
-
-    // None — для кросс-доменного фронта; Lax/Strict, если фронт на том же сайте
-    @Value("${jwt.cookie.same-site:None}")
-    private String sameSite;
+    private final JwtProperties jwtProperties;
 
     public AuthController(RegistrationService registrationService, LoginService loginService, LogoutService logoutService,
-            GetTokenService getTokenService, RefreshService refreshService) {
+            GetTokenService getTokenService, RefreshService refreshService, JwtProperties jwtProperties) {
         this.registrationService = registrationService;
         this.loginService = loginService;
         this.logoutService = logoutService;
         this.getTokenService = getTokenService;
         this.refreshService = refreshService;
+        this.jwtProperties = jwtProperties;
     }
 
     @PostMapping("/register")
@@ -129,12 +127,13 @@ public class AuthController {
     }
 
     private ResponseCookie accessCookie(String value, Duration maxAge) {
-        return ResponseCookie.from(ACCESS_COOKIE, value).httpOnly(true).secure(true).path("/").maxAge(maxAge).sameSite(sameSite).build();
+        return ResponseCookie.from(ACCESS_COOKIE, value).httpOnly(true).secure(true).path("/").maxAge(maxAge)
+                .sameSite(jwtProperties.getCookie().getSameSite().getValue()).build();
     }
 
     private ResponseCookie refreshCookie(String value, Duration maxAge) {
         return ResponseCookie.from(REFRESH_COOKIE, value).httpOnly(true).secure(true).path(REFRESH_COOKIE_PATH).maxAge(maxAge)
-                .sameSite(sameSite).build();
+                .sameSite(jwtProperties.getCookie().getSameSite().getValue()).build();
     }
 
 }

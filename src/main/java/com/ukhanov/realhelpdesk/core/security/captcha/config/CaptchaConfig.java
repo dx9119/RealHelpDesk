@@ -2,7 +2,6 @@ package com.ukhanov.realhelpdesk.core.security.captcha.config;
 
 import java.util.Properties;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -13,12 +12,9 @@ import com.ukhanov.realhelpdesk.core.security.captcha.dto.DtoCaptchaProperties;
 @Configuration
 public class CaptchaConfig {
 
-    @Value("${captcha.enabled}")
-    Boolean captchaEnabled;
-
     @Bean
-    public DtoCaptchaProperties captchaProperties() {
-        return new DtoCaptchaProperties(captchaEnabled);
+    public DtoCaptchaProperties dtoCaptchaProperties(CaptchaProperties captchaProperties) {
+        return new DtoCaptchaProperties(captchaProperties.getEnabled());
     }
 
     @Bean

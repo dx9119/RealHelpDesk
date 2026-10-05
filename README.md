@@ -55,9 +55,10 @@ smtp4dev работает без аутентификации. Проект ра
 **только внутри Docker-контейнера**: без переменных окружения локальный
 `java -jar` не поднимется.
 
-Единственный дефолт в коде — `:None` у `jwt.cookie.same-site` в `AuthController`.
-Настройка в `application.properties` обязательна (`${JWT_COOKIE_SAMESITE}`),
-фолбэк не используется.
+Единственный дефолт в коде — `SameSite.NONE` у `jwt.cookie.same-site`
+(поле `JwtProperties.Cookie`). Допустимые значения — весь набор enum `SameSite`:
+`None`, `Lax`, `Strict` (регистр не важен); неизвестное значение валит старт.
+Настройка в `application.properties` обязательна (`${JWT_COOKIE_SAMESITE}`).
 
 Схему и оба места со значениями (`services.app.environment` + `docker/app.env`)
 держит в согласии тест `ApplicationConfigSchemaTest`: значения вида `${VAR}`
