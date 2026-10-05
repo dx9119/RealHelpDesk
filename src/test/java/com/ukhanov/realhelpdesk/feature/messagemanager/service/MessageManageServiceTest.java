@@ -30,6 +30,7 @@ import com.ukhanov.realhelpdesk.feature.messagemanager.dto.CreateMessageResponse
 import com.ukhanov.realhelpdesk.feature.messagemanager.dto.MessageResponse;
 import com.ukhanov.realhelpdesk.feature.messagemanager.exception.MessageException;
 import com.ukhanov.realhelpdesk.feature.messagemanager.mapper.MessageMapper;
+import com.ukhanov.realhelpdesk.feature.notificationmanager.service.NotificationPublisher;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 
@@ -56,6 +57,8 @@ class MessageManageServiceTest {
     private MessageDomainService mockMessageDomainService;
     @Mock
     private EmailDeliveryService mockEmailDeliveryService;
+    @Mock
+    private NotificationPublisher mockNotificationPublisher;
 
     @Captor
     private ArgumentCaptor<TicketModel> ticketCaptor;
@@ -75,7 +78,7 @@ class MessageManageServiceTest {
     @BeforeEach
     void setUp() {
         service = new MessageManageService(mockMessageMapper, mockCurrentUserProvider, mockTicketDomainService, mockMessageDomainService,
-                mockEmailDeliveryService, emailTemplates);
+                mockEmailDeliveryService, emailTemplates, mockNotificationPublisher);
     }
 
     // ────────────────────────────────────────────────

@@ -35,6 +35,7 @@ import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 import com.ukhanov.realhelpdesk.domain.ticket.repository.TicketRepository;
 import com.ukhanov.realhelpdesk.domain.ticket.service.TicketDomainService;
+import com.ukhanov.realhelpdesk.feature.notificationmanager.service.NotificationPublisher;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketRequest;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketResponse;
@@ -72,6 +73,8 @@ class TicketManageServiceTest {
     private TicketAccessValidationService mockTicketAccessValidationService;
     @Mock
     private TicketRepository mockTicketRepository;
+    @Mock
+    private NotificationPublisher mockNotificationPublisher;
 
     @Captor
     private ArgumentCaptor<TicketModel> ticketCaptor;
@@ -88,7 +91,8 @@ class TicketManageServiceTest {
     @BeforeEach
     void setUp() {
         service = new TicketManageService(mockTicketDomainService, mockCurrentUserProvider, mockPortalDomainService, mockPaginationAdapter,
-                mockEmailDeliveryService, mockTicketAccessValidationService, mockTicketRepository, emailTemplates);
+                mockEmailDeliveryService, mockTicketAccessValidationService, mockTicketRepository, emailTemplates,
+                mockNotificationPublisher);
 
         UserModel currentUser = new UserModel();
         currentUser.setId(USER_ID);

@@ -30,6 +30,7 @@ import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 import com.ukhanov.realhelpdesk.domain.ticket.repository.TicketRepository;
 import com.ukhanov.realhelpdesk.domain.ticket.service.TicketDomainService;
+import com.ukhanov.realhelpdesk.feature.notificationmanager.service.NotificationPublisher;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketRequest;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketResponse;
@@ -50,12 +51,14 @@ public class TicketManageService {
     private final EmailDeliveryService emailDeliveryService;
     private final TicketAccessValidationService ticketAccessValidationService;
     private final EmailTemplates emailTemplates;
+    private final NotificationPublisher notificationPublisher;
 
     private final TicketRepository ticketRepository;
 
     public TicketManageService(TicketDomainService ticketDomainService, CurrentUserProvider currentUserProvider,
             PortalDomainService portalDomainService, PaginationAdapter paginationAdapter, EmailDeliveryService emailDeliveryService,
-            TicketAccessValidationService ticketAccessValidationService, TicketRepository ticketRepository, EmailTemplates emailTemplates) {
+            TicketAccessValidationService ticketAccessValidationService, TicketRepository ticketRepository, EmailTemplates emailTemplates,
+            NotificationPublisher notificationPublisher) {
         this.ticketDomainService = ticketDomainService;
         this.currentUserProvider = currentUserProvider;
         this.portalDomainService = portalDomainService;
@@ -64,6 +67,7 @@ public class TicketManageService {
         this.ticketAccessValidationService = ticketAccessValidationService;
         this.ticketRepository = ticketRepository;
         this.emailTemplates = emailTemplates;
+        this.notificationPublisher = notificationPublisher;
     }
 
     public TicketResponseOld getTicketById(Long ticketId) throws TicketException {
@@ -86,6 +90,9 @@ public class TicketManageService {
         TicketModel ticket = TicketMapper.fromRequest(request, user, portal);
         TicketModel saved = ticketDomainService.saveTicket(ticket);
         logger.info("Создана заявка {} в портале {}", saved.getId(), portalId);
+
+        // In-app оповещение о новой заявке: до письма, чтобы не зависеть от SMTP; автора исключает publisher
+        notificationPublisher.publishToPortalUsers(portal, NotificationEvent.NEW_TICKET, user.getId(), saved.getId(), saved.getTitle());
 
         // Отправляем письмо с оповещением о создании заявки всем пользователям портала
         emailDeliveryService.initNotifyPortalUsers(portal, emailTemplates.ticketCreatedSubject(ticket.getId()),
@@ -171,9 +178,14 @@ public class TicketManageService {
         TicketModel ticketSaved = ticketDomainService.saveTicket(ticket);
         logger.info("Заявка {}: статус {} → {}", ticketId, previousStatus, status);
 
+        PortalModel portal = portalDomainService.getPortalById(portalId);
+
+        // In-app оповещение об изменении заявки (действующего пользователя publisher исключает)
+        notificationPublisher.publishToPortalUsers(portal, NotificationEvent.CHANGE_TICKET, currentUserProvider.getCurrentUserId(),
+                ticketSaved.getId(), ticketSaved.getTitle());
+
         // Отправляем письмо
-        emailDeliveryService.initNotifyPortalUsers(portalDomainService.getPortalById(portalId),
-                emailTemplates.updateStatusTicketSubject(ticketSaved.getId(), status),
+        emailDeliveryService.initNotifyPortalUsers(portal, emailTemplates.updateStatusTicketSubject(ticketSaved.getId(), status),
                 emailTemplates.updateStatusTicketBody(ticketSaved.getId(), portalId), NotificationEvent.CHANGE_TICKET);
     }
 
@@ -195,6 +207,10 @@ public class TicketManageService {
         TicketModel ticketSaved = ticketDomainService.saveTicket(ticket);
         logger.info("Заявка {}: приоритет {} → {}", ticketId, previousPriority, priority);
         PortalModel portal = portalDomainService.getPortalById(portalId);
+
+        // In-app оповещение об изменении заявки
+        notificationPublisher.publishToPortalUsers(portal, NotificationEvent.CHANGE_TICKET, currentUserProvider.getCurrentUserId(),
+                ticketSaved.getId(), ticketSaved.getTitle());
 
         // Отправляем письмо
         emailDeliveryService.initNotifyPortalUsers(portal, emailTemplates.updatePriorityTicketSubject(ticketSaved.getId(), priority),
@@ -219,10 +235,15 @@ public class TicketManageService {
         TicketModel ticketSaved = ticketRepository.save(ticket);
         logger.info("Заявка {} удалена пользователем {}", ticketSaved.getId(), user.getId());
 
+        PortalModel portal = portalDomainService.getPortalById(portalId);
+
+        // In-app оповещение об удалении заявки
+        notificationPublisher.publishToPortalUsers(portal, NotificationEvent.TICKET_DELETED, user.getId(), ticketSaved.getId(),
+                ticketSaved.getTitle());
+
         // Отправляем письмо
-        emailDeliveryService.initNotifyPortalUsers(portalDomainService.getPortalById(portalId),
-                emailTemplates.deletedTicketSubject(ticketID), emailTemplates.deletedTicketBody(ticketID, user.getEmail()),
-                NotificationEvent.TICKET_DELETED);
+        emailDeliveryService.initNotifyPortalUsers(portal, emailTemplates.deletedTicketSubject(ticketID),
+                emailTemplates.deletedTicketBody(ticketID, user.getEmail()), NotificationEvent.TICKET_DELETED);
     }
 
 }

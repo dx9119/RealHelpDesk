@@ -24,6 +24,7 @@ import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import com.ukhanov.realhelpdesk.domain.portal.service.PortalDomainService;
+import com.ukhanov.realhelpdesk.feature.notificationmanager.service.NotificationPublisher;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.CreatePortalRequest;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.CreatePortalResponse;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.DeleteResult;
@@ -71,6 +72,9 @@ class PortalManageServiceTest {
     @Mock
     private EmailDeliveryService emailDeliveryService;
 
+    @Mock
+    private NotificationPublisher notificationPublisher;
+
     private PortalManageService service;
 
     private final EmailTemplates emailTemplates = EmailTemplatesFixture.emailTemplates();
@@ -78,7 +82,7 @@ class PortalManageServiceTest {
     @BeforeEach
     void setUp() {
         service = new PortalManageService(currentUserProvider, portalDomainService, paginationAdapter, portalUtilsService,
-                accessValidationService, limitService, userDomainService, emailDeliveryService, emailTemplates);
+                accessValidationService, limitService, userDomainService, emailDeliveryService, emailTemplates, notificationPublisher);
 
         UserModel owner = new UserModel();
         owner.setId(OWNER_ID);

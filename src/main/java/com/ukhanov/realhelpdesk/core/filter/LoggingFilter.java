@@ -30,6 +30,12 @@ public class LoggingFilter extends OncePerRequestFilter {
     public static final String CLIENT_IP = "clientIp";
     public static final String URI_REQUEST = "uriRequest";
 
+    // ASYNC-dispatch (результат long polling) логируем отдельно: там виден итоговый статус ответа.
+    @Override
+    protected boolean shouldNotFilterAsyncDispatch() {
+        return false;
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
@@ -75,12 +81,16 @@ public class LoggingFilter extends OncePerRequestFilter {
     }
 
     // Чужой X-Request-ID принимаем только как безопасный идентификатор, иначе подменяем своим.
+    // Решение сохраняется в атрибуте запроса, чтобы ASYNC-dispatch логировался под тем же id.
     private static String resolveRequestId(HttpServletRequest request) {
-        String header = request.getHeader("X-Request-ID");
-        if (header != null && SAFE_REQUEST_ID.matcher(header).matches()) {
-            return header;
+        Object existing = request.getAttribute(REQUEST_ID);
+        if (existing instanceof String id && SAFE_REQUEST_ID.matcher(id).matches()) {
+            return id;
         }
-        return Long.toUnsignedString(RANDOM.nextLong());
+        String header = request.getHeader("X-Request-ID");
+        String resolved = header != null && SAFE_REQUEST_ID.matcher(header).matches() ? header : Long.toUnsignedString(RANDOM.nextLong());
+        request.setAttribute(REQUEST_ID, resolved);
+        return resolved;
     }
 
     private String getClientIpAddress(HttpServletRequest request) {

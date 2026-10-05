@@ -3,6 +3,7 @@ package com.ukhanov.realhelpdesk.feature.messagemanager.service;
 import java.io.UnsupportedEncodingException;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 import jakarta.mail.MessagingException;
 
@@ -25,6 +26,7 @@ import com.ukhanov.realhelpdesk.feature.messagemanager.dto.CreateMessageResponse
 import com.ukhanov.realhelpdesk.feature.messagemanager.dto.MessageResponse;
 import com.ukhanov.realhelpdesk.feature.messagemanager.exception.MessageException;
 import com.ukhanov.realhelpdesk.feature.messagemanager.mapper.MessageMapper;
+import com.ukhanov.realhelpdesk.feature.notificationmanager.service.NotificationPublisher;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 
@@ -38,16 +40,18 @@ public class MessageManageService {
     private final MessageDomainService messageDomainService;
     private final EmailDeliveryService emailDeliveryService;
     private final EmailTemplates emailTemplates;
+    private final NotificationPublisher notificationPublisher;
 
     public MessageManageService(MessageMapper messageMapper, CurrentUserProvider currentUserProvider,
             TicketDomainService ticketDomainService, MessageDomainService messageDomainService, EmailDeliveryService emailDeliveryService,
-            EmailTemplates emailTemplates) {
+            EmailTemplates emailTemplates, NotificationPublisher notificationPublisher) {
         this.messageMapper = messageMapper;
         this.currentUserProvider = currentUserProvider;
         this.ticketDomainService = ticketDomainService;
         this.messageDomainService = messageDomainService;
         this.emailDeliveryService = emailDeliveryService;
         this.emailTemplates = emailTemplates;
+        this.notificationPublisher = notificationPublisher;
     }
 
     public CreateMessageResponse createMessage(CreateMessageRequest request, Long ticketId, Long portalId)
@@ -60,6 +64,10 @@ public class MessageManageService {
         ticket.setTicketStatus(TicketStatus.IN_PROGRESS);
         ticketDomainService.saveTicket(ticket);
         MessageModel message = messageDomainService.saveMessage(messageMapper.toEntity(request, user, ticket));
+
+        // In-app оповещение автору заявки о новом сообщении (ответившего автора publisher исключает)
+        notificationPublisher.publishToUsers(Set.of(ticket.getAuthor().getId()), NotificationEvent.NEW_MESSAGE, user.getId(),
+                ticket.getId(), portalId, ticket.getTitle());
 
         // Отправляем письмо с оповещением о новом сообщении в тикете
         emailDeliveryService.sendUserNotification(ticket.getAuthor().getEmail(), emailTemplates.ticketReplySubject(ticket.getId()),

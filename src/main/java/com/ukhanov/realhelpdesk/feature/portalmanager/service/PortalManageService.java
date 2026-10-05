@@ -36,6 +36,7 @@ import com.ukhanov.realhelpdesk.core.security.user.repository.UserDetailsProject
 import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import com.ukhanov.realhelpdesk.domain.portal.service.PortalDomainService;
+import com.ukhanov.realhelpdesk.feature.notificationmanager.service.NotificationPublisher;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.CreatePortalRequest;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.CreatePortalResponse;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.DeleteResult;
@@ -64,11 +65,12 @@ public class PortalManageService {
     private final UserDomainService userDomainService;
     private final EmailDeliveryService emailDeliveryService;
     private final EmailTemplates emailTemplates;
+    private final NotificationPublisher notificationPublisher;
 
     public PortalManageService(CurrentUserProvider currentUserProvider, PortalDomainService portalDomainService,
             PaginationAdapter paginationAdapter, PortalUtilsService portalUtilsService, AccessValidationService accessValidationService,
             LimitService limitService, UserDomainService userDomainService, EmailDeliveryService emailDeliveryService,
-            EmailTemplates emailTemplates) {
+            EmailTemplates emailTemplates, NotificationPublisher notificationPublisher) {
         this.currentUserProvider = currentUserProvider;
         this.portalDomainService = portalDomainService;
         this.paginationAdapter = paginationAdapter;
@@ -78,6 +80,7 @@ public class PortalManageService {
         this.userDomainService = userDomainService;
         this.emailDeliveryService = emailDeliveryService;
         this.emailTemplates = emailTemplates;
+        this.notificationPublisher = notificationPublisher;
     }
 
     public CreatePortalResponse createPortal(CreatePortalRequest request)
@@ -103,6 +106,10 @@ public class PortalManageService {
         PortalModel savePortal = portalDomainService.savePortal(portal);
 
         logger.info("Портал создан для пользователя {} с именем '{}'", userModel.getId(), portal.getName());
+
+        // In-app оповещение о новом портале: на момент создания участников ещё нет, получателем остаётся только создатель —
+        // publisher исключает автора, поэтому строк не появится (точка входа нужна для паритета с email)
+        notificationPublisher.publishToPortalUsers(portal, NotificationEvent.NEW_PORTAL, userModel.getId(), null, portal.getName());
 
         // Отправляем письмо
         emailDeliveryService.initNotifyPortalUsers(portal, emailTemplates.portalCreatedSubject(savePortal.getId()),
@@ -227,6 +234,10 @@ public class PortalManageService {
                     portal.setDeleted(true);
                     portalDomainService.savePortal(portal);
                     deletedIds.add(id);
+
+                    // In-app оповещение об удалении портала (удаляющего publisher исключает)
+                    notificationPublisher.publishToPortalUsers(portal, NotificationEvent.PORTAL_DELETED, user.getId(), null,
+                            portal.getName());
 
                     // Отправляем письмо
                     emailDeliveryService.initNotifyPortalUsers(portal, emailTemplates.deletedPortalSubject(portal.getId()),
