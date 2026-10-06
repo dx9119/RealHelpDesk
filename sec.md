@@ -343,6 +343,8 @@ docker compose up -d     # пересоздать контейнер, перес
 | `DB_PASSWORD` | пароль PostgreSQL, общий для приложения и БД | из `.env` в compose → `DB_PASS` → `spring.datasource.password`; в сервисе `postgres` → `POSTGRES_PASSWORD` | запрещено |
 | `KEY_STORE_PASS` | пароль keystore с приватным ключом TLS | `server.ssl.key-store-password`, генерация keystore | запрещено |
 | `MAIL_PASSWORD` | пароль SMTP | `spring.mail.password` | **допустимо** — smtp4dev работает без аутентификации |
+| `SHARDINGSPHERE_ROOT_PASSWORD` | пароль пользователя `root` ShardingSphere-Proxy (DistSQL, администрирование шардов) | из `.env` в compose → рендер `shardingsphere/conf/global.yaml` (`shardingsphere/entrypoint.sh`) | пусто допустимо, пока выключен профиль `sharding`; при включённом прокси не стартует |
+| `SHARDINGSPHERE_SHARDING_PASSWORD` | пароль пользователя `sharding` ShardingSphere-Proxy (чтение/запись данных через правила шардирования) | из `.env` в compose → рендер `shardingsphere/conf/global.yaml` (`shardingsphere/entrypoint.sh`) | пусто допустимо, пока выключен профиль `sharding`; при включённом прокси не стартует |
 
 Имена у переменной из `.env` и у переменной контейнера различаются: в
 `.env` это `DB_PASSWORD`, compose подставляет его в контейнер как `DB_PASS`,
@@ -351,6 +353,19 @@ docker compose up -d     # пересоздать контейнер, перес
 
 Шаблон — `.env.example`. Рабочий `.env` в git не попадает (`.gitignore`),
 права на файл лучше держать `600`.
+
+Пароли прокси шардирования идут не через `services.app.environment`, а через
+`services.shardingsphere.environment`. В compose они подставлены как
+`${VAR:-}` — интерполяция всего файла выполняется и для выключенного профиля,
+поэтому жёсткий `${VAR:?}` заваливал бы стек из одной БД; обязательность
+перенесена в `shardingsphere/entrypoint.sh`, который не стартует прокси без
+пароля (секрета по умолчанию в git нет). Значения попадают в контейнер как
+обычное окружение, а `shardingsphere/entrypoint.sh` подставляет их в шаблоны
+конфигурации (`shardingsphere/conf/*.yaml`, плейсхолдеры `__NAME__`) —
+в отрендеренный `conf/global.yaml` внутри контейнера и только там. Необязательные `SHARD_DB`,
+`SHARD_DB_USER`, `SHARD_DB_PASSWORD` в `.env.example` закомментированы:
+по умолчанию шарды используют ту же учётку и имя БД (`desk`), что и основная
+PostgreSQL.
 
 > **Предупреждение про `$`.** Compose интерполирует `$` в значениях из
 > `.env` и из `docker/app.env`: пароль `pa$sword` станет `pa` (переменная
@@ -572,21 +587,39 @@ secrets:
 ```bash
 cp .env.example .env
 # заполнить JWT_SECRET (openssl rand -base64 32), DB_PASSWORD, KEY_STORE_PASS;
-# MAIL_PASSWORD оставить пустым для smtp4dev
+# MAIL_PASSWORD оставить пустым для smtp4dev; SHARDINGSPHERE_*_PASSWORD —
+# только для профиля sharding (без него compose поднимается и с пустыми)
 
 docker compose up --build -d
+# шардирование (профиль sharding, по умолчанию выключено):
+#   docker compose --profile sharding up -d   — включить,
+#   COMPOSE_PROFILES=sharding в .env          — то же в .env
 ```
 
-Что поднимается:
+Что поднимается (профиль `sharding` в скобках — без него не стартуют):
 
 | Сервис | Образ | Порты |
 |---|---|---|
 | `app` | собирается из `Dockerfile` | `8443` → API (HTTPS) |
-| `postgres` | `postgres:15` | `127.0.0.1:5432` |
+| `postgres` | `postgres:18` | `127.0.0.1:5432` |
+| `shardingsphere` | `apache/shardingsphere-proxy:5.5.3` | `127.0.0.1:3307` (профиль `sharding`) |
+| `postgres_shard_0` | `postgres:18` | `127.0.0.1:5433` (профиль `sharding`) |
+| `postgres_shard_1` | `postgres:18` | `127.0.0.1:5434` (профиль `sharding`) |
 | `smtp` | `rnwood/smtp4dev` | `127.0.0.1:25`, `3000` (веб) |
 
-PostgreSQL и SMTP слушают только `localhost`. Данные БД — в томе
-`postgres_data`.
+PostgreSQL, шарды, прокси шардирования и SMTP слушают только `localhost`.
+Данные БД — в томе `postgres_data`, шардов — в `postgres_shard_0_data` и
+`postgres_shard_1_data`.
+
+Шардирование — инфраструктура рядом с приложением и по умолчанию в
+**режиме неактивности**: три сервиса объявлены в профиле `sharding`,
+`docker compose up -d` их не трогает, активна одна БД. Включение —
+`docker compose --profile sharding up -d` или `COMPOSE_PROFILES=sharding`
+в `.env`; `app` при этом остаётся подключённым к основному `postgres`,
+переключение — отдельная переменная `DB_URL` (см. README, «Шардирование
+(ShardingSphere)»). Порты шардов опубликованы для отладки на хосте, сам
+прокси — единственная точка входа к шардам изнутри compose-сети, а без
+профиля порты `5433`/`5434`/`3307` не открыты — контейнеров нет.
 
 Публикация `127.0.0.1:5432` **необязательна**: она нужна, только если к БД
 должен подключаться хост (pgAdmin, DBeaver, отладка). Если PostgreSQL нужен
@@ -761,9 +794,10 @@ healthcheck:
 
 ### 7.5. Образы по тегу, не по digest
 
-`maven:3.9.6-eclipse-temurin-21`, `eclipse-temurin:21-jre`, `postgres:15`,
-`rnwood/smtp4dev` — теги могут «уехать» вместе с апстримом. Для прода
-нужен pin по digest + Renovate/Dependabot.
+`maven:3.9.6-eclipse-temurin-21`, `eclipse-temurin:21-jre`, `postgres:18`,
+`apache/shardingsphere-proxy:5.5.3`, `rnwood/smtp4dev` — теги могут
+«уехать» вместе с апстримом. Для прода нужен pin по digest +
+Renovate/Dependabot.
 
 ### 7.6. Сборка: кэш Maven и слои jar
 

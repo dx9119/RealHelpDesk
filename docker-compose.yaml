@@ -12,9 +12,18 @@
 # файла и docker/app.env один в один.
 
 # Общие с postgres значения, чтобы не дублировать их в двух сервисах.
-x-database-url: &database-url "jdbc:postgresql://postgres:5432/desk"
+# DB_URL приложения по умолчанию — основная БД: активна одна БД, шардирование
+# в профиле `sharding` и выключено. Переключить приложение на прокси можно
+# переменной DB_URL в .env (правка файла и пересборка не нужны):
+#   DB_URL=jdbc:postgresql://shardingsphere:3307/desk
+x-database-url: &database-url "${DB_URL:-jdbc:postgresql://postgres:5432/desk}"
 x-database-user: &database-user "user"
 x-database-name: &database-name "desk"
+
+# Имя БД на шардах. Совпадает с основной (x-database-name): шарды получают её
+# через POSTGRES_DB, прокси — через SHARD_DB, обе ссылки резолвятся из одного
+# значения ${SHARD_DB:-desk}. Куда подключается приложение, решает DB_URL выше.
+x-shard-database: &shard-database "${SHARD_DB:-desk}"
 
 services:
   app:
@@ -126,7 +135,14 @@ services:
     restart: on-failure:2
 
   postgres:
-    image: postgres:15
+    # PostgreSQL 18 хранит данные в каталоге со своим мажорным версионом
+    # (PGDATA=/var/lib/postgresql/18/docker), поэтому том монтируется на
+    # /var/lib/postgresql — родительский каталог, а не .../data, как в 15–17.
+    # Монтировать на /var/lib/postgresql/data нельзя: образ 18 считает такой
+    # том остатком старой версии и завершает работу с подсказкой по
+    # pg_upgrade (см. README, «Обновление PostgreSQL 15 → 18»).
+    image: postgres:18
+    mem_limit: 2g
     container_name: realhelpdesk_postgres
     environment:
       POSTGRES_USER: *database-user
@@ -141,8 +157,116 @@ services:
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     restart: on-failure:2
+
+  # Шардирование (инфраструктура): ShardingSphere-Proxy + два шарда.
+  #
+  # РЕЖИМ НЕАКТИВНОСТИ. Все три сервиса ниже объявлены в профиле `sharding`
+  # и по умолчанию не поднимаются: активна одна БД — postgres. Конфигурация
+  # шардирования (шаблоны, правила, схема шардов) при этом лежит в репозитории
+  # и готова к включению:
+  #   docker compose --profile sharding up -d          # включить
+  #   COMPOSE_PROFILES=sharding в .env                 # то же самое в .env:
+  #                                                    # обычный `up -d` поднимет всё
+  #   docker compose stop shardingsphere postgres_shard_0 postgres_shard_1
+  #                                                    # выключить (тома целы)
+  #
+  # Приложение с прокси НЕ связано: DB_URL по умолчанию — основной postgres.
+  # Подключение — одна строка в .env при включённом профиле (см. x-database-url
+  # и README, «Шардирование (ShardingSphere)»). Шарды уже содержат схему
+  # приложения, правила — shardingsphere/conf/database-sharding.yaml; перед
+  # переключением app нужен выбранный ключ шардирования с co-location
+  # (см. комментарии в конфигурации прокси).
+  shardingsphere:
+    image: apache/shardingsphere-proxy:5.5.3
+    mem_limit: 1g
+    container_name: shardingsphere
+    profiles: [sharding]
+    restart: on-failure:2
+    depends_on:
+      postgres_shard_0:
+        condition: service_healthy
+      postgres_shard_1:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3307:3307"
+    volumes:
+      # Шаблоны конфигурации: паролей в git нет, entrypoint.sh подставляет
+      # их из окружения при каждом старте и запускает start.sh.
+      - ./shardingsphere/conf:/opt/shardingsphere/conf:ro
+      - ./shardingsphere/entrypoint.sh:/entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    environment:
+      PORT: 3307
+      SHARD_DB: *shard-database
+      SHARD_DB_USER: *database-user
+      # Пароль данных-источников прокси = пароль шардов = DB_PASSWORD.
+      # Свой ключ нужен, только если шарды вынесены на отдельную учётку.
+      SHARD_DB_PASSWORD: "${SHARD_DB_PASSWORD:-${DB_PASSWORD:?DB_PASSWORD is required - copy .env.example to .env}}"
+      # Пароли прокси обязательны, но только когда профиль sharding реально
+      # включается: compose интерполирует весь файл и без профиля, поэтому
+      # жёсткий ${VAR:?} здесь заваливал бы стек из одной БД. Пустое значение
+      # отсекает сам entrypoint прокси — он не стартует без пароля (секрета
+      # по умолчанию в git по-прежнему нет).
+      SHARDINGSPHERE_ROOT_PASSWORD: "${SHARDINGSPHERE_ROOT_PASSWORD:-}"
+      SHARDINGSPHERE_SHARDING_PASSWORD: "${SHARDINGSPHERE_SHARDING_PASSWORD:-}"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/3307'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # Первый шард (профиль `sharding`, по умолчанию не поднимается). Схема
+  # создаётся тем же файлом, который Liquibase применяет на основной базе, —
+  # единственный источник правды (baseline не редактируется, копия в каталог
+  # шарда не заводится).
+  postgres_shard_0:
+    image: postgres:18
+    mem_limit: 2g
+    container_name: postgres-shard-0
+    profiles: [sharding]
+    restart: on-failure:2
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - postgres_shard_0_data:/var/lib/postgresql
+      - ./src/main/resources/db/changelog/sql/001-baseline-schema.sql:/docker-entrypoint-initdb.d/001-baseline-schema.sql:ro
+    environment:
+      POSTGRES_USER: *database-user
+      POSTGRES_PASSWORD: "${DB_PASSWORD:?DB_PASSWORD is required - copy .env.example to .env}"
+      POSTGRES_DB: *shard-database
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  # Второй шард — зеркало первого (профиль `sharding`; тот же init-файл и
+  # учётные данные).
+  postgres_shard_1:
+    image: postgres:18
+    mem_limit: 2g
+    container_name: postgres-shard-1
+    profiles: [sharding]
+    restart: on-failure:2
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - postgres_shard_1_data:/var/lib/postgresql
+      - ./src/main/resources/db/changelog/sql/001-baseline-schema.sql:/docker-entrypoint-initdb.d/001-baseline-schema.sql:ro
+    environment:
+      POSTGRES_USER: *database-user
+      POSTGRES_PASSWORD: "${DB_PASSWORD:?DB_PASSWORD is required - copy .env.example to .env}"
+      POSTGRES_DB: *shard-database
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
 
   smtp:
     image: rnwood/smtp4dev
@@ -154,3 +278,5 @@ services:
 
 volumes:
   postgres_data:
+  postgres_shard_0_data:
+  postgres_shard_1_data:

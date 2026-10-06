@@ -1,0 +1,167 @@
+# Шардирование данных RealHelpDesk: две даты-источника (два шарда PostgreSQL)
+# и правила раскладки строк по ним.
+#
+# Файл — шаблон: entrypoint.sh подставляет __SHARD_DB__ / __SHARD_DB_USER__ /
+# __SHARD_DB_PASSWORD__ из окружения контейнера перед запуском прокси,
+# пароли в git не хранятся. Место шаблона: shardingsphere/conf/, монтируется
+# в /opt/shardingsphere/conf; отрендеренный конфиг живёт в conf/ образа.
+#
+# ---------------------------------------------------------------------------
+# Статус: инфраструктура. Приложение подключено к основному postgres
+# (DB_URL в docker-compose.yaml), НЕ к прокси. Что это значит:
+#   * шарды уже содержат схему приложения (baseline Liquibase кладётся в
+#     каждый шард при первой инициализации тома);
+#   * прокси принимает соединения по протоколу PostgreSQL на 127.0.0.1:3307
+#     с логической БД desk и распределяет строки по шардам по правилам ниже;
+#   * перед переключением app на прокси нужен пересмотр ключа шардирования:
+#     таблицы сейчас шардируются по собственному первичному ключу, а это
+#     НЕ даёт co-location для связанных строк (тикет не попадёт в тот же шард,
+#     что и его автор/портал). Первичные ключи, которые приложение подставляет
+#     само (sequence email_log_seq живёт в каждом шарде и будет выдавать
+#     одинаковые id), тоже нужно заменить на генератор прокси.
+#   * внешние ключи baseline действуют внутри шарда: если строка-ссылка и
+#     строка-цель разойдутся по шардам, вставка упадёт на FK — межшардовые
+#     связи (тикет→автор, сообщение→тикет) перед переключением app снимают,
+#     проверки переносятся в приложение.
+# ---------------------------------------------------------------------------
+
+# Логическая БД: клиент подключается к прокси на неё же
+# (jdbc:postgresql://shardingsphere:3307/desk), имя совпадает с POSTGRES_DB шардов.
+databaseName: __SHARD_DB__
+
+dataSources:
+  ds_0:
+    url: jdbc:postgresql://postgres_shard_0:5432/__SHARD_DB__?sslmode=disable
+    username: __SHARD_DB_USER__
+    password: __SHARD_DB_PASSWORD__
+    connectionTimeoutMilliseconds: 30000
+    idleTimeoutMilliseconds: 60000
+    maxLifetimeMilliseconds: 1800000
+    maxPoolSize: 50
+    minPoolSize: 1
+  ds_1:
+    url: jdbc:postgresql://postgres_shard_1:5432/__SHARD_DB__?sslmode=disable
+    username: __SHARD_DB_USER__
+    password: __SHARD_DB_PASSWORD__
+    connectionTimeoutMilliseconds: 30000
+    idleTimeoutMilliseconds: 60000
+    maxLifetimeMilliseconds: 1800000
+    maxPoolSize: 50
+    minPoolSize: 1
+
+rules:
+  - !SHARDING
+    # Все таблицы baseline-схемы. Таблицы без своего databaseStrategy шардируются
+    # по умолчанию (id); у трёх таблиц первичный ключ состоит не из id —
+    # для них ключ указан явно.
+    tables:
+      users:
+        actualDataNodes: ds_${0..1}.users
+        keyGenerateStrategy:
+          column: id
+          keyGeneratorName: snowflake
+      # Токены шардируются по user_id, а не по собственному uuid: тогда токен
+      # лежит в том же шарде, что и его пользователь (users.id).
+      jwt_tokens:
+        actualDataNodes: ds_${0..1}.jwt_tokens
+        databaseStrategy:
+          standard:
+            shardingColumn: user_id
+            shardingAlgorithmName: inline-user-id
+      portals:
+        actualDataNodes: ds_${0..1}.portals
+        keyGenerateStrategy:
+          column: id
+          keyGeneratorName: snowflake
+      # Составной PK (portal_id, allowed_user_id): шард по portal_id —
+      # доступ лежит рядом с порталом (portals.id).
+      portal_access:
+        actualDataNodes: ds_${0..1}.portal_access
+        databaseStrategy:
+          standard:
+            shardingColumn: portal_id
+            shardingAlgorithmName: inline-portal-id
+      ticket_model:
+        actualDataNodes: ds_${0..1}.ticket_model
+        keyGenerateStrategy:
+          column: id
+          keyGeneratorName: snowflake
+      message_model:
+        actualDataNodes: ds_${0..1}.message_model
+        keyGenerateStrategy:
+          column: id
+          keyGeneratorName: snowflake
+      notifications:
+        actualDataNodes: ds_${0..1}.notifications
+        keyGenerateStrategy:
+          column: id
+          keyGeneratorName: snowflake
+      user_notification_preferences:
+        actualDataNodes: ds_${0..1}.user_notification_preferences
+        keyGenerateStrategy:
+          column: id
+          keyGeneratorName: snowflake
+      # Составной PK (preferences_id, event): строка события шардируется
+      # вместе со своими настройками (user_notification_preferences.id).
+      user_notification_preferences_events:
+        actualDataNodes: ds_${0..1}.user_notification_preferences_events
+        databaseStrategy:
+          standard:
+            shardingColumn: preferences_id
+            shardingAlgorithmName: inline-preferences-id
+      # email_log: id приходит из последовательности email_log_seq — при
+      # переключении приложения генерацию надо перевести на snowflake (см. шапку).
+      email_log:
+        actualDataNodes: ds_${0..1}.email_log
+        keyGenerateStrategy:
+          column: id
+          keyGeneratorName: snowflake
+      unsubscribed_emails:
+        actualDataNodes: ds_${0..1}.unsubscribed_emails
+        keyGenerateStrategy:
+          column: id
+          keyGeneratorName: snowflake
+
+    # Раскладка по шардам (датам-источникам): значение ключа mod 2 — строка
+    # целиком попадает в ds_0 или ds_1, таблица внутри шарда не дробится.
+    # Алгоритм INLINE (стандартный, для ручной конфигурации tables): HASH_MOD
+    # из коробки — auto-алгоритм, ShardingSphere отвергает его для таблиц,
+    # заданных руками ("tables sharding configuration can not use auto
+    # sharding algorithm"), expression у INLINE называет колонку явно.
+    defaultDatabaseStrategy:
+      standard:
+        shardingColumn: id
+        shardingAlgorithmName: inline-id
+    defaultTableStrategy:
+      none:
+
+    shardingAlgorithms:
+      inline-id:
+        type: INLINE
+        props:
+          algorithm-expression: ds_${id % 2}
+      inline-user-id:
+        type: INLINE
+        props:
+          algorithm-expression: ds_${user_id % 2}
+      inline-portal-id:
+        type: INLINE
+        props:
+          algorithm-expression: ds_${portal_id % 2}
+      inline-preferences-id:
+        type: INLINE
+        props:
+          algorithm-expression: ds_${preferences_id % 2}
+
+    # Генератор ключей для вставок без значения в sharding-колонке (id):
+    # snowflake даёт уникальные между шардами значения, в отличие от
+    # IDENTITY/sequence, которые в каждом шарде начинаются заново.
+    keyGenerators:
+      snowflake:
+        type: SNOWFLAKE
+
+    # bindingTables (сшитые join'ы) намеренно не заданы: они имеют смысл, когда
+    # связанные строки лежат в одном шарде (co-location), а таблицы здесь
+    # шардируются по разным ключам. Без них join считается агрегацией
+    # результатов всех шардов — корректно, но дороже; пересматривать вместе
+    # с ключом шардирования перед переключением приложения.
