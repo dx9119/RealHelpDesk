@@ -46,11 +46,12 @@ Refresh-токен в БД хранится в виде SHA-256 хеша; выд
 | `src/main/resources/application-domains.properties` | Схема доменов (подключается через `spring.config.import`): CORS, issuer/audience токенов, домен фронта в письмах, адреса отправителя |
 | `docker/app.env` | Продукт: рейт-лимиты, капча, сроки токенов, брендинг, адреса писем |
 | `docker-compose.yaml` → `services.app.environment` | Окружение: порты, хосты, профиль, ресурсы, JVM — и секреты через `${VAR:?}` (пустой `MAIL_PASSWORD` допустим) |
-| `.env` (см. `.env.example`) | Только секреты: `JWT_SECRET`, `DB_PASSWORD`, `MAIL_PASSWORD`, `KEY_STORE_PASS` |
+| `.env` (см. `.env.example`) | Только секреты: `JWT_SECRET`, `DB_PASSWORD`, `MAIL_PASSWORD`, `KEY_STORE_PASS`, `SHARDINGSPHERE_ROOT_PASSWORD`, `SHARDINGSPHERE_SHARDING_PASSWORD` |
 
 Отсутствующая переменная валит приложение на старте с
 `Could not resolve placeholder '<VAR>'`, отсутствующий или пустой
-обязательный секрет (`JWT_SECRET`, `DB_PASSWORD`, `KEY_STORE_PASS`) —
+обязательный секрет (`JWT_SECRET`, `DB_PASSWORD`, `KEY_STORE_PASS`,
+`SHARDINGSPHERE_ROOT_PASSWORD`, `SHARDINGSPHERE_SHARDING_PASSWORD`) —
 `docker compose` ещё до запуска. `MAIL_PASSWORD` пустым быть может:
 smtp4dev работает без аутентификации. Проект рассчитан на работу
 **только внутри Docker-контейнера**: без переменных окружения локальный
@@ -69,9 +70,11 @@ smtp4dev работает без аутентификации. Проект ра
 
 ## Запуск проекта
 1. `cp .env.example .env` и заполните секреты: `JWT_SECRET` (`openssl rand -base64 32`),
-   `DB_PASSWORD` и `KEY_STORE_PASS` — без них `docker compose` не стартует.
-   `MAIL_PASSWORD` может остаться пустым (smtp4dev без аутентификации);
-   в `.env.example` для `KEY_STORE_PASS` задано демо-значение.
+   `DB_PASSWORD`, `KEY_STORE_PASS` и пароли прокси шардирования
+   (`SHARDINGSPHERE_ROOT_PASSWORD`, `SHARDINGSPHERE_SHARDING_PASSWORD`) —
+   без них `docker compose` не стартует. `MAIL_PASSWORD` может остаться
+   пустым (smtp4dev без аутентификации); в `.env.example` для
+   `KEY_STORE_PASS` задано демо-значение.
 2. `docker compose up --build -d`
 
 > **Схема БД.** Структуру создаёт и изменяет Liquibase при старте приложения,
@@ -84,7 +87,72 @@ smtp4dev работает без аутентификации. Проект ра
 адреса писем), в `docker-compose.yaml` → `services.app.environment`
 (порты, почта, профиль) или в `.env` — пересборка образа не нужна,
 достаточно `docker compose up -d`.
-PostgreSQL (`5432`) и SMTP (`25`) слушают только `127.0.0.1`; API — `8443`, интерфейс smtp4dev — `3000`.
+PostgreSQL (`5432`), шарды (`5433`, `5434`), прокси шардирования (`3307`)
+и SMTP (`25`) слушают только `127.0.0.1`; API — `8443`, интерфейс smtp4dev —
+`3000`.
+
+### Шардирование (ShardingSphere)
+
+Помимо основной БД compose поднимает два шарда и прокси между ними:
+
+| Сервис | Образ | Порты | Что это |
+|---|---|---|---|
+| `postgres_shard_0` | `postgres:18` | `127.0.0.1:5433` | первый шард |
+| `postgres_shard_1` | `postgres:18` | `127.0.0.1:5434` | второй шард |
+| `shardingsphere` | `apache/shardingsphere-proxy:5.5.3` | `127.0.0.1:3307` | ShardingSphere-Proxy: единая точка входа к шардам |
+
+Шарды при первой инициализации тома получают схему приложения — тем же
+файлом `db/changelog/sql/001-baseline-schema.sql`, который применяет
+Liquibase на основной базе (копии в репозитории нет, единственный источник
+правды один). Правила раскладки строк — `shardingsphere/conf/database-sharding.yaml`:
+hash-mod по двум шардам, для таблиц со своим первичным ключом ключ указан
+явно.
+
+**Приложение на прокси не переключено**: `DB_URL` в `docker-compose.yaml`
+указывает на основной `postgres`, трафик `app` шардирование не затрагивает.
+Прокси поднят как готовый слой — со схемой, правилами и аутентификацией.
+Что нужно сделать до переключения `app` (перечислено и в комментариях
+конфигурации): выбрать ключ шардирования с co-location связанных строк,
+заменить генерацию `id` из последовательностей на генератор прокси и снять
+межшардовые внешние ключи.
+
+Проверка вручную (пароли в `.env`):
+
+```bash
+PGPASSWORD="$SHARDINGSPHERE_ROOT_PASSWORD" psql \
+  -h 127.0.0.1 -p 3307 -U root -d desk -c 'select count(*) from users;'
+```
+
+Конфигурация прокси — шаблоны `shardingsphere/conf/*.yaml` с плейсхолдерами
+`__NAME__`: `shardingsphere/entrypoint.sh` подставляет в них значения из
+окружения контейнера при каждом старте, поэтому паролей в git нет.
+
+### Обновление PostgreSQL 15 → 18
+
+PostgreSQL 18 держит данные в каталоге со своим мажорным версионом
+(`PGDATA=/var/lib/postgresql/18/docker`), поэтому том `postgres_data`
+теперь монтируется на `/var/lib/postgresql` — родительский каталог, а не
+`/var/lib/postgresql/data`, как в 15–17. Том со старыми данными образ 18
+не поднимет: контейнер завершится с ошибкой «upgrade the underlying
+database using pg_upgrade».
+
+Перенос данных (дамп + чистая инициализация):
+
+```bash
+# на ветке с postgres:15 — дамп, затем остановка
+docker compose exec postgres pg_dump -U user -d desk > desk-pg15.sql
+docker compose down
+
+# новая ветка: удалить только после успешного дампа (путь тома зависит от
+# имени проекта compose — здесь realhelpdesk_postgres_data)
+docker volume rm realhelpdesk_postgres_data
+docker compose up -d postgres
+docker compose exec -T postgres psql -U user -d desk < desk-pg15.sql
+```
+
+Альтернатива — `pg_upgrade` (том с данными 15-й версии остаётся на месте,
+нужен запущенный контейнер со старым образом). На пустом томе (первый
+запуск) ничего переносить не нужно.
 
 ### Миграции схемы (Liquibase)
 

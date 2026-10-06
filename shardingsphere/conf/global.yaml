@@ -1,0 +1,27 @@
+# Глобальная конфигурация ShardingSphere-Proxy: кто пускает и свойства прокси.
+# Правила шардирования живут отдельно — database-sharding.yaml.
+#
+# Паролей в git нет: файл — шаблон, entrypoint.sh подставляет значения
+# __SHARDINGSPHERE_*__ из окружения контейнера (см. services.shardingsphere
+# в docker-compose.yaml) перед запуском start.sh.
+authority:
+  users:
+    # root@% — суперпользователь прокси (любой хост); admin: true даёт
+    # доступ к DistSQL/администрированию.
+    - user: root@%
+      password: __SHARDINGSPHERE_ROOT_PASSWORD__
+      admin: true
+    # sharding — рядовой пользователь для приложений: читает и пишет данные
+    # через правила шардирования, администрировать не может.
+    - user: sharding
+      password: __SHARDINGSPHERE_SHARDING_PASSWORD__
+  privilege:
+    type: ALL_PERMITTED
+
+props:
+  # SQL-запросы в лог не пишем (пароли и данные пользователей в логах не нужны,
+  # включается точечно при разборе инцидента).
+  sql-show: false
+  # Порт берётся из аргумента start.sh (PORT окружения); значение ниже —
+  # запасной вариант, если порт не передан.
+  proxy-default-port: 3307
