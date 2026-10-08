@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Вложения сообщений заявок: таблица метаданных файлов, которые хранятся в MinIO
+  (storage_key — ключ объекта в бакете). Файл создаётся вместе с отдельным
+  сообщением заявки, поэтому цепочка: attachment_model → message_model → ticket_model.
+-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="002-attachment-model" author="ukhanov">
+        <!-- На базе, где таблица уже есть (например, созданная вручную), changeset помечается выполненным. -->
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="attachment_model"/>
+            </not>
+        </preConditions>
+        <!-- Путь от корня classpath, не от этого файла: рядом лежат и changes/, и sql/. -->
+        <sqlFile path="db/changelog/sql/002-attachment-model.sql"
+                 encoding="UTF-8"
+                 splitStatements="true"
+                 endDelimiter=";"/>
+    </changeSet>
+
+</databaseChangeLog>

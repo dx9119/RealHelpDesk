@@ -48,12 +48,32 @@ public class JwtProperties {
          */
         private SameSite sameSite = SameSite.NONE;
 
+        /**
+         * Домен auth-cookie: {@code null} (пусто в конфигурации) — host-only, cookie уходит только на свой хост; {@code .example.com} —
+         * общий для поддоменов, без него файлы на отдельном домене ({@code static.base-url}) браузеру отправить нельзя.
+         */
+        private String domain;
+
         public SameSite getSameSite() {
             return sameSite;
         }
 
         public void setSameSite(SameSite sameSite) {
             this.sameSite = sameSite;
+        }
+
+        public String getDomain() {
+            return domain;
+        }
+
+        /** Пробелы и пустое значение нормализуются в {@code null}: пустой атрибут Domain в Set-Cookie браузер отбрасывает сам. */
+        public void setDomain(String domain) {
+            if (domain == null) {
+                this.domain = null;
+                return;
+            }
+            String trimmed = domain.trim();
+            this.domain = trimmed.isEmpty() ? null : trimmed;
         }
     }
 

@@ -21,4 +21,8 @@ public class MessageException extends ApiException {
     public MessageException(String message, HttpStatus status, Throwable cause) {
         super(message, status, cause);
     }
+
+    public static MessageException notFound(String message) {
+        return new MessageException(message, HttpStatus.NOT_FOUND);
+    }
 }

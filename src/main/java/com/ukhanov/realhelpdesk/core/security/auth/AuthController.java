@@ -127,13 +127,21 @@ public class AuthController {
     }
 
     private ResponseCookie accessCookie(String value, Duration maxAge) {
-        return ResponseCookie.from(ACCESS_COOKIE, value).httpOnly(true).secure(true).path("/").maxAge(maxAge)
-                .sameSite(jwtProperties.getCookie().getSameSite().getValue()).build();
+        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(ACCESS_COOKIE, value).httpOnly(true).secure(true).path("/")
+                .maxAge(maxAge).sameSite(jwtProperties.getCookie().getSameSite().getValue());
+        return withDomain(builder).build();
     }
 
     private ResponseCookie refreshCookie(String value, Duration maxAge) {
-        return ResponseCookie.from(REFRESH_COOKIE, value).httpOnly(true).secure(true).path(REFRESH_COOKIE_PATH).maxAge(maxAge)
-                .sameSite(jwtProperties.getCookie().getSameSite().getValue()).build();
+        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(REFRESH_COOKIE, value).httpOnly(true).secure(true)
+                .path(REFRESH_COOKIE_PATH).maxAge(maxAge).sameSite(jwtProperties.getCookie().getSameSite().getValue());
+        return withDomain(builder).build();
+    }
+
+    /** Домен из jwt.cookie.domain: пусто — атрибут Domain не ставим, cookie остаётся host-only, как раньше. */
+    private ResponseCookie.ResponseCookieBuilder withDomain(ResponseCookie.ResponseCookieBuilder builder) {
+        String domain = jwtProperties.getCookie().getDomain();
+        return domain != null ? builder.domain(domain) : builder;
     }
 
 }

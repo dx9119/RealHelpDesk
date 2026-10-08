@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import com.ukhanov.realhelpdesk.domain.message.model.MessageModel;
 import com.ukhanov.realhelpdesk.domain.message.repository.MessageRepository;
+import com.ukhanov.realhelpdesk.feature.messagemanager.exception.MessageException;
 
 @Service
 public class MessageDomainService {
@@ -28,6 +29,12 @@ public class MessageDomainService {
         Objects.requireNonNull(message, "Сообщение не должно быть null");
 
         return messageRepository.save(message);
+    }
+
+    public MessageModel getMessageById(Long messageId) throws MessageException {
+        Objects.requireNonNull(messageId, "ID сообщения не должен быть null");
+
+        return messageRepository.findById(messageId).orElseThrow(() -> MessageException.notFound("Сообщение не найдено"));
     }
 
     public List<MessageModel> getMessagesByTicketId(Long ticketId) {

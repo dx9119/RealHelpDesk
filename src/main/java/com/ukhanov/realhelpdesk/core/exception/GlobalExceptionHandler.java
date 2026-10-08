@@ -31,6 +31,9 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -67,6 +70,34 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ProblemDetail> handleAuthorizationDenied(AuthorizationDeniedException ex, HttpServletRequest request) {
         logger.warn("Доступ запрещен: {}", ex.getMessage());
         return ProblemResponses.entity(HttpStatus.FORBIDDEN, "Доступ запрещен", request);
+    }
+
+    /**
+     * Ошибка внутри SpEL-выражения {@code @PreAuthorize} (PortalException/TicketException, например «заявка не найдена») оборачивается
+     * фреймворком в IllegalArgumentException: без распаковки клиент получал бы 500 вместо 404 — и у сообщений, и у вложений. Если
+     * ApiException в причине нет, это обычная ошибка программиста — прежние 500.
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ProblemDetail> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest request) {
+        ApiException cause = findApiException(ex);
+        if (cause != null) {
+            logger.warn("Ошибка API {} (из выражения доступа): {}", cause.getStatus().value(), cause.getMessage());
+            return ProblemResponses.entity(cause.getStatus(), cause.getMessage(), request);
+        }
+        logger.error("Перехвачено необработанное исключение: {}", ex.getMessage(), ex);
+        return ProblemResponses.entity(HttpStatus.INTERNAL_SERVER_ERROR, "Операция завершилась неудачей", request);
+    }
+
+    /** Ищет ApiException в цепочке причин: SpEL оборачивает исключение сервиса минимум дважды. */
+    private ApiException findApiException(Throwable ex) {
+        Throwable current = ex;
+        for (int depth = 0; current != null && depth < 10; depth++) {
+            if (current instanceof ApiException apiException) {
+                return apiException;
+            }
+            current = current.getCause();
+        }
+        return null;
     }
 
     @ExceptionHandler(JwtException.class)
@@ -118,6 +149,26 @@ public class GlobalExceptionHandler {
         logger.warn("Отсутствует обязательный параметр '{}'", ex.getParameterName());
         return ProblemResponses.entity(HttpStatus.BAD_REQUEST, "Отсутствует обязательный параметр '" + ex.getParameterName() + "'",
                 request);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ProblemDetail> handleMaxUploadSize(MaxUploadSizeExceededException ex, HttpServletRequest request) {
+        logger.warn("Загружаемый файл превышает лимит: {}", ex.getMessage());
+        return ProblemResponses.entity(HttpStatus.PAYLOAD_TOO_LARGE, "Файл превышает допустимый размер", request);
+    }
+
+    /** Отсутствующая часть multipart (например, file у загрузки вложения) — 400, а не 500 из общего обработчика. */
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ProblemDetail> handleMissingRequestPart(MissingServletRequestPartException ex, HttpServletRequest request) {
+        logger.warn("Отсутствует обязательная часть запроса '{}'", ex.getRequestPartName());
+        return ProblemResponses.entity(HttpStatus.BAD_REQUEST, "Отсутствует обязательная часть запроса '" + ex.getRequestPartName() + "'",
+                request);
+    }
+
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ProblemDetail> handleMultipartException(MultipartException ex, HttpServletRequest request) {
+        logger.warn("Ошибка разбора multipart-запроса {}: {}", LogSanitizer.uri(request.getRequestURI()), ex.getMessage());
+        return ProblemResponses.entity(HttpStatus.BAD_REQUEST, "Некорректный multipart-запрос", request);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

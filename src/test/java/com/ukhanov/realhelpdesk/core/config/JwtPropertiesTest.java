@@ -24,6 +24,7 @@ class JwtPropertiesTest {
         environment.setProperty("jwt.access-token-expiration", "60");
         environment.setProperty("jwt.refresh-token-expiration", "43200");
         environment.setProperty("jwt.cookie.same-site", "Lax");
+        environment.setProperty("jwt.cookie.domain", ".example.com");
 
         JwtProperties properties = bind(environment);
 
@@ -33,6 +34,7 @@ class JwtPropertiesTest {
         assertThat(properties.getAccessTokenExpiration()).isEqualTo(60);
         assertThat(properties.getRefreshTokenExpiration()).isEqualTo(43200);
         assertThat(properties.getCookie().getSameSite()).isEqualTo(SameSite.LAX);
+        assertThat(properties.getCookie().getDomain()).isEqualTo(".example.com");
     }
 
     @Test
@@ -64,6 +66,26 @@ class JwtPropertiesTest {
         JwtProperties properties = bind(environment);
 
         assertThat(properties.getCookie().getSameSite()).isEqualTo(SameSite.NONE);
+    }
+
+    @Test
+    @DisplayName("jwt.cookie.domain не задан — null: cookie остаётся host-only, как до появления ключа")
+    void cookieDomainDefaultsToNull() {
+        MockEnvironment environment = new MockEnvironment();
+        environment.setProperty("jwt.issuer", "https://example.com");
+
+        JwtProperties properties = bind(environment);
+
+        assertThat(properties.getCookie().getDomain()).isNull();
+    }
+
+    @Test
+    @DisplayName("jwt.cookie.domain пустой — null, а не пустая строка в атрибуте Set-Cookie")
+    void blankCookieDomainIsNull() {
+        JwtProperties properties = new JwtProperties();
+        properties.getCookie().setDomain("   ");
+
+        assertThat(properties.getCookie().getDomain()).isNull();
     }
 
     @Test

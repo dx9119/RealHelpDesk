@@ -291,7 +291,9 @@ Spring резолвит их из окружения контейнера. Ес�
 |---|---|---|
 | Порог рейт-лимита | `docker/app.env` → `RATE_LIMIT_*` | `docker compose up -d` |
 | Капча вкл/выкл | `docker/app.env` → `CAPTCHA_ENABLED` | `docker compose up -d` |
-| Срок жизни токена, `SameSite` cookie | `docker/app.env` → `JWT_*_TOKEN_EXPIRATION`, `JWT_COOKIE_SAMESITE` | `docker compose up -d` |
+| Срок жизни токена, `SameSite`/домен cookie | `docker/app.env` → `JWT_*_TOKEN_EXPIRATION`, `JWT_COOKIE_SAMESITE`, `JWT_COOKIE_DOMAIN` | `docker compose up -d` |
+| Origin раздачи файлов (статика под CDN) | `docker/app.env` → `STATIC_BASE_URL` | `docker compose up -d` |
+| `Cache-Control` для файлов | `docker/app.env` → `STATIC_CACHE_CONTROL` | `docker compose up -d` |
 | `X-Forwarded-For` | `docker-compose.yaml` → `TRUST_PROXY_HEADERS` | `docker compose up -d` |
 | Профиль логов | `docker-compose.yaml` → `SPRING_PROFILES_ACTIVE` | `docker compose up -d` |
 | Почта: SMTP-сервер, хост, порт | `docker-compose.yaml` | `docker compose up -d` |
