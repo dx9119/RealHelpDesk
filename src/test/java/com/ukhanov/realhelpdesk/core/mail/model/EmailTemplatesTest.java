@@ -147,4 +147,29 @@ class EmailTemplatesTest {
         assertThat(emailTemplates.ticketCreatedBody(12345L, 67890L))
                 .contains("https://" + EmailTemplatesFixture.DOMAIN + "/ticket-show/portal/67890/ticket/12345");
     }
+
+    @Test
+    @DisplayName("Письмо новому владельцу: тема, ссылка /portal-transfer и срок действия")
+    void portalTransferProposed_containsSubjectLinkAndDeadline() {
+        assertThat(emailTemplates.portalTransferProposedSubject(PORTAL_ID)).isEqualTo("Вам передают портал #5");
+
+        assertThat(emailTemplates.portalTransferProposedBody(PORTAL_ID, "Иванов Иван", "Причина передачи"))
+                .contains("Иванов Иван предлагает передать вам владение порталом #5").contains("Причина передачи")
+                .contains("https://" + EmailTemplatesFixture.DOMAIN + "/portal-transfer/5").contains("72 часа");
+    }
+
+    @Test
+    @DisplayName("Письма о решении по передаче: новому владельцу и причине отклонения")
+    void transferDecisionTemplates_containNamesAndReasons() {
+        assertThat(emailTemplates.portalTransferAcceptedSubject(PORTAL_ID)).isEqualTo("Портал #5 сменил владельца");
+        assertThat(emailTemplates.portalTransferAcceptedBody(PORTAL_ID, "Иванов Иван", "Причина передачи"))
+                .contains("Владелец портала #5 теперь — Иванов Иван").contains("Причина передачи");
+
+        assertThat(emailTemplates.portalTransferRejectedSubject(PORTAL_ID)).isEqualTo("Запрос на передачу портала #5 отклонён");
+        assertThat(emailTemplates.portalTransferRejectedBody(PORTAL_ID, "Иванов Иван", "Не время"))
+                .contains("Иванов Иван отклонил передачу вам портала #5").contains("Не время");
+
+        assertThat(emailTemplates.portalTransferCancelledBody(PORTAL_ID, "Иванов Иван")).contains("Иванов Иван отозвал предложение");
+        assertThat(emailTemplates.portalTransferExpiredBody(PORTAL_ID)).contains("истёк");
+    }
 }

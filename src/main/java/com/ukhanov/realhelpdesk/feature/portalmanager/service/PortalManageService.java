@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import jakarta.mail.MessagingException;
@@ -34,12 +35,16 @@ import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.core.security.user.repository.UserDetailsProjection;
 import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
+import com.ukhanov.realhelpdesk.domain.portal.model.PortalHistoryEvent;
+import com.ukhanov.realhelpdesk.domain.portal.model.PortalHistoryModel;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import com.ukhanov.realhelpdesk.domain.portal.service.PortalDomainService;
+import com.ukhanov.realhelpdesk.domain.portal.service.PortalHistoryService;
 import com.ukhanov.realhelpdesk.feature.notificationmanager.service.NotificationPublisher;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.CreatePortalRequest;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.CreatePortalResponse;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.DeleteResult;
+import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalHistoryResponse;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalInfoResponse;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalResponse;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalSettingsResponse;
@@ -66,11 +71,12 @@ public class PortalManageService {
     private final EmailDeliveryService emailDeliveryService;
     private final EmailTemplates emailTemplates;
     private final NotificationPublisher notificationPublisher;
+    private final PortalHistoryService portalHistoryService;
 
     public PortalManageService(CurrentUserProvider currentUserProvider, PortalDomainService portalDomainService,
             PaginationAdapter paginationAdapter, PortalUtilsService portalUtilsService, AccessValidationService accessValidationService,
             LimitService limitService, UserDomainService userDomainService, EmailDeliveryService emailDeliveryService,
-            EmailTemplates emailTemplates, NotificationPublisher notificationPublisher) {
+            EmailTemplates emailTemplates, NotificationPublisher notificationPublisher, PortalHistoryService portalHistoryService) {
         this.currentUserProvider = currentUserProvider;
         this.portalDomainService = portalDomainService;
         this.paginationAdapter = paginationAdapter;
@@ -81,6 +87,7 @@ public class PortalManageService {
         this.emailDeliveryService = emailDeliveryService;
         this.emailTemplates = emailTemplates;
         this.notificationPublisher = notificationPublisher;
+        this.portalHistoryService = portalHistoryService;
     }
 
     public CreatePortalResponse createPortal(CreatePortalRequest request)
@@ -150,6 +157,7 @@ public class PortalManageService {
         return paginationAdapter.mapToResponse(mappedPage, sortBy, order);
     }
 
+    @Transactional
     public void setPortalStatus(Long portalId, boolean isPublic) throws PortalException {
         Objects.requireNonNull(portalId, "portalId не должен быть null");
         logger.info("Публичность портала {} изменена на {}", portalId, isPublic);
@@ -160,8 +168,14 @@ public class PortalManageService {
         } catch (IllegalArgumentException e) {
             throw new PortalException("Портал с ID " + portalId + " не найден", HttpStatus.NOT_FOUND, e);
         }
+        boolean oldPublic = portal.isPublic();
         portal.setPublic(isPublic);
         portalDomainService.savePortal(portal);
+
+        if (oldPublic != isPublic) {
+            portalHistoryService.record(portalId, PortalHistoryEvent.VISIBILITY_CHANGED, currentUserProvider.getCurrentUserId(), null, null,
+                    "visibility", String.valueOf(oldPublic), String.valueOf(isPublic));
+        }
     }
 
     public Boolean getStatusPortal(Long portalId) throws PortalException {
@@ -170,6 +184,7 @@ public class PortalManageService {
     }
 
     // todo добавить валидацию id
+    @Transactional
     public void addUserForPortal(Long portalId, Set<Long> newAccessUserId) throws PortalException, LimitException {
         Objects.requireNonNull(portalId, "portalId не должен быть null");
         Objects.requireNonNull(newAccessUserId, "newAccessUserId не должен быть null");
@@ -183,9 +198,13 @@ public class PortalManageService {
             throw new LimitException("Достигнут лимит на количество пользователей с доступом к порталу");
         }
 
+        Set<Long> oldAccessUserId = portal.getAllowedUserIds() == null ? Set.of() : Set.copyOf(portal.getAllowedUserIds());
         portal.setAllowedUserIds(new HashSet<>(newAccessUserId));
         portalDomainService.savePortal(portal);
         logger.info("Пользователи {} успешно добавлены к порталу {}", newAccessUserId, portalId);
+
+        portalHistoryService.record(portalId, PortalHistoryEvent.USERS_CHANGED, user.getId(), null, null, "users",
+                joinUserIds(oldAccessUserId), joinUserIds(newAccessUserId));
     }
 
     public PortalSettingsResponse getPortalSettings(Long portalId) throws PortalException {
@@ -220,6 +239,52 @@ public class PortalManageService {
         return new PortalSettingsResponse(userInfoList, portal.isPublic());
     }
 
+    /** История портала (передачи владения и изменения портала), новые записи сверху. Доступ: участники портала (см. контроллер). */
+    public PageResponse<PortalHistoryResponse> getPortalHistory(Long portalId, int page, int size) {
+        Objects.requireNonNull(portalId, "portalId не должен быть null");
+
+        PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, "createdAt", "desc", Set.of("createdAt"));
+        Page<PortalHistoryModel> historyPage = portalHistoryService.getPage(portalId, pageRequest);
+        Page<PortalHistoryResponse> mappedPage = historyPage.map(this::toHistoryResponse);
+
+        return paginationAdapter.mapToResponse(mappedPage, "createdAt", "desc");
+    }
+
+    private PortalHistoryResponse toHistoryResponse(PortalHistoryModel entry) {
+        PortalHistoryResponse response = new PortalHistoryResponse();
+        response.setId(entry.getId());
+        response.setPortalId(entry.getPortalId());
+        response.setEvent(entry.getEvent().name());
+        response.setActorId(entry.getActorId());
+        response.setActorName(resolveUserName(entry.getActorId()));
+        response.setTargetUserId(entry.getTargetUserId());
+        response.setTargetName(resolveUserName(entry.getTargetUserId()));
+        response.setReason(entry.getReason());
+        response.setFieldName(entry.getFieldName());
+        response.setOldValue(entry.getOldValue());
+        response.setNewValue(entry.getNewValue());
+        response.setCreatedAt(entry.getCreatedAt());
+        return response;
+    }
+
+    /** Имя участника для истории: удалённый пользователь не должен ломать выдачу (точка входа — getPortalSettings). */
+    private String resolveUserName(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        try {
+            UserDetailsProjection user = userDomainService.getUserDetailsById(userId);
+            String name = (user.getLastName() + " " + user.getFirstName()).trim();
+            return name.isBlank() ? user.getEmail() : name;
+        } catch (UsernameNotFoundException e) {
+            return "Пользователь не существует";
+        }
+    }
+
+    private String joinUserIds(Set<Long> userIds) {
+        return userIds.stream().sorted().map(String::valueOf).collect(Collectors.joining(","));
+    }
+
     @Transactional
     public DeleteResult deletePortals(Set<Long> portalIdSet) throws PortalException {
         Objects.requireNonNull(portalIdSet, "portalIdSet не должен быть null");
@@ -234,6 +299,9 @@ public class PortalManageService {
                     portal.setDeleted(true);
                     portalDomainService.savePortal(portal);
                     deletedIds.add(id);
+
+                    portalHistoryService.record(id, PortalHistoryEvent.PORTAL_DELETED, user.getId(), null, null, "name", portal.getName(),
+                            null);
 
                     // In-app оповещение об удалении портала (удаляющего publisher исключает)
                     notificationPublisher.publishToPortalUsers(portal, NotificationEvent.PORTAL_DELETED, user.getId(), null,
@@ -286,11 +354,25 @@ public class PortalManageService {
 
         try {
             PortalModel portal = portalDomainService.getPortalById(portalId);
+            String oldName = portal.getName();
+            String oldDescription = portal.getDescription();
+
             portal.setName(request.getName());
             portal.setDescription(request.getDescription());
 
             portalDomainService.savePortal(portal);
             logger.info("Портал {} обновлён: имя — {}, описание — {}", portal.getId(), portal.getName(), portal.getDescription());
+
+            Long actorId = currentUserProvider.getCurrentUserId();
+            if (!Objects.equals(oldName, request.getName())) {
+                portalHistoryService.record(portalId, PortalHistoryEvent.NAME_CHANGED, actorId, null, null, "name", oldName,
+                        request.getName());
+            }
+            if (!Objects.equals(oldDescription, request.getDescription())) {
+                portalHistoryService.record(portalId, PortalHistoryEvent.DESCRIPTION_CHANGED, actorId, null, null, "description",
+                        oldDescription, request.getDescription());
+            }
+
             return new PortalInfoResponse(portal.getId(), portal.getName(), portal.getDescription());
         } catch (OptimisticLockException e) {
             throw new PortalException("Данные портала были недавно изменены другим пользователем. "
