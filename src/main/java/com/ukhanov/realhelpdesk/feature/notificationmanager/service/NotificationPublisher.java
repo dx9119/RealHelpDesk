@@ -38,7 +38,9 @@ public class NotificationPublisher {
     /** Каталог событий in-app оповещений: только то, что умеет порождать код; его же выдаёт API настроек. */
     public static final Set<NotificationEvent> SUPPORTED_EVENTS = Set.of(NotificationEvent.NEW_TICKET, NotificationEvent.NEW_MESSAGE,
             NotificationEvent.NEW_SYSTEM_MESSAGE, NotificationEvent.CHANGE_TICKET, NotificationEvent.TICKET_DELETED,
-            NotificationEvent.NEW_PORTAL, NotificationEvent.PORTAL_DELETED);
+            NotificationEvent.NEW_PORTAL, NotificationEvent.PORTAL_DELETED, NotificationEvent.PORTAL_TRANSFER_REQUESTED,
+            NotificationEvent.PORTAL_TRANSFER_ACCEPTED, NotificationEvent.PORTAL_TRANSFER_REJECTED,
+            NotificationEvent.PORTAL_TRANSFER_CANCELLED, NotificationEvent.PORTAL_TRANSFER_EXPIRED);
 
     /** События, которые повторяются, пока не прочитаны (см. NotificationRepeatService). */
     public static final Set<NotificationEvent> REPEATABLE_EVENTS = Set.of(NotificationEvent.NEW_TICKET, NotificationEvent.NEW_MESSAGE);

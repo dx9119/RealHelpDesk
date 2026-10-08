@@ -107,6 +107,54 @@ public class EmailTemplates {
         return text("email.portal.deleted.body", String.valueOf(portalId), email, projectName());
     }
 
+    public String portalTransferRequestedSubject(Long portalId) {
+        return text("email.portal.transfer.requested.subject", String.valueOf(portalId));
+    }
+
+    public String portalTransferRequestedBody(Long portalId, String initiatorName, String reason) {
+        return text("email.portal.transfer.requested.body", String.valueOf(portalId), initiatorName, reason, projectName());
+    }
+
+    public String portalTransferProposedSubject(Long portalId) {
+        return text("email.portal.transfer.proposed.subject", String.valueOf(portalId));
+    }
+
+    public String portalTransferProposedBody(Long portalId, String initiatorName, String reason) {
+        return text("email.portal.transfer.proposed.body", String.valueOf(portalId), initiatorName, reason, domain(), projectName());
+    }
+
+    public String portalTransferAcceptedSubject(Long portalId) {
+        return text("email.portal.transfer.accepted.subject", String.valueOf(portalId));
+    }
+
+    public String portalTransferAcceptedBody(Long portalId, String newOwnerName, String reason) {
+        return text("email.portal.transfer.accepted.body", String.valueOf(portalId), newOwnerName, reason, projectName());
+    }
+
+    public String portalTransferRejectedSubject(Long portalId) {
+        return text("email.portal.transfer.rejected.subject", String.valueOf(portalId));
+    }
+
+    public String portalTransferRejectedBody(Long portalId, String proposedName, String reason) {
+        return text("email.portal.transfer.rejected.body", String.valueOf(portalId), proposedName, reason, projectName());
+    }
+
+    public String portalTransferCancelledSubject(Long portalId) {
+        return text("email.portal.transfer.cancelled.subject", String.valueOf(portalId));
+    }
+
+    public String portalTransferCancelledBody(Long portalId, String initiatorName) {
+        return text("email.portal.transfer.cancelled.body", String.valueOf(portalId), initiatorName, projectName());
+    }
+
+    public String portalTransferExpiredSubject(Long portalId) {
+        return text("email.portal.transfer.expired.subject", String.valueOf(portalId));
+    }
+
+    public String portalTransferExpiredBody(Long portalId) {
+        return text("email.portal.transfer.expired.body", String.valueOf(portalId), projectName());
+    }
+
     private String text(String code, Object... args) {
         return messageSource.getMessage(code, args, LocaleContextHolder.getLocale());
     }

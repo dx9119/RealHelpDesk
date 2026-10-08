@@ -312,6 +312,33 @@ https://localhost:8443/api/v1/auth/register?capId=abc123xyz9
 3. После регистрации сервер отвечает `201` и ставит cookies `accessToken` и `refreshToken`
    (тела ответа нет) — Postman запомнит их сам.
 
+## Передача портала
+
+Владелец может передать портал другому пользователю. Жизненный цикл запроса: инициирование → подтверждение или отклонение предлагаемым владельцем, либо отзыв владельцем до решения. Активный запрос действует 72 часа, после чего закрывается лениво как `EXPIRED` при следующем обращении (GET/confirm/reject или новом инициировании); активных запросов на портал может быть только один — второй отвечает `409`. Решение и истечение срока пишутся в историю портала.
+
+| Метод и путь | Кто | Что делает |
+|---|---|---|
+| `POST /api/v1/portals/{id}/owner-transfer` | владелец | инициирует передачу: `{"email", "password", "reason", "keepOldOwnerAsMember"}` — пароль владельца подтверждает личность; `201` с телом запроса, лимит `portal-transfer-request` |
+| `GET /api/v1/portals/{id}/owner-transfer` | владелец или предлагаемый владелец | текущий активный запрос (у предлагаемого доступа к порталу ещё нет, поэтому авторизация проверяется внутри сервиса); посторонним — `404`, чтобы не раскрывать существование запроса |
+| `POST /api/v1/portals/{id}/owner-transfer/confirm` | предлагаемый владелец | принимает: `{"password", "reason"}` — пароль и причина нового владельца; `200` со статусом `ACCEPTED`, лимит `portal-transfer-confirm` |
+| `POST /api/v1/portals/{id}/owner-transfer/reject` | предлагаемый владелец | отклоняет: `{"reason"}` — причина уходит инициатору и в историю; `200` со статусом `REJECTED` |
+| `POST /api/v1/portals/{id}/owner-transfer/cancel` | владелец | отзывает запрос до решения; `200` со статусом `CANCELLED` |
+| `GET /api/v1/portals/{id}/history?page=&size=` | участники портала | история портала, новые записи сверху (`PageResponse`); посторонним — `403` |
+
+При подтверждении (одна транзакция): `portal.owner` становится новый владелец; при `keepOldOwnerAsMember=true` старый владелец переносится в участники, при `false` — выходит; новый владелец убирается из списка участников. Если перенос старого владельца превысит лимит участников нового владельца (`portalSharedUsersCountLimit`), передача останавливается с `409`.
+
+Оповещения — in-app и email одновременно:
+
+| Событие | Кому |
+|---|---|
+| `PORTAL_TRANSFER_REQUESTED` | участникам портала (без инициатора и предлагаемого) + отдельным письмом и строкой предлагаемому владельцу |
+| `PORTAL_TRANSFER_ACCEPTED` | старому владельцу и оставшимся участникам |
+| `PORTAL_TRANSFER_REJECTED` | инициатору (с причиной) |
+| `PORTAL_TRANSFER_CANCELLED` | предлагаемому владельцу |
+| `PORTAL_TRANSFER_EXPIRED` | инициатору (истечение срока) |
+
+История (`GET /history`, таблица `portal_history`) хранит пять событий передачи (`TRANSFER_REQUESTED`, `TRANSFER_ACCEPTED`, `TRANSFER_REJECTED`, `TRANSFER_CANCELLED`, `TRANSFER_EXPIRED`) и изменения самого портала: `NAME_CHANGED`, `DESCRIPTION_CHANGED`, `VISIBILITY_CHANGED`, `USERS_CHANGED` (старый/новый состав участников), `PORTAL_DELETED` (старое значение — имя портала). Создание портала в историю не пишется. Доступ — все участники портала (владелец и доверенные), записи передачи содержат причину и второго участника.
+
 ## Рейт-лимиты
 
 Счетчик идет по IP и эндпоинту и работает одинаково при включенной и выключенной капче. При превышении — ответ `429` с заголовком `Retry-After`.
@@ -326,6 +353,8 @@ https://localhost:8443/api/v1/auth/register?capId=abc123xyz9
 | `PUT /api/v1/users/password-resets/{code}` | `password-reset-confirm` | 5 за 10 мин |
 | `POST /api/v1/email/codes` | `email-code` | 3 за 10 мин |
 | `GET /api/v1/notifications/wait` | `notifications-wait` | 30 за 60 сек |
+| `POST /api/v1/portals/{id}/owner-transfer` | `portal-transfer-request` | 5 за 5 мин |
+| `POST /api/v1/portals/{id}/owner-transfer/confirm` | `portal-transfer-confirm` | 5 за 5 мин |
 | письма восстановления пароля (лимит на адрес) | `email-recovery` | 3 за 24 часа |
 
 Пороги заданы в `docker/app.env`: `RATE_LIMIT_<KEY>_REQUESTS` — число запросов, `RATE_LIMIT_<KEY>_WINDOW_SECONDS` — окно в секундах. `.env` содержит только секреты; продукт — в `docker/app.env`, окружение — в `docker-compose.yaml` (sec.md §1).
@@ -351,7 +380,7 @@ In-app оповещения (`/api/v1/notifications`, только под авт
 | `GET /api/v1/notifications/preferences` | включённые события и настройки повтора; без сохранённой строки — все события, повтор включён на 30 минут |
 | `PUT /api/v1/notifications/preferences` | набор событий + повтор: `{"events": [...], "repeatEnabled": true, "repeatIntervalMinutes": 30}`; поля повтора `null` — не менять, интервал 1..10080 минут |
 
-Кому: владелец портала + доверенные (`allowedUserIds`) — тот же круг, что у email-оповещений, но автор действия не получает уведомления о собственном действии. Каталог in-app событий (`NotificationPublisher.SUPPORTED_EVENTS`): `NEW_TICKET`, `NEW_MESSAGE`, `CHANGE_TICKET`, `TICKET_DELETED`, `NEW_PORTAL`, `PORTAL_DELETED`, `NEW_SYSTEM_MESSAGE`; выбор пользователя хранится в `user_notification_preferences`. Email-мьют (`/api/v1/email/notifications/{event}`) от этих настроек не зависит.
+Кому: владелец портала + доверенные (`allowedUserIds`) — тот же круг, что у email-оповещений, но автор действия не получает уведомления о собственном действии. Каталог in-app событий (`NotificationPublisher.SUPPORTED_EVENTS`): `NEW_TICKET`, `NEW_MESSAGE`, `CHANGE_TICKET`, `TICKET_DELETED`, `NEW_PORTAL`, `PORTAL_DELETED`, `NEW_SYSTEM_MESSAGE`, `PORTAL_TRANSFER_REQUESTED`, `PORTAL_TRANSFER_ACCEPTED`, `PORTAL_TRANSFER_REJECTED`, `PORTAL_TRANSFER_CANCELLED`, `PORTAL_TRANSFER_EXPIRED`; выбор пользователя хранится в `user_notification_preferences`. Email-мьют (`/api/v1/email/notifications/{event}`) от этих настроек не зависит.
 
 Записи ложатся в таблицу `notifications`; ожидающий `GET /wait` будится после коммита новой строки, поэтому оповещение видно сразу, без задержки до таймаута.
 
@@ -365,7 +394,7 @@ In-app оповещения (`/api/v1/notifications`, только под авт
 
 | Команда | Что делает |
 |---|---|
-| `mvn test` | юнит-тесты и срезы (`@DataJpaTest` на встроенной H2), 327, включая парность-тест `ApplicationConfigSchemaTest` |
+| `mvn test` | юнит-тесты и срезы (`@DataJpaTest` на встроенной H2), 435, включая парность-тест `ApplicationConfigSchemaTest` |
 | `mvn verify` | то же + интеграционные `*IT` через failsafe (24): письма через GreenMail, репозитории на H2 |
 | `mvn spotless:apply` | форматирование; `spotless:check` и `checkstyle` (`config/checkstyle/checkstyle.xml`) висят на фазе `validate`, поэтому выполняются при любом `mvn test`/`mvn verify` |
 | `postman_collection.json` | коллекция для импорта в Postman |
@@ -383,6 +412,7 @@ In-app оповещения (`/api/v1/notifications`, только под авт
 | `scripts/e2e-ratelimit.sh` | **Рейт-лимиты.** Проверяет троттлинг: после 30 успешных `GET /captcha` идет 429 с `Retry-After`, 11-я регистрация и 11-я попытка входа — 429, 4-й запрос сброса пароля — 429, при этом `health` без аннотации остается 200. |
 | `scripts/e2e-jwt-flow.sh` | **JWT-поток.** Полный цикл аутентификации: refresh-cookie не работает как access (401), `/auth/tokens/access` выдает новый access, логаут мгновенно отзывает access и refresh (401), смена пароля (через письмо smtp4dev) отзывает все токены, вход с новым паролем работает, отказы — 401. |
 | `scripts/e2e-notifications.sh` | **Оповещения.** Long polling: доверенный получает `NEW_TICKET`, пока владелец создаёт заявку; автор действия не получает уведомления о своём действии; смена статуса уведомляет владельца; событие, отключённое в настройках, не приходит (пустой `wait` отвечает 200 с `content=[]` по таймауту); повторы: дефолт 30 минут у пользователя без настроек, напоминание о непрочитанной заявке приходит с интервалом 1 минута и гасится чтением одной строки группы, выключенный повтор напоминаний не даёт (ждёт по ~2.5 минуты); чужое уведомление — 404, неизвестное событие настроек — 400, без токена — 401, `timeoutSec=99` — 400. |
+| `scripts/e2e-portal-transfer.sh` | **Передача портала.** Полный флоу: initiate (201, PENDING, `expiresAt` +72 ч), GET активного запроса владелец/предлагаемый — 200, посторонний — 404, in-app и email участникам и предлагаемому; ошибки (второй запрос — 409, чужой пароль владельца — 401, confirm не предлагаемым/посторонним — 404, неверный пароль нового владельца — 401); confirm → `ACCEPTED`, портал у нового владельца, старый владелец остаётся участником; история (`TRANSFER_REQUESTED`/`TRANSFER_ACCEPTED`/причина, участникам — 200, постороннему — 403); reject → `REJECTED` + email инициатору; cancel → `CANCELLED` + email предлагаемому; в `email_log` события `PORTAL_TRANSFER_*`. |
 
 Запуск (нужен поднятый стек `docker compose up -d`, `docker` для запросов
 к postgres и выключенная капча — по умолчанию; `e2e-jwt-flow.sh` дополнительно
@@ -393,11 +423,14 @@ bash scripts/e2e-portal-access.sh
 bash scripts/e2e-ratelimit.sh
 bash scripts/e2e-jwt-flow.sh
 bash scripts/e2e-notifications.sh
+bash scripts/e2e-portal-transfer.sh
 ```
 
 `e2e-ratelimit.sh` исчерпывает лимиты на 5–10 минут: при повторном запуске
 до истечения окна он попросит перезапустить приложение
 (`docker compose restart app`). `e2e-jwt-flow.sh` после нескольких запусков
 упирается в лимит `users/password-resets` (3 / 10 мин) и также порекомендует
-перезапуск. Все скрипты создают тестовых пользователей в БД.
+перезапуск. `e2e-portal-transfer.sh` за прогон тратит лимит
+`portal-transfer-request` (5 initiate / 5 мин) — повторный запуск до
+истечения окна также упрётся в 429. Все скрипты создают тестовых пользователей в БД.
 

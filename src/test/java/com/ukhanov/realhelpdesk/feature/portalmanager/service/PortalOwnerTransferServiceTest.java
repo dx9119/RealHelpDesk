@@ -1,0 +1,513 @@
+package com.ukhanov.realhelpdesk.feature.portalmanager.service;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.HashSet;
+import java.util.Optional;
+import java.util.Set;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+
+import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
+import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
+import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
+import com.ukhanov.realhelpdesk.core.mail.support.EmailTemplatesFixture;
+import com.ukhanov.realhelpdesk.core.security.auth.login.service.LoginService;
+import com.ukhanov.realhelpdesk.core.security.limiter.exception.LimitException;
+import com.ukhanov.realhelpdesk.core.security.limiter.service.LimitService;
+import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
+import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
+import com.ukhanov.realhelpdesk.core.security.user.model.UserStatus;
+import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
+import com.ukhanov.realhelpdesk.domain.portal.model.PortalHistoryEvent;
+import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
+import com.ukhanov.realhelpdesk.domain.portal.model.PortalTransferRequestModel;
+import com.ukhanov.realhelpdesk.domain.portal.model.PortalTransferStatus;
+import com.ukhanov.realhelpdesk.domain.portal.repository.PortalTransferRequestRepository;
+import com.ukhanov.realhelpdesk.domain.portal.service.PortalDomainService;
+import com.ukhanov.realhelpdesk.domain.portal.service.PortalHistoryService;
+import com.ukhanov.realhelpdesk.feature.notificationmanager.service.NotificationPublisher;
+import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalTransferConfirmRequest;
+import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalTransferRejectRequest;
+import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalTransferRequest;
+import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalTransferResponse;
+import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
+@DisplayName("Передача владения порталом: PortalOwnerTransferService")
+class PortalOwnerTransferServiceTest {
+
+    private static final Long OWNER_ID = 7L;
+    private static final Long PROPOSED_ID = 8L;
+    private static final Long MEMBER_ID = 9L;
+    private static final Long STRANGER_ID = 99L;
+    private static final Long PORTAL_ID = 100L;
+    private static final String OWNER_EMAIL = "owner@example.com";
+    private static final String PROPOSED_EMAIL = "new@example.com";
+    private static final String GOOD_PASSWORD = "good-pass-1";
+    private static final String BAD_PASSWORD = "bad-pass-1";
+    private static final String PASSWORD_HASH = "$2a$hash";
+    private static final String OWNER_NAME = "Фамилия7 Имя7";
+    private static final String PROPOSED_NAME = "Фамилия8 Имя8";
+
+    @Mock
+    private CurrentUserProvider currentUserProvider;
+
+    @Mock
+    private PortalDomainService portalDomainService;
+
+    @Mock
+    private PortalTransferRequestRepository transferRequestRepository;
+
+    @Mock
+    private PortalHistoryService portalHistoryService;
+
+    @Mock
+    private UserDomainService userDomainService;
+
+    @Mock
+    private LoginService loginService;
+
+    @Mock
+    private LimitService limitService;
+
+    @Mock
+    private EmailDeliveryService emailDeliveryService;
+
+    @Mock
+    private NotificationPublisher notificationPublisher;
+
+    private PortalOwnerTransferService service;
+
+    private final EmailTemplates emailTemplates = EmailTemplatesFixture.emailTemplates();
+
+    private UserModel owner;
+    private UserModel proposed;
+    private PortalModel portal;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        service = new PortalOwnerTransferService(currentUserProvider, portalDomainService, transferRequestRepository, portalHistoryService,
+                userDomainService, loginService, limitService, emailDeliveryService, emailTemplates, notificationPublisher);
+
+        owner = user(OWNER_ID, OWNER_EMAIL);
+        proposed = user(PROPOSED_ID, PROPOSED_EMAIL);
+        portal = new PortalModel();
+        portal.setId(PORTAL_ID);
+        portal.setName("Портал");
+        portal.setOwner(owner);
+        portal.setAllowedUserIds(new HashSet<>(Set.of(MEMBER_ID, PROPOSED_ID)));
+
+        lenient().when(currentUserProvider.getCurrentUserModel()).thenReturn(owner);
+        lenient().when(currentUserProvider.getCurrentUserId()).thenReturn(OWNER_ID);
+        lenient().when(portalDomainService.getPortalById(PORTAL_ID)).thenReturn(portal);
+        lenient().when(userDomainService.getUserById(OWNER_ID)).thenReturn(owner);
+        lenient().when(userDomainService.getUserById(PROPOSED_ID)).thenReturn(proposed);
+        lenient().when(loginService.isPasswordValid(GOOD_PASSWORD, PASSWORD_HASH)).thenReturn(true);
+        lenient().when(transferRequestRepository.save(any(PortalTransferRequestModel.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        lenient().when(transferRequestRepository.findByPortalIdAndStatus(PORTAL_ID, PortalTransferStatus.PENDING))
+                .thenReturn(Optional.empty());
+    }
+
+    /** Действующий пользователь — предлагаемый владелец (для confirm/reject). */
+    private void asProposed() {
+        when(currentUserProvider.getCurrentUserModel()).thenReturn(proposed);
+        when(currentUserProvider.getCurrentUserId()).thenReturn(PROPOSED_ID);
+    }
+
+    // ────────────────────────────────────────────────
+    // initiate
+    // ────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("Инициирование: запрос PENDING, история, участникам и новому владельцу in-app + email")
+    void initiate_createsPendingRequestAndNotifies() throws Exception {
+        when(userDomainService.getUserByEmail(PROPOSED_EMAIL)).thenReturn(proposed);
+
+        PortalTransferResponse response = service.initiate(PORTAL_ID, initiateRequest());
+
+        assertThat(response.getStatus()).isEqualTo("PENDING");
+        assertThat(response.getReasonInitiator()).isEqualTo("Причина");
+        assertThat(response.isKeepOldOwnerAsMember()).isTrue();
+        assertThat(response.getExpiresAt()).isAfter(Instant.now().plus(Duration.ofHours(70)));
+
+        ArgumentCaptor<PortalTransferRequestModel> captor = ArgumentCaptor.forClass(PortalTransferRequestModel.class);
+        verify(transferRequestRepository).save(captor.capture());
+        PortalTransferRequestModel saved = captor.getValue();
+        assertThat(saved.getStatus()).isEqualTo(PortalTransferStatus.PENDING);
+        assertThat(saved.getInitiatorId()).isEqualTo(OWNER_ID);
+        assertThat(saved.getProposedOwnerId()).isEqualTo(PROPOSED_ID);
+        assertThat(saved.isKeepOldOwner()).isTrue();
+
+        verify(portalHistoryService).record(eq(PORTAL_ID), eq(PortalHistoryEvent.TRANSFER_REQUESTED), eq(OWNER_ID), eq(PROPOSED_ID),
+                eq("Причина"), isNull(), isNull(), isNull());
+
+        // участникам (владелец + участник, без предлагаемого) и предлагаемому — отдельные заголовки
+        verify(notificationPublisher).publishToUsers(eq(Set.of(OWNER_ID, MEMBER_ID)), eq(NotificationEvent.PORTAL_TRANSFER_REQUESTED),
+                eq(OWNER_ID), isNull(), eq(PORTAL_ID), any());
+        verify(notificationPublisher).publishToUsers(eq(Set.of(PROPOSED_ID)), eq(NotificationEvent.PORTAL_TRANSFER_REQUESTED), eq(OWNER_ID),
+                isNull(), eq(PORTAL_ID), any());
+
+        verify(emailDeliveryService).sendPortalUsersNotification(eq(Set.of(OWNER_ID, MEMBER_ID)),
+                eq(emailTemplates.portalTransferRequestedSubject(PORTAL_ID)),
+                eq(emailTemplates.portalTransferRequestedBody(PORTAL_ID, OWNER_NAME, "Причина")),
+                eq(NotificationEvent.PORTAL_TRANSFER_REQUESTED));
+        verify(emailDeliveryService).sendUserNotification(eq(PROPOSED_EMAIL), eq(emailTemplates.portalTransferProposedSubject(PORTAL_ID)),
+                eq(emailTemplates.portalTransferProposedBody(PORTAL_ID, OWNER_NAME, "Причина")),
+                eq(NotificationEvent.PORTAL_TRANSFER_REQUESTED));
+    }
+
+    @Test
+    @DisplayName("Инициирование чужим паролем: 401, ничего не сохраняется")
+    void initiate_wrongPassword_rejects() throws Exception {
+        PortalTransferRequest request = initiateRequest();
+        request.setPassword(BAD_PASSWORD);
+
+        assertThatThrownBy(() -> service.initiate(PORTAL_ID, request)).isInstanceOf(PortalException.class).hasMessage("Неверный пароль");
+
+        verifyNoInteractions(transferRequestRepository, portalHistoryService, notificationPublisher, emailDeliveryService);
+    }
+
+    @Test
+    @DisplayName("Передача самому себе: ошибка, запроса нет")
+    void initiate_selfTransfer_rejects() throws Exception {
+        when(userDomainService.getUserByEmail(OWNER_EMAIL)).thenReturn(owner);
+        PortalTransferRequest request = initiateRequest();
+        request.setEmail(OWNER_EMAIL);
+
+        assertThatThrownBy(() -> service.initiate(PORTAL_ID, request)).isInstanceOf(PortalException.class)
+                .hasMessageContaining("самому себе");
+
+        verifyNoInteractions(transferRequestRepository, portalHistoryService);
+    }
+
+    @Test
+    @DisplayName("Email без пользователя: 404, запроса нет")
+    void initiate_unknownEmail_rejects() throws Exception {
+        when(userDomainService.getUserByEmail(any())).thenThrow(new UsernameNotFoundException("нет"));
+
+        assertThatThrownBy(() -> service.initiate(PORTAL_ID, initiateRequest())).isInstanceOf(PortalException.class)
+                .hasMessageContaining("не найден");
+
+        verifyNoInteractions(transferRequestRepository, portalHistoryService);
+    }
+
+    @Test
+    @DisplayName("Неактивный предлагаемый владелец: ошибка, запроса нет")
+    void initiate_blockedUser_rejects() throws Exception {
+        proposed.setUserStatus(UserStatus.BLOCKED);
+        when(userDomainService.getUserByEmail(PROPOSED_EMAIL)).thenReturn(proposed);
+
+        assertThatThrownBy(() -> service.initiate(PORTAL_ID, initiateRequest())).isInstanceOf(PortalException.class)
+                .hasMessageContaining("не активна");
+
+        verifyNoInteractions(transferRequestRepository, portalHistoryService);
+    }
+
+    @Test
+    @DisplayName("Второй активный запрос: 409, первый не трогаем")
+    void initiate_secondPending_rejects() throws Exception {
+        when(userDomainService.getUserByEmail(PROPOSED_EMAIL)).thenReturn(proposed);
+        PortalTransferRequestModel pending = pendingTransfer(Instant.now().plus(Duration.ofHours(1)));
+        when(transferRequestRepository.findByPortalIdAndStatus(PORTAL_ID, PortalTransferStatus.PENDING)).thenReturn(Optional.of(pending));
+
+        assertThatThrownBy(() -> service.initiate(PORTAL_ID, initiateRequest())).isInstanceOf(PortalException.class)
+                .hasMessageContaining("уже существует");
+
+        verify(transferRequestRepository, never()).save(any());
+        verify(portalHistoryService, never()).record(any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("Истёкший активный запрос закрывается как EXPIRED и создаётся новый")
+    void initiate_stalePending_expiresAndCreatesNew() throws Exception {
+        when(userDomainService.getUserByEmail(PROPOSED_EMAIL)).thenReturn(proposed);
+        PortalTransferRequestModel stale = pendingTransfer(Instant.now().minus(Duration.ofHours(1)));
+        when(transferRequestRepository.findByPortalIdAndStatus(PORTAL_ID, PortalTransferStatus.PENDING)).thenReturn(Optional.of(stale));
+
+        PortalTransferResponse response = service.initiate(PORTAL_ID, initiateRequest());
+
+        assertThat(response.getStatus()).isEqualTo("PENDING");
+        assertThat(stale.getStatus()).isEqualTo(PortalTransferStatus.EXPIRED);
+        verify(portalHistoryService).record(eq(PORTAL_ID), eq(PortalHistoryEvent.TRANSFER_EXPIRED), isNull(), eq(PROPOSED_ID), isNull(),
+                isNull(), isNull(), isNull());
+        verify(notificationPublisher).publishToUsers(eq(Set.of(OWNER_ID)), eq(NotificationEvent.PORTAL_TRANSFER_EXPIRED), isNull(),
+                isNull(), eq(PORTAL_ID), any());
+    }
+
+    // ────────────────────────────────────────────────
+    // confirm
+    // ────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("Подтверждение: владелец меняется, старый владелец остаётся участником, история и оповещения")
+    void confirm_transfersOwnershipAndKeepsOldOwner() throws Exception {
+        asProposed();
+        PortalTransferRequestModel pending = pendingTransfer(Instant.now().plus(Duration.ofHours(1)));
+        pending.setKeepOldOwner(true);
+        when(transferRequestRepository.findByPortalIdAndStatus(PORTAL_ID, PortalTransferStatus.PENDING)).thenReturn(Optional.of(pending));
+
+        PortalTransferResponse response = service.confirm(PORTAL_ID, confirmRequest());
+
+        assertThat(response.getStatus()).isEqualTo("ACCEPTED");
+        assertThat(portal.getOwner()).isSameAs(proposed);
+        assertThat(portal.getAllowedUserIds()).containsExactlyInAnyOrder(OWNER_ID, MEMBER_ID);
+        assertThat(pending.getStatus()).isEqualTo(PortalTransferStatus.ACCEPTED);
+        assertThat(pending.getReasonProposed()).isEqualTo("Принято");
+
+        verify(portalHistoryService).record(eq(PORTAL_ID), eq(PortalHistoryEvent.TRANSFER_ACCEPTED), eq(PROPOSED_ID), eq(OWNER_ID),
+                eq("Принято"), isNull(), isNull(), isNull());
+
+        // старому владельцу и оставшимся участникам
+        verify(notificationPublisher).publishToUsers(eq(Set.of(OWNER_ID, MEMBER_ID)), eq(NotificationEvent.PORTAL_TRANSFER_ACCEPTED),
+                eq(PROPOSED_ID), isNull(), eq(PORTAL_ID), any());
+        verify(emailDeliveryService).sendPortalUsersNotification(eq(Set.of(OWNER_ID, MEMBER_ID)),
+                eq(emailTemplates.portalTransferAcceptedSubject(PORTAL_ID)),
+                eq(emailTemplates.portalTransferAcceptedBody(PORTAL_ID, PROPOSED_NAME, "Причина")),
+                eq(NotificationEvent.PORTAL_TRANSFER_ACCEPTED));
+    }
+
+    @Test
+    @DisplayName("Подтверждение без keepOldOwner: старый владелец выходит из участников")
+    void confirm_withoutKeepingOldOwner_removesHim() throws Exception {
+        asProposed();
+        PortalTransferRequestModel pending = pendingTransfer(Instant.now().plus(Duration.ofHours(1)));
+        pending.setKeepOldOwner(false);
+        when(transferRequestRepository.findByPortalIdAndStatus(PORTAL_ID, PortalTransferStatus.PENDING)).thenReturn(Optional.of(pending));
+
+        service.confirm(PORTAL_ID, confirmRequest());
+
+        assertThat(portal.getOwner()).isSameAs(proposed);
+        assertThat(portal.getAllowedUserIds()).containsExactly(MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("Подтверждение не предлагаемым владельцем: 404 (существование запроса не раскрывается)")
+    void confirm_byStranger_rejectsAsNotFound() throws Exception {
+        when(currentUserProvider.getCurrentUserId()).thenReturn(STRANGER_ID);
+        PortalTransferRequestModel pending = pendingTransfer(Instant.now().plus(Duration.ofHours(1)));
+        when(transferRequestRepository.findByPortalIdAndStatus(PORTAL_ID, PortalTransferStatus.PENDING)).thenReturn(Optional.of(pending));
+
+        assertThatThrownBy(() -> service.confirm(PORTAL_ID, confirmRequest())).isInstanceOf(PortalException.class)
+                .hasMessageContaining("не найден");
+
+        assertThat(portal.getOwner()).isSameAs(owner);
+    }
+
+    @Test
+    @DisplayName("Подтверждение по истёкшему сроку: 409, запрос закрыт как EXPIRED")
+    void confirm_expired_rejectsAndExpires() throws Exception {
+        asProposed();
+        PortalTransferRequestModel pending = pendingTransfer(Instant.now().minus(Duration.ofHours(1)));
+        when(transferRequestRepository.findByPortalIdAndStatus(PORTAL_ID, PortalTransferStatus.PENDING)).thenReturn(Optional.of(pending));
+
+        assertThatThrownBy(() -> service.confirm(PORTAL_ID, confirmRequest())).isInstanceOf(PortalException.class)
+                .hasMessageContaining("истёк");
+
+        assertThat(pending.getStatus()).isEqualTo(PortalTransferStatus.EXPIRED);
+        verify(portalHistoryService).record(eq(PORTAL_ID), eq(PortalHistoryEvent.TRANSFER_EXPIRED), isNull(), eq(PROPOSED_ID), isNull(),
+                isNull(), isNull(), isNull());
+    }
+
+    @Test
+    @DisplayName("Подтверждение чужим паролем: 401, портал не передан")
+    void confirm_wrongPassword_rejects() throws Exception {
+        asProposed();
+        PortalTransferRequestModel pending = pendingTransfer(Instant.now().plus(Duration.ofHours(1)));
+        when(transferRequestRepository.findByPortalIdAndStatus(PORTAL_ID, PortalTransferStatus.PENDING)).thenReturn(Optional.of(pending));
+        PortalTransferConfirmRequest request = confirmRequest();
+        request.setPassword(BAD_PASSWORD);
+
+        assertThatThrownBy(() -> service.confirm(PORTAL_ID, request)).isInstanceOf(PortalException.class).hasMessage("Неверный пароль");
+
+        assertThat(portal.getOwner()).isSameAs(owner);
+        assertThat(pending.getStatus()).isEqualTo(PortalTransferStatus.PENDING);
+    }
+
+    @Test
+    @DisplayName("Лимит участников нового владельца: LimitException, портал не передан")
+    void confirm_memberLimit_rejects() throws Exception {
+        asProposed();
+        PortalTransferRequestModel pending = pendingTransfer(Instant.now().plus(Duration.ofHours(1)));
+        pending.setKeepOldOwner(true);
+        when(transferRequestRepository.findByPortalIdAndStatus(PORTAL_ID, PortalTransferStatus.PENDING)).thenReturn(Optional.of(pending));
+        when(limitService.violatesSharedUserPortalLimit(eq(proposed), eq(portal), eq(2))).thenReturn(true);
+
+        assertThatThrownBy(() -> service.confirm(PORTAL_ID, confirmRequest())).isInstanceOf(LimitException.class);
+
+        assertThat(portal.getOwner()).isSameAs(owner);
+        assertThat(pending.getStatus()).isEqualTo(PortalTransferStatus.PENDING);
+    }
+
+    // ────────────────────────────────────────────────
+    // reject / cancel / getPending
+    // ────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("Отклонение предлагаемым владельцем: REJECTED, история, причина инициатору")
+    void reject_marksRejectedAndNotifiesInitiator() throws Exception {
+        asProposed();
+        PortalTransferRequestModel pending = pendingTransfer(Instant.now().plus(Duration.ofHours(1)));
+        when(transferRequestRepository.findByPortalIdAndStatus(PORTAL_ID, PortalTransferStatus.PENDING)).thenReturn(Optional.of(pending));
+
+        PortalTransferResponse response = service.reject(PORTAL_ID, rejectRequest());
+
+        assertThat(response.getStatus()).isEqualTo("REJECTED");
+        assertThat(pending.getStatus()).isEqualTo(PortalTransferStatus.REJECTED);
+        assertThat(pending.getReasonProposed()).isEqualTo("Отклоняю");
+
+        verify(portalHistoryService).record(eq(PORTAL_ID), eq(PortalHistoryEvent.TRANSFER_REJECTED), eq(PROPOSED_ID), eq(OWNER_ID),
+                eq("Отклоняю"), isNull(), isNull(), isNull());
+        verify(notificationPublisher).publishToUsers(eq(Set.of(OWNER_ID)), eq(NotificationEvent.PORTAL_TRANSFER_REJECTED), eq(PROPOSED_ID),
+                isNull(), eq(PORTAL_ID), any());
+        verify(emailDeliveryService).sendUserNotification(eq(OWNER_EMAIL), eq(emailTemplates.portalTransferRejectedSubject(PORTAL_ID)),
+                eq(emailTemplates.portalTransferRejectedBody(PORTAL_ID, PROPOSED_NAME, "Отклоняю")),
+                eq(NotificationEvent.PORTAL_TRANSFER_REJECTED));
+    }
+
+    @Test
+    @DisplayName("Отзыв владельцем: CANCELLED, история, предлагаемому in-app + email")
+    void cancel_marksCancelledAndNotifiesProposed() throws Exception {
+        PortalTransferRequestModel pending = pendingTransfer(Instant.now().plus(Duration.ofHours(1)));
+        when(transferRequestRepository.findByPortalIdAndStatus(PORTAL_ID, PortalTransferStatus.PENDING)).thenReturn(Optional.of(pending));
+
+        PortalTransferResponse response = service.cancel(PORTAL_ID);
+
+        assertThat(response.getStatus()).isEqualTo("CANCELLED");
+        assertThat(pending.getStatus()).isEqualTo(PortalTransferStatus.CANCELLED);
+
+        verify(portalHistoryService).record(eq(PORTAL_ID), eq(PortalHistoryEvent.TRANSFER_CANCELLED), eq(OWNER_ID), eq(PROPOSED_ID),
+                isNull(), isNull(), isNull(), isNull());
+        verify(notificationPublisher).publishToUsers(eq(Set.of(PROPOSED_ID)), eq(NotificationEvent.PORTAL_TRANSFER_CANCELLED), eq(OWNER_ID),
+                isNull(), eq(PORTAL_ID), any());
+        verify(emailDeliveryService).sendUserNotification(eq(PROPOSED_EMAIL), eq(emailTemplates.portalTransferCancelledSubject(PORTAL_ID)),
+                eq(emailTemplates.portalTransferCancelledBody(PORTAL_ID, OWNER_NAME)), eq(NotificationEvent.PORTAL_TRANSFER_CANCELLED));
+    }
+
+    @Test
+    @DisplayName("Отзыв не владельцем: 403")
+    void cancel_byStranger_rejects() throws Exception {
+        when(currentUserProvider.getCurrentUserModel()).thenReturn(memberAsCurrent());
+
+        assertThatThrownBy(() -> service.cancel(PORTAL_ID)).isInstanceOf(PortalException.class).hasMessageContaining("только владелец");
+    }
+
+    @Test
+    @DisplayName("GET активного запроса: виден предлагаемому владельцу")
+    void getPending_visibleToProposed() throws Exception {
+        asProposed();
+        PortalTransferRequestModel pending = pendingTransfer(Instant.now().plus(Duration.ofHours(1)));
+        when(transferRequestRepository.findByPortalIdAndStatus(PORTAL_ID, PortalTransferStatus.PENDING)).thenReturn(Optional.of(pending));
+
+        PortalTransferResponse response = service.getPending(PORTAL_ID);
+
+        assertThat(response.getStatus()).isEqualTo("PENDING");
+        assertThat(response.getProposedOwnerEmail()).isEqualTo(PROPOSED_EMAIL);
+    }
+
+    @Test
+    @DisplayName("GET активного запроса постороннему: 404")
+    void getPending_stranger_seesNotFound() throws Exception {
+        when(currentUserProvider.getCurrentUserId()).thenReturn(STRANGER_ID);
+        PortalTransferRequestModel pending = pendingTransfer(Instant.now().plus(Duration.ofHours(1)));
+        when(transferRequestRepository.findByPortalIdAndStatus(PORTAL_ID, PortalTransferStatus.PENDING)).thenReturn(Optional.of(pending));
+
+        assertThatThrownBy(() -> service.getPending(PORTAL_ID)).isInstanceOf(PortalException.class).hasMessageContaining("не найден");
+    }
+
+    @Test
+    @DisplayName("GET без активного запроса: 404")
+    void getPending_withoutRequest_seesNotFound() throws Exception {
+        assertThatThrownBy(() -> service.getPending(PORTAL_ID)).isInstanceOf(PortalException.class).hasMessageContaining("не найден");
+    }
+
+    @Test
+    @DisplayName("GET истёкшего запроса: ленивое закрытие и 404")
+    void getPending_expired_closesAndNotFound() throws Exception {
+        PortalTransferRequestModel pending = pendingTransfer(Instant.now().minus(Duration.ofHours(1)));
+        when(transferRequestRepository.findByPortalIdAndStatus(PORTAL_ID, PortalTransferStatus.PENDING)).thenReturn(Optional.of(pending));
+
+        assertThatThrownBy(() -> service.getPending(PORTAL_ID)).isInstanceOf(PortalException.class).hasMessageContaining("не найден");
+
+        assertThat(pending.getStatus()).isEqualTo(PortalTransferStatus.EXPIRED);
+        verify(portalHistoryService).record(eq(PORTAL_ID), eq(PortalHistoryEvent.TRANSFER_EXPIRED), isNull(), eq(PROPOSED_ID), isNull(),
+                isNull(), isNull(), isNull());
+    }
+
+    // ────────────────────────────────────────────────
+    // Helpers
+    // ────────────────────────────────────────────────
+
+    private UserModel user(Long id, String email) {
+        UserModel user = new UserModel();
+        user.setId(id);
+        user.setEmail(email);
+        user.setFirstName("Имя" + id);
+        user.setLastName("Фамилия" + id);
+        user.setPasswordHash(PASSWORD_HASH);
+        user.setUserStatus(UserStatus.ACTIVE);
+        return user;
+    }
+
+    private UserModel memberAsCurrent() {
+        UserModel member = user(MEMBER_ID, "member@example.com");
+        return member;
+    }
+
+    private PortalTransferRequestModel pendingTransfer(Instant expiresAt) {
+        PortalTransferRequestModel transfer = new PortalTransferRequestModel();
+        transfer.setId(1L);
+        transfer.setPortalId(PORTAL_ID);
+        transfer.setInitiatorId(OWNER_ID);
+        transfer.setProposedOwnerId(PROPOSED_ID);
+        transfer.setReasonInitiator("Причина");
+        transfer.setKeepOldOwner(true);
+        transfer.setStatus(PortalTransferStatus.PENDING);
+        transfer.setExpiresAt(expiresAt);
+        return transfer;
+    }
+
+    private PortalTransferRequest initiateRequest() {
+        PortalTransferRequest request = new PortalTransferRequest();
+        request.setEmail(PROPOSED_EMAIL);
+        request.setPassword(GOOD_PASSWORD);
+        request.setReason("Причина");
+        request.setKeepOldOwnerAsMember(true);
+        return request;
+    }
+
+    private PortalTransferConfirmRequest confirmRequest() {
+        PortalTransferConfirmRequest request = new PortalTransferConfirmRequest();
+        request.setPassword(GOOD_PASSWORD);
+        request.setReason("Принято");
+        return request;
+    }
+
+    private PortalTransferRejectRequest rejectRequest() {
+        PortalTransferRejectRequest request = new PortalTransferRejectRequest();
+        request.setReason("Отклоняю");
+        return request;
+    }
+}

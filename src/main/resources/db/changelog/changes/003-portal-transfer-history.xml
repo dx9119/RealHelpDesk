@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Передача владения порталом: таблицы запросов на передачу и истории портала,
+  плюс пересоздание CHECK-каталогов с событиями PORTAL_TRANSFER_*.
+-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="003-portal-transfer-history" author="ukhanov">
+        <!-- На базе, где таблица уже есть (например, созданная вручную), changeset помечается выполненным. -->
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="portal_transfer_requests"/>
+            </not>
+        </preConditions>
+        <!-- Путь от корня classpath, не от этого файла: рядом лежат и changes/, и sql/. -->
+        <sqlFile path="db/changelog/sql/003-portal-transfer-history.sql"
+                 encoding="UTF-8"
+                 splitStatements="true"
+                 endDelimiter=";"/>
+    </changeSet>
+
+</databaseChangeLog>
