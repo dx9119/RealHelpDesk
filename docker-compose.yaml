@@ -112,6 +112,13 @@ services:
       # за прокси). Самы пороги — docker/app.env.
       TRUST_PROXY_HEADERS: "false"
 
+      # MinIO — хранилище файлов вложений заявок. Адрес — имя сервиса ниже
+      # (внутренняя сеть compose, не localhost); учётки совпадают с root-ом
+      # MinIO и приходят из .env, имя бакета — docker/app.env.
+      MINIO_ENDPOINT: "http://minio:9000"
+      MINIO_ACCESS_KEY: "${MINIO_ROOT_USER:?MINIO_ROOT_USER is required - copy .env.example to .env}"
+      MINIO_SECRET_KEY: "${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required - copy .env.example to .env}"
+
       # JVM-диагностика по умолчанию выключена (sec.md §7.8): эти ключи
       # перекрывают ENV образа. Включение — docker-compose.debug.yaml.
       JAVA_JFR_OPTS: ""
@@ -132,7 +139,40 @@ services:
         condition: service_healthy
       smtp:
         condition: service_started
+      # Хранилище ждём здоровым: без бакета приложение стартует (подготовка
+      # повторится при первой загрузке), но без MinIO вложения не работают.
+      minio:
+        condition: service_healthy
     restart: on-failure:2
+
+  # MinIO: файлы вложений заявок (метаданные — в attachment_model, сами файлы —
+  # здесь). Порты привязаны к 127.0.0.1, как у остальной инфраструктуры:
+  # приложению нужен только внутренний адрес http://minio:9000, наружу
+  # выходим только с этой машины (UI — http://localhost:9001).
+  minio:
+    # Официальные образы minio/minio удалены с Docker Hub (сентябрь 2026),
+    # quay.io/minio/minio больше не отдаёт pull анонимно. pgsty/silo — форк
+    # MinIO: те же S3 API, переменные MINIO_ROOT_*, legacy-команда `minio`
+    # в entrypoint транслируется в `silo server`.
+    image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z
+    mem_limit: 1g
+    container_name: realhelpdesk_minio
+    restart: on-failure:2
+    ports:
+      - "127.0.0.1:${MINIO_API_PORT:-9000}:9000"
+      - "127.0.0.1:9001:9001" # UI
+    volumes:
+      - minio_data:/data
+    environment:
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:?MINIO_ROOT_USER is required - copy .env.example to .env}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required - copy .env.example to .env}"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    command: server /data --console-address ":9001"
 
   postgres:
     # PostgreSQL 18 хранит данные в каталоге со своим мажорным версионом
@@ -280,3 +320,4 @@ volumes:
   postgres_data:
   postgres_shard_0_data:
   postgres_shard_1_data:
+  minio_data:

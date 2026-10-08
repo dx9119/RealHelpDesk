@@ -26,7 +26,7 @@
 - Устанавливает аутентификацию в `SecurityContextHolder` (роль берётся из БД).
 - Помечает ошибки токена (истёкший токен, некорректный формат и т.д.) через доп. заголовки.
 
-Refresh-токен в БД хранится в виде SHA-256 хеша; выдаётся клиенту в http-only cookie с `path=/api/v1/auth`. При каждом входе и регистрации выдаётся свежий refresh, а все ранее активные refresh-токены пользователя переводятся в `REVOKED` — старый перестаёт работать сразу. Настройка `jwt.cookie.same-site` (`JWT_COOKIE_SAMESITE` в `docker/app.env`) — см. `docs/jwt-audit.md`.
+Refresh-токен в БД хранится в виде SHA-256 хеша; выдаётся клиенту в http-only cookie с `path=/api/v1/auth`. При каждом входе и регистрации выдаётся свежий refresh, а все ранее активные refresh-токены пользователя переводятся в `REVOKED` — старый перестаёт работать сразу. Настройки cookie: `jwt.cookie.same-site` (`JWT_COOKIE_SAMESITE` в `docker/app.env`) — см. `docs/jwt-audit.md`; `jwt.cookie.domain` (`JWT_COOKIE_DOMAIN`) — общий домен cookie для поддоменов, нужен, когда файлы отдаёт отдельный origin (`STATIC_BASE_URL`, `docker/app.env`).
 
 ## Структура проекта
 

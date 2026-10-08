@@ -28,6 +28,7 @@
         <checkstyle.version>10.26.1</checkstyle.version>
         <spotless-maven-plugin.version>2.44.5</spotless-maven-plugin.version>
         <greenmail.version>2.1.0</greenmail.version>
+        <minio.version>8.5.17</minio.version>
     </properties>
 
     <dependencies>
@@ -70,6 +71,13 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-liquibase</artifactId>
+        </dependency>
+
+        <!-- MinIO: файлы вложений заявок (метаданные — в БД, сами файлы — в бакете) -->
+        <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+            <version>${minio.version}</version>
         </dependency>
 
         <!-- Logging (уже в starter, но можно явно если нужно) -->
