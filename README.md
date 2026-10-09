@@ -1,436 +1,299 @@
 # RealHelpDesk API
 
-**RealHelpDesk API** — это REST API для построения системы управления заявками или внутренней системы обработки запросов.
+REST API для системы управления заявками (help desk) или внутренней системы
+обработки запросов. Пользователи создают **порталы** — тематические
+пространства, внутри которых заводятся **заявки**, а в заявках — **сообщения**
+и **вложения**.
 
-Реализован MVP (Minimum Viable Product):
-- Регистрация, аутентификация, авторизация, верификация email пользователя, восстановление пароля.
-- Создание порталов - точки в рамках которых формируется тематика заявок.
-- Создание заявок в рамках портала.
-- Создание сообщений в рамках заявки.
-- Создатель портала может предоставить доступ к нему другим пользователям.
-- Email-оповещения.
-- Выбор уровня ограничения оповещений.
-- In-app оповещения о новых заявках в доступных порталах: long polling по HTTP (`/api/v1/notifications`), прочтение, настройки событий и повторов на пользователя.
-- Реализован поиск заявки (в рамках указанного временного промежутка, содержимому заявки, ФИО автора).
-- Проверка лимитов пользователя (разрешенное кол-во порталов, кол-во общих пользователей порталов).
-- Лимиты на попытки восстановления доступа.
-- Капча.
+## Возможности
 
-## Авторизация и безопасность
+- Регистрация, вход, верификация email, восстановление пароля.
+- Порталы: создание, редактирование, удаление; публичный доступ и доступ по
+  списку пользователей.
+- Заявки: создание, статусы, приоритеты, удаление, поиск.
+- Сообщения и файловые вложения (MinIO, отдача с поддержкой HTTP `Range`).
+- Передача владения порталом с подтверждением и полной историей изменений.
+- Оповещения: email и in-app (HTTP long polling), настройки событий и повторов.
+- Ограничения: квоты пользователя, рейт-лимиты, капча.
 
-Используются JWT-токены + HTTP cookies для аутентификации и авторизации (токены передаются через куки) пользователей. Каждый входящий запрос проходит через фильтр `JwtAuthFilter`, который:
-- Пропускает открытые эндпоинты (например, `/auth/login`) из белого списка.
-- Извлекает access-токен из cookies
-- Расшифровывает и проверяет access-токен с помощью `ValidTokenService` (подпись, срок, issuer/audience, тип `typ=access`)
-- Проверяет пользователя в БД: статус аккаунта и версию токенов (`ver`) — логаут/смена пароля отзывают выданные access-токены немедленно.
-- Устанавливает аутентификацию в `SecurityContextHolder` (роль берётся из БД).
-- Помечает ошибки токена (истёкший токен, некорректный формат и т.д.) через доп. заголовки.
+## Технологии
 
-Refresh-токен в БД хранится в виде SHA-256 хеша; выдаётся клиенту в http-only cookie с `path=/api/v1/auth`. При каждом входе и регистрации выдаётся свежий refresh, а все ранее активные refresh-токены пользователя переводятся в `REVOKED` — старый перестаёт работать сразу. Настройки cookie: `jwt.cookie.same-site` (`JWT_COOKIE_SAMESITE` в `docker/app.env`) — см. `docs/jwt-audit.md`; `jwt.cookie.domain` (`JWT_COOKIE_DOMAIN`) — общий домен cookie для поддоменов, нужен, когда файлы отдаёт отдельный origin (`STATIC_BASE_URL`, `docker/app.env`).
+| Слой | Технологии |
+|---|---|
+| Язык / сборка | Java 21, Maven |
+| Фреймворк | Spring Boot 4, Spring Security, Spring Data JPA, Spring Validation |
+| БД / миграции | PostgreSQL 18, Liquibase (`ddl-auto=validate`) |
+| Аутентификация | JWT (jjwt) в http-only cookies, refresh-токен хранится как SHA-256 хеш |
+| Файлы | MinIO (метаданные в БД, содержимое — в бакете) |
+| Почта | Spring Mail, шаблоны в `messages.properties` |
+| Прочее | Hibernate Validator, Spotless, Checkstyle |
 
-## Структура проекта
+## Архитектура
 
-- Core - конфигурация (spring security/CORS etc.), глобальные исключения, фильтры, токены, пользователи, почтовые оповещения, пагинация, проверка лимитов, контроль доступа в рамках контроллера.
-- Domain - базовые entity, репозитории и сервисы.
-- Feature - управление порталами, заявками, сообщениями, пользователями, оповещениями.
+```
+com.ukhanov.realhelpdesk
+├── core      — конфигурация (Security/CORS), фильтры, JWT, пользователи,
+│               почта, пагинация, рейт-лимиты, капча, контроль доступа, storage
+├── domain    — JPA-сущности, репозитории и доменные сервисы
+└── feature   — контроллеры и сервисы по областям: порталы, заявки, сообщения,
+                вложения, пользователи, оповещения
+```
+
+Правила доступа к порталам и заявкам проверяются через `@PreAuthorize`
+(`AccessValidationService`, `TicketAccessValidationService`). Ошибки
+централизованно преобразуются в RFC 7807-подобные ответы `GlobalExceptionHandler`.
+
+## Быстрый старт
+
+Проект рассчитан на запуск в Docker (переменные окружения обязательны).
+
+```bash
+cp .env.example .env        # заполните JWT_SECRET, DB_PASSWORD, KEY_STORE_PASS
+make up                     # = docker compose up --build -d
+```
+
+API — `https://localhost:8443`. Вспомогательные сервисы: smtp4dev
+(`http://localhost:3000`), PostgreSQL (`127.0.0.1:5432`), MinIO (`127.0.0.1:9000`).
+Полный список команд — `make help`, детали сборки и секретов — [`sec.md`](sec.md).
+
+Структуру БД создаёт и обновляет Liquibase при старте; Hibernate только сверяет
+сущности со схемой (`spring.jpa.hibernate.ddl-auto=validate`). Миграции —
+`src/main/resources/db/changelog` (baseline `001-baseline-schema` + новые
+changeset'ы). Рестарт `app` данные не трогает, `make down-volumes` удаляет том
+PostgreSQL.
 
 ## Конфигурация
 
-Конфигурация разложена по смыслу: значения — в трёх файлах,
-`application.properties` — схема без дефолтов, домены — в
-`application-domains.properties`.
-
 | Файл | Что в нём |
 |---|---|
-| `src/main/resources/application.properties` | Схема: обязательные `${VAR}` без дефолтов. Единственное значение — `spring.jpa.hibernate.ddl-auto=validate`, закреплённое в коде (окружением не управляется) |
-| `src/main/resources/application-domains.properties` | Схема доменов (подключается через `spring.config.import`): CORS, issuer/audience токенов, домен фронта в письмах, адреса отправителя |
-| `docker/app.env` | Продукт: рейт-лимиты, капча, сроки токенов, брендинг, адреса писем |
-| `docker-compose.yaml` → `services.app.environment` | Окружение: порты, хосты, профиль, ресурсы, JVM — и секреты через `${VAR:?}` (пустой `MAIL_PASSWORD` допустим) |
-| `.env` (см. `.env.example`) | Только секреты: `JWT_SECRET`, `DB_PASSWORD`, `MAIL_PASSWORD`, `KEY_STORE_PASS`, `SHARDINGSPHERE_ROOT_PASSWORD`, `SHARDINGSPHERE_SHARDING_PASSWORD` |
+| `src/main/resources/application.properties` | Схема обязательных `${VAR}` без дефолтов; `ddl-auto=validate` закреплён в коде |
+| `src/main/resources/application-domains.properties` | Домены: CORS, issuer/audience токенов, домен фронта в письмах, адрес отправителя |
+| `docker/app.env` | Продукт: рейт-лимиты, капча, сроки токенов, брендинг, адреса писем, MinIO |
+| `docker-compose.yaml` → `services.app.environment` | Окружение: порты, хосты, ресурсы, JVM, профиль и секреты через `${VAR:?}` |
+| `.env` | Только секреты: `JWT_SECRET`, `DB_PASSWORD`, `MAIL_PASSWORD`, `KEY_STORE_PASS`, `SHARDINGSPHERE_*` |
 
-Отсутствующая переменная валит приложение на старте с
-`Could not resolve placeholder '<VAR>'`, отсутствующий или пустой
-обязательный секрет (`JWT_SECRET`, `DB_PASSWORD`, `KEY_STORE_PASS`) —
-`docker compose` ещё до запуска. `MAIL_PASSWORD` пустым быть может:
-smtp4dev работает без аутентификации. Пароли прокси шардирования
-(`SHARDINGSPHERE_*_PASSWORD`) обязательны только при включённом профиле
-`sharding`: compose поднимается и с пустыми значениями, но прокси без
-пароля не стартует (`shardingsphere/entrypoint.sh`). Проект рассчитан на работу
-**только внутри Docker-контейнера**: без переменных окружения локальный
-`java -jar` не поднимется.
+Профили логирования: `debug` (подробно, с SQL) и `prod` (INFO+, без секретов и
+query-string). Задаётся `SPRING_PROFILES_ACTIVE`.
 
-Единственный дефолт в коде — `SameSite.NONE` у `jwt.cookie.same-site`
-(поле `JwtProperties.Cookie`). Допустимые значения — весь набор enum `SameSite`:
-`None`, `Lax`, `Strict` (регистр не важен); неизвестное значение валит старт.
-Настройка в `application.properties` обязательна (`${JWT_COOKIE_SAMESITE}`).
+## Аутентификация
 
-Схему и оба места со значениями (`services.app.environment` + `docker/app.env`)
-держит в согласии тест `ApplicationConfigSchemaTest`: значения вида `${VAR}`
-без литералов, списки переменных совпадают один в один, а один ключ не может
-быть задан в обоих файлах. Детали сборки, контекста и секретов — в
-[`sec.md`](sec.md).
+JWT передаётся в http-only cookie (`accessToken`), refresh-токен — в cookie с
+`path=/api/v1/auth`. Каждый запрос проходит через `JwtAuthFilter`: проверяются
+подпись, срок, issuer/audience, тип токена (`typ=access`), статус пользователя и
+версия токенов (`ver`). Логаут и смена пароля немедленно отзывают access-токены.
 
-## Запуск проекта
-1. `cp .env.example .env` и заполните секреты: `JWT_SECRET` (`openssl rand -base64 32`),
-   `DB_PASSWORD` и `KEY_STORE_PASS` — без них `docker compose` не стартует.
-   `MAIL_PASSWORD` может остаться пустым (smtp4dev без аутентификации);
-   в `.env.example` для `KEY_STORE_PASS` задано демо-значение. Пароли
-   прокси шардирования (`SHARDINGSPHERE_*_PASSWORD`) заполняются, только
-   если будете включать профиль `sharding`.
-2. `docker compose up --build -d`
+Поток:
 
-> **Схема БД.** Структуру создаёт и изменяет Liquibase при старте приложения,
-> Hibernate только сверяет entity с ней (`spring.jpa.hibernate.ddl-auto=validate`,
-> значение закреплено в `application.properties`). Рестарт
-> контейнера `app` данные не трогает; `docker compose down -v` удаляет том
-> PostgreSQL вместе с ними.
+1. `POST /api/v1/auth/register` или `/login` → сервер ставит cookies, тела нет.
+2. `POST /api/v1/auth/tokens/access` (по refresh-cookie) → новый access и
+   ротация refresh; старые refresh отзываются.
+3. `DELETE /api/v1/auth/session` → логаут, отзыв access и refresh.
 
-Всё остальное правится в `docker/app.env` (капча, рейт-лимиты, сроки,
-адреса писем), в `docker-compose.yaml` → `services.app.environment`
-(порты, почта, профиль) или в `.env` — пересборка образа не нужна,
-достаточно `docker compose up -d`.
-PostgreSQL (`5432`) и SMTP (`25`) слушают только `127.0.0.1`; API — `8443`,
-интерфейс smtp4dev — `3000`. Шарды (`5433`, `5434`) и прокси шардирования
-(`3307`) поднимаются только с включённым профилем `sharding` (см. раздел
-ниже) и без него не слушают ничего.
+Настройки cookie: `jwt.cookie.same-site` (`JWT_COOKIE_SAMESITE`) и
+`jwt.cookie.domain` (`JWT_COOKIE_DOMAIN`). Детали аудита — [`docs/jwt-audit.md`](docs/jwt-audit.md).
 
-### Шардирование (ShardingSphere)
+## API
 
-**По умолчанию выключено** — режим неактивности: активна одна БД (`postgres`).
-Три сервиса шардирования объявлены в профиле `sharding` Docker Compose и
-обычным `docker compose up -d` не поднимаются. (Это профиль compose, а не
-Spring-профиль `debug`/`prod`.) Конфигурация при этом уже готова и лежит в
-репозитории — включается одной командой, откатывается одной.
+Базовый URL — `/api/v1`. Пагинированные ответы имеют вид `PageResponse`:
+`{ content, page, size, totalElements, totalPages, last }`.
 
-#### Как настроено
-
-| Сервис | Образ | Порт | Что это |
-|---|---|---|---|
-| `postgres_shard_0` | `postgres:18` | `127.0.0.1:5433` | первый шард, том `postgres_shard_0_data` |
-| `postgres_shard_1` | `postgres:18` | `127.0.0.1:5434` | второй шард, том `postgres_shard_1_data` |
-| `shardingsphere` | `apache/shardingsphere-proxy:5.5.3` | `127.0.0.1:3307` | ShardingSphere-Proxy — единственная точка входа к шардам (подключается по протоколу PostgreSQL, логическая БД `desk`) |
-
-Как оно устроено:
-
-- **Схема шардов.** При первой инициализации тома каждый шард получает схему
-  приложения тем же файлом `db/changelog/sql/001-baseline-schema.sql`,
-  который применяет Liquibase на основной базе (копии в репозитории нет,
-  единственный источник правды один). Последующие изменения структуры в шарды
-  пока не попадают — их нужно натравливать отдельно.
-- **Правила раскладки.** `shardingsphere/conf/database-sharding.yaml`: два
-  даты-источника (`ds_0`, `ds_1`) и правило `SHARDING` по всем таблицам
-  baseline — значение ключа mod 2, для таблиц со своим первичным ключом
-  (`jwt_tokens`, `portal_access`, `user_notification_preferences_events`)
-  ключ указан явно; `id` генерирует прокси (snowflake).
-- **Конфигурация прокси** — шаблоны `shardingsphere/conf/*.yaml` с
-  плейсхолдерами `__NAME__`: `shardingsphere/entrypoint.sh` подставляет в
-  них значения окружения при каждом старте и только потом запускает прокси,
-  поэтому паролей в git нет. Отрендеренный конфиг живёт внутри контейнера.
-- **Учётные записи.** `global.yaml` заводит двух пользователей прокси:
-  `root` (администрирование DistSQL) и `sharding` (чтение/запись данных) —
-  пароли из `SHARDINGSPHERE_ROOT_PASSWORD` / `SHARDINGSPHERE_SHARDING_PASSWORD`
-  в `.env`. Пароли данных-источников прокси по умолчанию = `DB_PASSWORD`
-  (`SHARD_DB`, `SHARD_DB_USER`, `SHARD_DB_PASSWORD` в `.env` переопределяют
-  имя БД и учётку шардов — нужны, только если выносить шарды на отдельный
-  пользователь).
-- **Безопасность.** Порты шардов и прокси опубликованы только на
-  `127.0.0.1`; шарды — внутренняя деталь прокси, приложение подключается
-  к прокси, не к ним напрямую. Секреты — только в `.env`, в git их нет.
-
-#### Как включить
-
-```bash
-docker compose --profile sharding up -d
-```
-
-Либо один раз раскомментируйте в `.env`:
-
-```bash
-COMPOSE_PROFILES=sharding
-```
-
-и тогда обычный `docker compose up -d` будет поднимать весь стек сразу.
-Пароли прокси (`SHARDINGSPHERE_*_PASSWORD`) должны быть заполнены: compose
-без профиля поднимается и с пустыми значениями, но сам прокси без пароля не
-стартует (`shardingsphere/entrypoint.sh` валит запуск с понятной ошибкой).
-Данные шардов на своих томах сохраняются — выключение и повторное включение
-их не трогает.
-
-Проверка:
-
-```bash
-docker compose ps    # shardingsphere, postgres-shard-0/1 — healthy
-PGPASSWORD="$SHARDINGSPHERE_ROOT_PASSWORD" psql \
-  -h 127.0.0.1 -p 3307 -U root -d desk -c 'select count(*) from users;'
-```
-
-#### Как выключить
-
-```bash
-docker compose stop shardingsphere postgres_shard_0 postgres_shard_1
-```
-
-Останавливать нужно явно: обычный `docker compose up -d` профильные сервисы
-не трогает (без профиля их нет в модели compose), поэтому шарды после
-включения продолжали бы работать. `stop` только останавливает контейнеры —
-тома, данные и конфигурация остаются; полностью удалить данные шардов —
-`docker compose down -v` (вымыет и основную БД).
-
-#### Подключение приложения (отдельный шаг)
-
-Приложение **по умолчанию ходит в основной `postgres`** — шардирование его
-трафик не затрагивает. Переключение на прокси — одна переменная в `.env`,
-без правки compose и пересборки:
-
-```bash
-DB_URL=jdbc:postgresql://shardingsphere:3307/desk
-docker compose up -d        # app переподключится к прокси
-```
-
-Обратно — удалить строку или вернуть значение по умолчанию
-(`jdbc:postgresql://postgres:5432/desk`) и снова `docker compose up -d`.
-Работает только при включённом профиле `sharding`.
-
-Перед переключением в серьёз (всё перечислено и в комментариях
-`shardingsphere/conf/database-sharding.yaml`): выбрать ключ шардирования с
-co-location связанных строк (сейчас таблицы шардируются по своему
-первичному ключу — тикет не гарантированно попадёт в шард своего автора),
-заменить генерацию `id` из последовательностей на генератор прокси
-(секвенсы `*_seq` живут в каждом шарде и дублируют id) и снять межшардовые
-внешние ключи baseline.
-
-### Обновление PostgreSQL 15 → 18
-
-PostgreSQL 18 держит данные в каталоге со своим мажорным версионом
-(`PGDATA=/var/lib/postgresql/18/docker`), поэтому том `postgres_data`
-теперь монтируется на `/var/lib/postgresql` — родительский каталог, а не
-`/var/lib/postgresql/data`, как в 15–17. Том со старыми данными образ 18
-не поднимет: контейнер завершится с ошибкой «upgrade the underlying
-database using pg_upgrade».
-
-Перенос данных (дамп + чистая инициализация):
-
-```bash
-# на ветке с postgres:15 — дамп, затем остановка
-docker compose exec postgres pg_dump -U user -d desk > desk-pg15.sql
-docker compose down
-
-# новая ветка: удалить только после успешного дампа (путь тома зависит от
-# имени проекта compose — здесь realhelpdesk_postgres_data)
-docker volume rm realhelpdesk_postgres_data
-docker compose up -d postgres
-docker compose exec -T postgres psql -U user -d desk < desk-pg15.sql
-```
-
-Альтернатива — `pg_upgrade` (том с данными 15-й версии остаётся на месте,
-нужен запущенный контейнер со старым образом). На пустом томе (первый
-запуск) ничего переносить не нужно.
-
-### Миграции схемы (Liquibase)
-
-Миграции лежат в `src/main/resources/db/changelog`:
-
-| Файл | Что в нём |
-|---|---|
-| `db.changelog-master.xml` | Корень: подключает changeset'ы по порядку |
-| `changes/NNN-<slug>.xml` | Один шаг: `<changeSet id="NNN-<slug>">` и условие его выполнения |
-| `sql/NNN-<slug>.sql` | SQL шага, подключается через `<sqlFile path="db/changelog/sql/NNN-<slug>.sql">` |
-
-Старт: `DB_MIGRATIONS_ENABLED=true` и `DB_MIGRATIONS_CHANGE_LOG=classpath:db/changelog/db.changelog-master.xml`
-в `docker-compose.yaml` → `services.app.environment` (схема этих ключей — в
-`application.properties`). Liquibase выполняется до Hibernate; после него
-`spring.jpa.hibernate.ddl-auto=validate` валит запуск, если entity не совпадает
-со схемой. Режим задан в коде и переменной окружения не управляется: вернуть
-изменивший схему режим помешает `ApplicationConfigSchemaTest` — он падает, если
-в конфигурации среды появится что-то кроме `validate`.
-
-Новая миграция:
-
-1. `sql/NNN-<slug>.sql` — SQL (DDL) со следующим свободным номером;
-2. `changes/NNN-<slug>.xml` — `<changeSet id="NNN-<slug>" author="...">` c `<sqlFile>`;
-3. `<include>` нового файла в `db.changelog-master.xml`.
-
-Applied changeset'ы не редактируются: меняется контрольная сумма и Liquibase
-остановит запуск — правка только новым changeset'ом. CHECK-ограничения колонок
-с enum зафиксированы в baseline: новое значение enum требует отдельного changeset
-с пересозданием ограничения. Baseline (`001-baseline-schema`) на базе, где таблицы
-уже есть, помечается выполненным и ничего не меняет — схема новых сред создаётся
-полностью, существующие не трогаются.
-
-### HTTPS и keystore
-
-Самоподписанный `keystore.p12` создаётся **при старте контейнера**
-(`docker/entrypoint.sh`), а не при сборке: пароль не попадает в слои образа
-и в `docker history`, смена `KEY_STORE_PASS` требует только
-`docker compose up -d`, а сборка образа от секрета не зависит.
-Файлы `*.p12` в репозиторий не попадают.
-
-Для продакшна смонтируйте свой файл в `/app/ssl/keystore.p12` (volume) —
-генерация в этом случае пропускается. `KEY_STORE_PASS` обязателен:
-Tomcat открывает PKCS12 этим паролем.
-
-## Профили
-
-Два профиля: `debug` и `prod`. Переменная `SPRING_PROFILES_ACTIVE` обязательна:
-в `application.properties` нет значения по умолчанию. Локальный
-`docker compose` задаёт `debug` в `services.app.environment`.
-
-| Профиль | Логи |
-|---|---|
-| `debug` | код приложения на `DEBUG`, SQL Hibernate без параметров, в строке request-id и IP |
-| `prod` | `INFO` и выше по своему коду, без SQL и без пошаговой трассировки. Успешный HTTP-запрос не пишется |
-
-```yaml
-# docker-compose.yaml, services.app.environment
-SPRING_PROFILES_ACTIVE: prod
-```
-
-В `prod` остаются бизнес-события, отказы входа, превышение лимитов и ошибки. Тело запроса, код восстановления пароля, значение токена и query-string в лог не попадают.
-
-## Регистрация
-
-По умолчанию капча выключена (`CAPTCHA_ENABLED=false` в `docker/app.env`) —
-тогда поля `capCode` и параметр `capId` не нужны: отправляйте
-`POST /api/v1/auth/register` сразу с телом из `firstName`, `lastName`,
-`email` и `password`.
-
-Если капча включена:
-
-1. В Postman отправляем запрос на получение капчи (capId — ID посетителя, генерируем руками или на фронте):
-https://localhost:8443/api/v1/captcha?capId=abc123xyz9
-2. Смотрим картинку с кодом капчи, указываем его в теле (поле capCode) в запросе на регистрацию:
-https://localhost:8443/api/v1/auth/register?capId=abc123xyz9
-```
-{
-  "firstName": "Иван",
-  "lastName": "Иванов",
-  "email": "test@test.com",
-  "password": "SuperStrongPass123",
-  "capCode": "356dd"
-}
-```
-3. После регистрации сервер отвечает `201` и ставит cookies `accessToken` и `refreshToken`
-   (тела ответа нет) — Postman запомнит их сам.
-
-## Передача портала
-
-Владелец может передать портал другому пользователю. Жизненный цикл запроса: инициирование → подтверждение или отклонение предлагаемым владельцем, либо отзыв владельцем до решения. Активный запрос действует 72 часа, после чего закрывается лениво как `EXPIRED` при следующем обращении (GET/confirm/reject или новом инициировании); активных запросов на портал может быть только один — второй отвечает `409`. Решение и истечение срока пишутся в историю портала.
-
-| Метод и путь | Кто | Что делает |
-|---|---|---|
-| `POST /api/v1/portals/{id}/owner-transfer` | владелец | инициирует передачу: `{"email", "password", "reason", "keepOldOwnerAsMember"}` — пароль владельца подтверждает личность; `201` с телом запроса, лимит `portal-transfer-request` |
-| `GET /api/v1/portals/{id}/owner-transfer` | владелец или предлагаемый владелец | текущий активный запрос (у предлагаемого доступа к порталу ещё нет, поэтому авторизация проверяется внутри сервиса); посторонним — `404`, чтобы не раскрывать существование запроса |
-| `POST /api/v1/portals/{id}/owner-transfer/confirm` | предлагаемый владелец | принимает: `{"password", "reason"}` — пароль и причина нового владельца; `200` со статусом `ACCEPTED`, лимит `portal-transfer-confirm` |
-| `POST /api/v1/portals/{id}/owner-transfer/reject` | предлагаемый владелец | отклоняет: `{"reason"}` — причина уходит инициатору и в историю; `200` со статусом `REJECTED` |
-| `POST /api/v1/portals/{id}/owner-transfer/cancel` | владелец | отзывает запрос до решения; `200` со статусом `CANCELLED` |
-| `GET /api/v1/portals/{id}/history?page=&size=` | участники портала | история портала, новые записи сверху (`PageResponse`); посторонним — `403` |
-
-При подтверждении (одна транзакция): `portal.owner` становится новый владелец; при `keepOldOwnerAsMember=true` старый владелец переносится в участники, при `false` — выходит; новый владелец убирается из списка участников. Если перенос старого владельца превысит лимит участников нового владельца (`portalSharedUsersCountLimit`), передача останавливается с `409`.
-
-Оповещения — in-app и email одновременно:
-
-| Событие | Кому |
-|---|---|
-| `PORTAL_TRANSFER_REQUESTED` | участникам портала (без инициатора и предлагаемого) + отдельным письмом и строкой предлагаемому владельцу |
-| `PORTAL_TRANSFER_ACCEPTED` | старому владельцу и оставшимся участникам |
-| `PORTAL_TRANSFER_REJECTED` | инициатору (с причиной) |
-| `PORTAL_TRANSFER_CANCELLED` | предлагаемому владельцу |
-| `PORTAL_TRANSFER_EXPIRED` | инициатору (истечение срока) |
-
-История (`GET /history`, таблица `portal_history`) хранит пять событий передачи (`TRANSFER_REQUESTED`, `TRANSFER_ACCEPTED`, `TRANSFER_REJECTED`, `TRANSFER_CANCELLED`, `TRANSFER_EXPIRED`) и изменения самого портала: `NAME_CHANGED`, `DESCRIPTION_CHANGED`, `VISIBILITY_CHANGED`, `USERS_CHANGED` (старый/новый состав участников), `PORTAL_DELETED` (старое значение — имя портала). Создание портала в историю не пишется. Доступ — все участники портала (владелец и доверенные), записи передачи содержат причину и второго участника.
-
-## Рейт-лимиты
-
-Счетчик идет по IP и эндпоинту и работает одинаково при включенной и выключенной капче. При превышении — ответ `429` с заголовком `Retry-After`.
-
-| Эндпоинт | Ключ (`ratelimit.limits.<key>`) | Лимит |
-|---|---|---|
-| `GET /api/v1/captcha` | `captcha` | 30 за 60 сек |
-| `POST /api/v1/auth/register` | `auth-register` | 10 за 5 мин |
-| `POST /api/v1/auth/login` | `auth-login` | 10 за 5 мин |
-| `POST /api/v1/auth/tokens/access` | `auth-access-token` | 30 за 5 мин |
-| `POST /api/v1/users/password-resets` | `password-reset-request` | 3 за 10 мин |
-| `PUT /api/v1/users/password-resets/{code}` | `password-reset-confirm` | 5 за 10 мин |
-| `POST /api/v1/email/codes` | `email-code` | 3 за 10 мин |
-| `GET /api/v1/notifications/wait` | `notifications-wait` | 30 за 60 сек |
-| `POST /api/v1/portals/{id}/owner-transfer` | `portal-transfer-request` | 5 за 5 мин |
-| `POST /api/v1/portals/{id}/owner-transfer/confirm` | `portal-transfer-confirm` | 5 за 5 мин |
-| письма восстановления пароля (лимит на адрес) | `email-recovery` | 3 за 24 часа |
-
-Пороги заданы в `docker/app.env`: `RATE_LIMIT_<KEY>_REQUESTS` — число запросов, `RATE_LIMIT_<KEY>_WINDOW_SECONDS` — окно в секундах. `.env` содержит только секреты; продукт — в `docker/app.env`, окружение — в `docker-compose.yaml` (sec.md §1).
-
-Новый лимит — аннотация `@RateLimit(key = "...")` на методе контроллера плюс два порога в `docker/app.env` под тем же ключом, переведённым в верхний регистр через подчёркивание (`auth-register` → `RATE_LIMIT_AUTH_REGISTER_REQUESTS` и `RATE_LIMIT_AUTH_REGISTER_WINDOW_SECONDS`). Без порогов в конфиге запрос упадает с 500: текст
-`Rate limit не задан в конфиге: ratelimit.limits.<key>` уходит в лог
-приложения, тело ответа — generic «Операция завершилась неудачей».
-Счетчики хранятся в памяти приложения и сбрасываются при рестарте.
-
-За прокси (nginx и т.п.) задайте `TRUST_PROXY_HEADERS: "true"` в `docker-compose.yaml`, иначе все пользователи будут считаться одним IP самого прокси. Без прокси держите `false` — иначе заголовок `X-Forwarded-For` можно подделать и обойти лимит.
-
-## Оповещения
-
-In-app оповещения (`/api/v1/notifications`, только под авторизацией) приходят по HTTP без WebSocket: клиент держит long polling `GET /wait`, сервер отвечает сразу при наличии оповещений новее курсора `afterId` или возвращает пустую страницу по таймауту (`timeoutSec`, 25 по умолчанию, максимум 30).
+### Служебные
 
 | Метод и путь | Назначение |
 |---|---|
-| `GET /api/v1/notifications?page=&size=&unreadOnly=` | список оповещений, новые сверху (`PageResponse`) |
-| `GET /api/v1/notifications/unread-count` | счётчик непрочитанных — для значка |
-| `GET /api/v1/notifications/wait?afterId=&timeoutSec=&size=` | long polling: страница оповещений новее `afterId`, без новых — ожидание до таймаута (лимит `notifications-wait`) |
-| `PUT /api/v1/notifications/{id}/read` | отметить прочитанным (204, чужое — 404); гасит всю группу повторов строки |
-| `PUT /api/v1/notifications/read-all` | отметить все прочитанными (204) |
-| `GET /api/v1/notifications/preferences` | включённые события и настройки повтора; без сохранённой строки — все события, повтор включён на 30 минут |
-| `PUT /api/v1/notifications/preferences` | набор событий + повтор: `{"events": [...], "repeatEnabled": true, "repeatIntervalMinutes": 30}`; поля повтора `null` — не менять, интервал 1..10080 минут |
+| `GET /health` | Проверка живости |
+| `GET /captcha?capId=` | PNG-капча; `capId` — идентификатор посетителя (≤ 10 символов) |
 
-Кому: владелец портала + доверенные (`allowedUserIds`) — тот же круг, что у email-оповещений, но автор действия не получает уведомления о собственном действии. Каталог in-app событий (`NotificationPublisher.SUPPORTED_EVENTS`): `NEW_TICKET`, `NEW_MESSAGE`, `CHANGE_TICKET`, `TICKET_DELETED`, `NEW_PORTAL`, `PORTAL_DELETED`, `NEW_SYSTEM_MESSAGE`, `PORTAL_TRANSFER_REQUESTED`, `PORTAL_TRANSFER_ACCEPTED`, `PORTAL_TRANSFER_REJECTED`, `PORTAL_TRANSFER_CANCELLED`, `PORTAL_TRANSFER_EXPIRED`; выбор пользователя хранится в `user_notification_preferences`. Email-мьют (`/api/v1/email/notifications/{event}`) от этих настроек не зависит.
+### Аутентификация (`/auth`)
 
-Записи ложатся в таблицу `notifications`; ожидающий `GET /wait` будится после коммита новой строки, поэтому оповещение видно сразу, без задержки до таймаута.
+| Метод и путь | Тело / параметры | Назначение |
+|---|---|---|
+| `POST /register` | `RegisterRequest` + опц. `?capId=` | Регистрация; ставит cookies |
+| `POST /login` | `{ email, password }` | Вход; ставит cookies |
+| `POST /tokens/access` | refresh-cookie | Новый access-токен и ротация refresh |
+| `GET /tokens/refresh` | — | Статус refresh-токена (`{ tokenStatus, createdAt }`) |
+| `GET /session` | — | Текущая авторизация (`{ authorization }`) |
+| `DELETE /session` | — | Логаут, отзыв токенов |
 
-**Повторы.** `NEW_TICKET` и `NEW_MESSAGE` повторяются, пока не прочитаны: каждые `repeatIntervalMinutes` (по умолчанию 30, минимум 1) получателю создаётся новая строка-напоминание с той же группой (`group_id` первоисточника), поэтому она приходит и через long polling, и в списке. Обход — раз в минуту (`NotificationRepeatService`), фактическая периодичность: интервал плюс до минуты обхода. Прочтение любой строки группы (`PUT /{id}/read`) погашает все напоминания, `read-all` — тоже. Выключенный `repeatEnabled` или выключенное событие останавливает повторы; у пользователя без строки настроек повтор включён на 30 минут.
+`RegisterRequest`: `firstName`, `lastName`, `email`, `password`, опц. `capCode`
+(при включённой капче), `externalId`, `userPlatformSource`.
+
+### Пользователи (`/users`)
+
+| Метод и путь | Тело | Назначение |
+|---|---|---|
+| `GET /profile` | — | Профиль (`UserInfoResponse`) |
+| `PUT /profile` | `{ firstName, lastName, middleName, additionalInfo }` | Обновление профиля |
+| `POST /password-resets` | `{ email }` | Запрос сброса пароля (письмо с кодом) |
+| `PUT /password-resets/{code}` | `{ password }` | Установка нового пароля |
+
+### Email (`/email`)
+
+| Метод и путь | Тело / параметры | Назначение |
+|---|---|---|
+| `POST /confirmations/{token}` | — | Подтверждение email по коду |
+| `GET /info` | — | Текущий уровень email-оповещений (`{ muteLevel }`) |
+| `DELETE /notifications/{event}` | — | Отписка от события (`NotificationEvent`) |
+| `POST /codes?capId=` | опц. `capId` | Отправка кода подтверждения email |
+
+### Порталы (`/portals`)
+
+| Метод и путь | Тело / параметры | Назначение |
+|---|---|---|
+| `POST /` | `{ name, description }` | Создание портала → `{ id }` |
+| `GET /` | `page, size, sortBy, order` | Порталы владельца |
+| `GET /shared` | `page, size, sortBy, order` | Доступные общие порталы |
+| `GET /ids` | — | ID доступных порталов |
+| `GET /info` | — | Краткая информация по доступным порталам |
+| `GET /{portalId}` | — | Информация о портале |
+| `PUT /{portalId}` | `{ name, description }` | Переименование/описание |
+| `GET /shared/{portalId}` | — | Настройки: участники + `isPublic` |
+| `PUT /shared/{portalId}/users` | `{ userIds: [...] }` | Замена списка участников |
+| `GET /shared/{portalId}/visibility` | — | Текущая публичность |
+| `PUT /shared/{portalId}/visibility` | `{ isPublic }` | Смена публичности |
+| `DELETE /?ids=1,2` | `ids` | Удаление порталов → `{ count, deletedIds }` |
+
+`PortalModel`-контракт: `PortalResponse` (`id, name, description, createdAt`),
+`PortalInfoResponse` (`id, name, description`), `PortalSettingsResponse`
+(`users: [{id, firstName, lastName, middleName, email}], isPublic`).
+
+### Передача владения и история (`/portals/{id}/...`)
+
+| Метод и путь | Тело | Назначение |
+|---|---|---|
+| `POST /{id}/owner-transfer` | `{ email, password, reason, keepOldOwnerAsMember }` | Инициировать передачу |
+| `GET /{id}/owner-transfer` | — | Активный запрос (владелец или предлагаемый) |
+| `POST /{id}/owner-transfer/confirm` | `{ password, reason }` | Подтвердить передачу |
+| `POST /{id}/owner-transfer/reject` | `{ reason }` | Отклонить |
+| `POST /{id}/owner-transfer/cancel` | — | Отозвать до решения |
+| `GET /{id}/history?page=&size=` | — | История портала (`PageResponse<PortalHistoryResponse>`) |
+
+Активный запрос живёт 72 часа и закрывается лениво как `EXPIRED`; одновременно
+на портал может быть только один запрос (второй — `409`). Статусы:
+`PENDING`, `ACCEPTED`, `REJECTED`, `CANCELLED`, `EXPIRED`. При подтверждении
+владелец меняется, новый владелец убирается из участников, старый при
+`keepOldOwnerAsMember=true` остаётся участником.
+
+История (`portal_history`) хранит события передачи (`TRANSFER_*`) и изменения
+портала (`NAME_CHANGED`, `DESCRIPTION_CHANGED`, `VISIBILITY_CHANGED`,
+`USERS_CHANGED`, `PORTAL_DELETED`); доступ — участникам портала.
+
+### Заявки
+
+Портальные эндпоинты (`/portals/{portalId}/tickets`):
+
+| Метод и путь | Тело / параметры | Назначение |
+|---|---|---|
+| `POST /portals/{portalId}/tickets` | `{ title, body, ticketPriority, ticketAccessStatus }` | Создание заявки → `{ id }` |
+| `GET /portals/{portalId}/tickets` | `status, page, size, sortBy, order` | Заявки портала |
+| `GET /portals/{portalId}/tickets/ids` | `status, noAnswer` | ID заявок (фильтры) |
+| `GET /portals/{portalId}/tickets/{ticketId}` | — | Заявка по ID |
+| `PUT /portals/{portalId}/tickets/{ticketId}/status` | `{ status }` | Смена статуса |
+| `PUT /portals/{portalId}/tickets/{ticketId}/priority` | `{ priority }` | Смена приоритета |
+| `DELETE /portals/{portalId}/tickets/{ticketId}` | — | Удаление |
+
+Поиск (`/tickets`):
+
+| Метод и путь | Параметры | Назначение |
+|---|---|---|
+| `GET /tickets` | `search`, `startDate`, `endDate`, `status`, `priority`, `mine`, `page, size, sort` | Поиск заявок (`TicketResponse`) |
+| `GET /tickets/mine` | `page, size, sortBy, order` | Мои заявки (`TicketResponseOld`) |
+
+`TicketResponse`: `id, title, authorFullName, portalName, createdAt, portalId`.
+`TicketResponseOld` дополнительно содержит `body`, `ticketPriority`,
+`ticketStatus`, `ticketAccessStatus`.
+
+`TicketPriority`: `CRITICAL, HIGH, MEDIUM, LOW, NONE`.
+`TicketStatus`: `OPEN, IN_PROGRESS, CLOSED`.
+`TicketAccessStatus`: `ALL_USERS, CREATOR_AND_PORTAL_USERS`.
+
+### Сообщения (`/portals/{portalId}/tickets/{ticketId}/messages`)
+
+| Метод и путь | Тело | Назначение |
+|---|---|---|
+| `POST .../messages` | `{ messageText }` | Создать сообщение → `{ id }` |
+| `GET .../messages` | — | Сообщения заявки (`List<MessageResponse>`) |
+
+### Вложения (`/portals/{portalId}/tickets/{ticketId}/attachments`)
+
+| Метод и путь | Тело / параметры | Назначение |
+|---|---|---|
+| `POST .../attachments` | `multipart/form-data`: `file` + опц. `messageText` | Загрузка вложения |
+| `GET .../attachments` | — | Список вложений |
+| `GET .../attachments/{attachmentId}` | заголовок `Range` | Скачивание (поток с Range) |
+
+`AttachmentResponse`: `id, messageId, ticketId, fileName, contentType,
+sizeBytes, uploadedByFullName, createdAt, downloadUrl`.
+
+### Оповещения (`/notifications`)
+
+| Метод и путь | Параметры / тело | Назначение |
+|---|---|---|
+| `GET /notifications` | `page, size, unreadOnly` | Список оповещений |
+| `GET /notifications/unread-count` | — | Счётчик непрочитанных `{ count }` |
+| `GET /notifications/wait` | `afterId, timeoutSec, size` | Long polling (лимит `notifications-wait`) |
+| `PUT /notifications/{id}/read` | — | Прочитано (гасит группу повторов) |
+| `PUT /notifications/read-all` | — | Прочитать всё |
+| `GET /notifications/preferences` | — | Включённые события и повторы |
+| `PUT /notifications/preferences` | `{ events, repeatEnabled, repeatIntervalMinutes }` | Настройка событий/повтора |
+
+Получатели — владелец портала и участники (`allowedUserIds`); автор действия
+уведомление о своём действии не получает. `NEW_TICKET` и `NEW_MESSAGE`
+повторяются, пока не прочитаны (по умолчанию каждые 30 минут). `wait`
+возвращает страницу оповещений новее `afterId` либо пустую по таймауту
+(по умолчанию 25 c, максимум 30).
+
+`NotificationEvent`: `NEW_TICKET, NEW_MESSAGE, NEW_SYSTEM_MESSAGE,
+NEW_TICKET_OR_MESSAGE, NEW_PORTAL, CHANGE_TICKET, RECOVERY_PASSWORD,
+TICKET_DELETED, PORTAL_DELETED, PORTAL_TRANSFER_*, NONE`.
+
+## Рейт-лимиты
+
+Счётчик ведётся по IP и эндпоинту; при превышении — `429` с `Retry-After`.
+Пороги заданы в `docker/app.env` (`RATE_LIMIT_<KEY>_REQUESTS` /
+`RATE_LIMIT_<KEY>_WINDOW_SECONDS`).
+
+| Ключ | Эндпоинт | Лимит |
+|---|---|---|
+| `captcha` | `GET /captcha` | 30 / 60 c |
+| `auth-register` | `POST /auth/register` | 10 / 5 мин |
+| `auth-login` | `POST /auth/login` | 10 / 5 мин |
+| `auth-access-token` | `POST /auth/tokens/access` | 30 / 5 мин |
+| `password-reset-request` | `POST /users/password-resets` | 3 / 10 мин |
+| `password-reset-confirm` | `PUT /users/password-resets/{code}` | 5 / 10 мин |
+| `email-code` | `POST /email/codes` | 3 / 10 мин |
+| `notifications-wait` | `GET /notifications/wait` | 30 / 60 c |
+| `portal-transfer-request` | `POST /portals/{id}/owner-transfer` | 5 / 5 мин |
+| `portal-transfer-confirm` | `POST /portals/{id}/owner-transfer/confirm` | 5 / 5 мин |
+| `email-recovery` | письма восстановления (на адрес) | 3 / 24 ч |
+
+Новый лимит — аннотация `@RateLimit(key = "...")` на методе контроллера плюс
+два порога в `docker/app.env`. Счётчики хранятся в памяти и сбрасываются при
+рестарте. За прокси задайте `TRUST_PROXY_HEADERS: "true"`, иначе все запросы
+будут считаться с одного IP.
 
 ## Тесты и проверки
 
-Тесты гоняются **на хосте, без Docker**: они поднимают собственную
-конфигурацию из `src/test/resources/application.properties`, которая
-перекрывает продовую схему в classpath.
+Тесты выполняются на хосте, без Docker (собственная конфигурация в
+`src/test/resources/application.properties`).
 
-| Команда | Что делает |
+| Команда / файл | Что делает |
 |---|---|
-| `mvn test` | юнит-тесты и срезы (`@DataJpaTest` на встроенной H2), 435, включая парность-тест `ApplicationConfigSchemaTest` |
-| `mvn verify` | то же + интеграционные `*IT` через failsafe (24): письма через GreenMail, репозитории на H2 |
-| `mvn spotless:apply` | форматирование; `spotless:check` и `checkstyle` (`config/checkstyle/checkstyle.xml`) висят на фазе `validate`, поэтому выполняются при любом `mvn test`/`mvn verify` |
-| `postman_collection.json` | коллекция для импорта в Postman |
+| `make test` | Юнит-тесты и срезы (`@DataJpaTest` на H2) |
+| `make verify` | То же + интеграционные `*IT` (failsafe, GreenMail) |
+| `make format` | Форматирование (`spotless:apply`) |
+| `make check` | Проверки стиля (`spotless:check`, `checkstyle`) |
+| `postman_collection.json` | Коллекция для импорта в Postman |
 
-Запуск e2e-сценариев по живому стеку — в разделе ниже.
+E2E-сценарии по живому стеку (`make up`) — через `make e2e-all` или отдельно:
+`e2e-portal-access`, `e2e-ratelimit`, `e2e-jwt`, `e2e-notifications`,
+`e2e-portal-transfer` (`scripts/e2e-*.sh`). Скрипты создают тестовых
+пользователей и тратят рейт-лимиты — при повторных прогонах может
+потребоваться `make restart`.
 
-## Скрипты e2e-проверок
+## Документация
 
-Скрипты гоняют HTTP-сценарии по живому стеку и возвращают ненулевой код
-(`echo $?`), если хотя бы одна проверка не сошлась.
-
-| Скрипт | Назначение |
-|---|---|
-| `scripts/e2e-portal-access.sh` | **Права на портал.** Регистрирует владельца и гостя, владелец публикует портал и выдает гостю доступ. Проверяет: посторонний получает 403 на чтении участников и переименовании (даже когда портал публичный), публично читается только имя/описание, после выдачи доступа доверенный читает и переименовывает (200), `isPublic` меняет только владелец (гость — 403). |
-| `scripts/e2e-ratelimit.sh` | **Рейт-лимиты.** Проверяет троттлинг: после 30 успешных `GET /captcha` идет 429 с `Retry-After`, 11-я регистрация и 11-я попытка входа — 429, 4-й запрос сброса пароля — 429, при этом `health` без аннотации остается 200. |
-| `scripts/e2e-jwt-flow.sh` | **JWT-поток.** Полный цикл аутентификации: refresh-cookie не работает как access (401), `/auth/tokens/access` выдает новый access, логаут мгновенно отзывает access и refresh (401), смена пароля (через письмо smtp4dev) отзывает все токены, вход с новым паролем работает, отказы — 401. |
-| `scripts/e2e-notifications.sh` | **Оповещения.** Long polling: доверенный получает `NEW_TICKET`, пока владелец создаёт заявку; автор действия не получает уведомления о своём действии; смена статуса уведомляет владельца; событие, отключённое в настройках, не приходит (пустой `wait` отвечает 200 с `content=[]` по таймауту); повторы: дефолт 30 минут у пользователя без настроек, напоминание о непрочитанной заявке приходит с интервалом 1 минута и гасится чтением одной строки группы, выключенный повтор напоминаний не даёт (ждёт по ~2.5 минуты); чужое уведомление — 404, неизвестное событие настроек — 400, без токена — 401, `timeoutSec=99` — 400. |
-| `scripts/e2e-portal-transfer.sh` | **Передача портала.** Полный флоу: initiate (201, PENDING, `expiresAt` +72 ч), GET активного запроса владелец/предлагаемый — 200, посторонний — 404, in-app и email участникам и предлагаемому; ошибки (второй запрос — 409, чужой пароль владельца — 401, confirm не предлагаемым/посторонним — 404, неверный пароль нового владельца — 401); confirm → `ACCEPTED`, портал у нового владельца, старый владелец остаётся участником; история (`TRANSFER_REQUESTED`/`TRANSFER_ACCEPTED`/причина, участникам — 200, постороннему — 403); reject → `REJECTED` + email инициатору; cancel → `CANCELLED` + email предлагаемому; в `email_log` события `PORTAL_TRANSFER_*`. |
-
-Запуск (нужен поднятый стек `docker compose up -d`, `docker` для запросов
-к postgres и выключенная капча — по умолчанию; `e2e-jwt-flow.sh` дополнительно
-читает код сброса пароля из smtp4dev на `localhost:3000`):
-
-```bash
-bash scripts/e2e-portal-access.sh
-bash scripts/e2e-ratelimit.sh
-bash scripts/e2e-jwt-flow.sh
-bash scripts/e2e-notifications.sh
-bash scripts/e2e-portal-transfer.sh
-```
-
-`e2e-ratelimit.sh` исчерпывает лимиты на 5–10 минут: при повторном запуске
-до истечения окна он попросит перезапустить приложение
-(`docker compose restart app`). `e2e-jwt-flow.sh` после нескольких запусков
-упирается в лимит `users/password-resets` (3 / 10 мин) и также порекомендует
-перезапуск. `e2e-portal-transfer.sh` за прогон тратит лимит
-`portal-transfer-request` (5 initiate / 5 мин) — повторный запуск до
-истечения окна также упрётся в 429. Все скрипты создают тестовых пользователей в БД.
-
+- [`docs/jwt-audit.md`](docs/jwt-audit.md) — аудит JWT-аутентификации.
+- [`sec.md`](sec.md) — безопасность сборки, конфигурации и контейнера.
+- [`docs/code-style.md`](docs/code-style.md) — стиль кода.
+- [`notActiv.md`](notActiv.md) — отчёт по мёртвому коду и коду совместимости.
