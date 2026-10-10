@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
 
-    <!-- prod: request-id есть, IP клиента нет — его подставляют из X-Forwarded-For -->
+    <!-- prod: request-id; IP клиента в этот паттерн не входит (см. DEBUG_PATTERN и ClientIpResolver) -->
     <property name="PROD_PATTERN"
               value="%d{yyyy-MM-dd HH:mm:ss.SSS} | %-5level | %X{requestId:--} | %logger{40} | %msg%n"/>
     <!-- debug: дополнительно IP и путь запроса (без query-string и секретных сегментов) -->

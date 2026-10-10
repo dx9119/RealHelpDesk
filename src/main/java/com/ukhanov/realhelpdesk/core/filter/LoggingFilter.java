@@ -13,11 +13,14 @@ import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.ukhanov.realhelpdesk.core.http.ClientIpResolver;
 import com.ukhanov.realhelpdesk.core.log.LogSanitizer;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
+@RequiredArgsConstructor
 @Component
 public class LoggingFilter extends OncePerRequestFilter {
 
@@ -28,6 +31,8 @@ public class LoggingFilter extends OncePerRequestFilter {
     public static final String REQUEST_ID = "requestId";
     public static final String CLIENT_IP = "clientIp";
     public static final String URI_REQUEST = "uriRequest";
+
+    private final ClientIpResolver clientIpResolver;
 
     // ASYNC-dispatch (результат long polling) логируем отдельно: там виден итоговый статус ответа.
     @Override
@@ -92,18 +97,10 @@ public class LoggingFilter extends OncePerRequestFilter {
         return resolved;
     }
 
+    // Один резолвер с рейт-лимитом (см. ClientIpResolver): лог и лимит видят один и тот же адрес клиента.
     private String getClientIpAddress(HttpServletRequest request) {
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("Proxy-Client-IP");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("WL-Proxy-Client-IP");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getRemoteAddr();
-        }
-        return ip != null ? ip : "ip null";
+        String ip = clientIpResolver.resolve(request);
+        return ip == null || ip.isBlank() ? "ip null" : ip;
     }
 
 }
