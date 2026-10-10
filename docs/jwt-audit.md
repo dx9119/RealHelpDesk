@@ -61,7 +61,7 @@ CSRF **не зависит от наличия серверных сессий**
 - Подпись через `verifyWith`/`parseSignedClaims` (jjwt 0.13) — `alg=none` и key-confusion отсекаются; проверяются `iss`, `aud`, `exp`, `sub`.
 - Секрет — fail-fast (`JwtConfig`), в `.env` 256 бит для HS256, `.env` не в git.
 - `SessionCreationPolicy.STATELESS`, `anonymous(disable)`, whitelist совпадает с контроллерами.
-- Refresh реально отзывается по статусу в БД; rate limit есть на login/register/passwd-reset/captcha; `trust-proxy-headers=false` по умолчанию.
+- Refresh реально отзывается по статусу в БД; rate limit есть на login/register/passwd-reset/captcha; `client-ip.trust-proxy-headers=false` по умолчанию (IP берётся из сокета, заголовкам прокси не доверяем).
 
 ---
 

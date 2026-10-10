@@ -65,12 +65,24 @@ API — `https://localhost:8443`. Вспомогательные сервисы:
 
 | Файл | Что там |
 |---|---|
-| `scripts/docker/stack.env` | Все несекретные значения: рейт-лимиты, капча, сроки JWT, почта, MinIO, порты, домены. Сервисы compose получают его через `env_file`; правится без пересборки образа |
+| `scripts/docker/stack.env` | Все несекретные значения: рейт-лимиты, клиентский IP, капча, сроки JWT, почта, MinIO, порты, домены. Сервисы compose получают его через `env_file`; правится без пересборки образа |
 | `infrastructure/.env` | Секреты: `JWT_SECRET`, `DB_PASSWORD`, `KEY_STORE_PASS`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `SHARDINGSPHERE_*`. Шаблон — `infrastructure/.env.example`, в git не попадает |
 | `services.app.environment` в `infrastructure/docker-compose.yaml` | Передача секретов из `.env` в контейнер (`${VAR:?}` — пустой или отсутствующий секрет валит запуск) |
 
 Каждая переменная схемы объявлена ровно в одном из этих мест — парность
 сверяет `ApplicationConfigSchemaTest` (`make test`).
+
+### Клиентский IP
+
+Логи (MDC `clientIp`) и ключ рейт-лимита получают адрес посетителя из одного
+резолвера (`ClientIpResolver`), настройки — `client-ip.*` в
+`scripts/docker/stack.env`:
+
+| Переменная | Назначение |
+|---|---|
+| `TRUST_PROXY_HEADERS` | `false` (по умолчанию) — всегда адрес сокета запроса; `true` — из заголовков прокси. Включать только за прокси: иначе клиент присылает свой заголовок и подставляет чужой IP в логи и в счётчик лимита |
+| `CLIENT_IP_HEADERS` | Заголовки через запятую в порядке приоритета, берётся первый пригодный: `X-Forwarded-For`, `X-Real-IP` (nginx), `CF-Connecting-IP` (Cloudflare), `True-Client-IP`, `X-Client-IP`, `Proxy-Client-IP`/`WL-Proxy-Client-IP` (WebLogic), `Forwarded` (RFC 7239, `for=1.2.3.4;proto=https`) |
+| `CLIENT_IP_FORWARDED_INDEX` | Какой элемент списка в значении брать: `0` — первый слева (адрес клиента), отрицательный — справа (`-1` — ближайший прокси). За цепочкой из нескольких прокси ставьте `-1`: слева в `X-Forwarded-For` пишет клиент |
 
 ### Профили
 
@@ -142,8 +154,8 @@ JWT передаётся в http-only cookie (`accessToken`), refresh-токен
 
 Новый лимит — аннотация `@RateLimit(key = "...")` на методе контроллера плюс
 два порога в `scripts/docker/stack.env`. Счётчики хранятся в памяти и сбрасываются при
-рестарте. За прокси задайте `TRUST_PROXY_HEADERS=true` в `scripts/docker/stack.env`,
-иначе все запросы будут считаться с одного IP.
+рестарте. За прокси задайте `TRUST_PROXY_HEADERS=true` в `scripts/docker/stack.env`
+(см. «Клиентский IP»), иначе все запросы будут считаться с одного IP.
 
 ## Тесты и проверки
 

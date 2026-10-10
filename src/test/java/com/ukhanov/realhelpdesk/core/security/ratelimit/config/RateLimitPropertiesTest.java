@@ -42,13 +42,11 @@ class RateLimitPropertiesTest {
     @Test
     void bindsLimitsFromConfigProperties() {
         MockEnvironment environment = new MockEnvironment();
-        environment.setProperty("ratelimit.trust-proxy-headers", "true");
         environment.setProperty("ratelimit.limits.captcha.requests", "30");
         environment.setProperty("ratelimit.limits.captcha.window-seconds", "60");
 
         RateLimitProperties properties = Binder.get(environment).bind("ratelimit", Bindable.of(RateLimitProperties.class)).get();
 
-        assertThat(properties.isTrustProxyHeaders()).isTrue();
         assertThat(properties.require("captcha")).isEqualTo(new RateLimitProperties.Limit(30, 60));
     }
 }

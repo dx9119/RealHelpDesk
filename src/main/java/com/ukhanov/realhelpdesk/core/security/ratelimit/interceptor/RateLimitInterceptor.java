@@ -16,6 +16,7 @@ import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.HandlerMapping;
 
+import com.ukhanov.realhelpdesk.core.http.ClientIpResolver;
 import com.ukhanov.realhelpdesk.core.log.LogSanitizer;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.annotation.RateLimit;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.config.RateLimitProperties;
@@ -33,6 +34,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     private final RateLimitService rateLimitService;
     private final ObjectMapper objectMapper;
     private final RateLimitProperties rateLimitProperties;
+    private final ClientIpResolver clientIpResolver;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
@@ -47,7 +49,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
 
         RateLimitProperties.Limit limit = rateLimitProperties.require(rateLimit.key());
 
-        String client = clientKey(request);
+        String client = clientIpResolver.resolve(request);
         // ключ — по шаблону маршрута: /password-resets/123 и /password-resets/456 должны считаться одним лимитом
         String key = client + "|" + request.getMethod() + " " + routeOf(request);
         RateLimitService.Decision decision = rateLimitService.check(key, limit.requests(), Duration.ofSeconds(limit.windowSeconds()));
@@ -79,15 +81,5 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     private String routeOf(HttpServletRequest request) {
         Object pattern = request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
         return pattern != null ? pattern.toString() : request.getRequestURI();
-    }
-
-    private String clientKey(HttpServletRequest request) {
-        if (rateLimitProperties.isTrustProxyHeaders()) {
-            String forwardedFor = request.getHeader("X-Forwarded-For");
-            if (forwardedFor != null && !forwardedFor.isBlank()) {
-                return forwardedFor.split(",")[0].trim();
-            }
-        }
-        return request.getRemoteAddr();
     }
 }

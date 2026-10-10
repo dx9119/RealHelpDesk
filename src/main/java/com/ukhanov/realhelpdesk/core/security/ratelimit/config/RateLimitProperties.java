@@ -18,9 +18,6 @@ import lombok.Setter;
 @Setter
 public class RateLimitProperties {
 
-    /** Брат IP клиента из X-Forwarded-For (включать только за прокси). */
-    private boolean trustProxyHeaders = false;
-
     /** Пороги по ключам: auth-login, captcha, email-code и т.д. */
     private Map<String, Limit> limits = new LinkedHashMap<>();
 
