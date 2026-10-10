@@ -7,8 +7,6 @@ import javax.crypto.SecretKey;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.ukhanov.realhelpdesk.core.config.JwtConfig;
@@ -19,16 +17,15 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class DecodeTokenService {
-    private static final Logger logger = LoggerFactory.getLogger(DecodeTokenService.class);
 
     private final JwtConfig jwtConfig;
-
-    public DecodeTokenService(JwtConfig jwtConfig) {
-        this.jwtConfig = jwtConfig;
-    }
 
     public Claims decodeJwtClaims(TokenBearer token) throws JwtException {
         Objects.requireNonNull(token, "Токен не может быть null!");

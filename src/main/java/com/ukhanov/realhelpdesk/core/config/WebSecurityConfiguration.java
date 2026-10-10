@@ -16,8 +16,11 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import com.ukhanov.realhelpdesk.core.filter.JwtAuthFilter;
 import com.ukhanov.realhelpdesk.core.filter.LoggingFilter;
 
+import lombok.RequiredArgsConstructor;
+
 // For List.of()
 
+@RequiredArgsConstructor
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -26,13 +29,6 @@ public class WebSecurityConfiguration {
     private final JwtAuthFilter jwtAuthFilter;
     private final LoggingFilter loggingFilter;
     private final CorsConfigurationSource corsConfigurationSource;
-
-    public WebSecurityConfiguration(JwtAuthFilter jwtAuthFilter, LoggingFilter loggingFilter,
-            CorsConfigurationSource corsConfigurationSource) {
-        this.jwtAuthFilter = jwtAuthFilter;
-        this.loggingFilter = loggingFilter;
-        this.corsConfigurationSource = corsConfigurationSource;
-    }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {

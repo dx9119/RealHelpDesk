@@ -10,8 +10,6 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -33,24 +31,18 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.MalformedJwtException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
+@RequiredArgsConstructor
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
 
-    private static final Logger logger = LoggerFactory.getLogger(JwtAuthFilter.class);
     private final ValidTokenService validTokenService;
     private final DecodeTokenService decodeTokenService;
     private final AccessTokenAuthService accessTokenAuthService;
     private final AntPathMatcher antPathMatcher;
-
-    public JwtAuthFilter(ValidTokenService tokenProcessingService, DecodeTokenService decodeTokenService,
-            AccessTokenAuthService accessTokenAuthService, AntPathMatcher antPathMatcher) {
-        this.validTokenService = tokenProcessingService;
-        this.decodeTokenService = decodeTokenService;
-        this.accessTokenAuthService = accessTokenAuthService;
-        this.antPathMatcher = antPathMatcher;
-    }
-
     // Результат long polling приходит через ASYNC-dispatch того же запроса: без повторной
     // аутентификации security-цепочка не найдёт контекст и закроет готовый ответ 403.
     @Override
@@ -131,14 +123,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     // Извлекаем токен из куки
     private TokenBearerResponse resolveToken(HttpServletRequest request) {
-        TokenBearerResponse token = new TokenBearerResponse();
         Cookie[] cookies = request.getCookies();
 
         if (cookies != null) {
             for (Cookie cookie : cookies) {
                 if ("accessToken".equals(cookie.getName()) && cookie.getValue() != null && !cookie.getValue().isBlank()) {
-                    token.setToken(cookie.getValue());
-                    return token;
+                    return new TokenBearerResponse(cookie.getValue());
                 }
             }
         }

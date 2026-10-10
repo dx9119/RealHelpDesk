@@ -9,18 +9,17 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.ukhanov.realhelpdesk.core.log.LogSanitizer;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Component
 public class LoggingFilter extends OncePerRequestFilter {
-
-    private static final Logger logger = LoggerFactory.getLogger(LoggingFilter.class);
 
     private static final SecureRandom RANDOM = new SecureRandom();
 

@@ -39,21 +39,20 @@ import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.portalmanager.service.PortalManageService;
 import com.ukhanov.realhelpdesk.feature.usermanager.exception.UserManageException;
 
+import lombok.RequiredArgsConstructor;
+
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/v1/portals")
 public class PortalController {
 
     private final PortalManageService portalManageService;
 
-    public PortalController(PortalManageService portalManageService) {
-        this.portalManageService = portalManageService;
-    }
-
     @PostMapping
     public ResponseEntity<CreatePortalResponse> createPortal(@Valid @RequestBody CreatePortalRequest createPortalRequest)
             throws PortalException, LimitException, UserManageException, MessagingException, UnsupportedEncodingException {
         CreatePortalResponse response = portalManageService.createPortal(createPortalRequest);
-        return ResponseEntity.created(URI.create("/api/v1/portals/" + response.getId())).body(response);
+        return ResponseEntity.created(URI.create("/api/v1/portals/" + response.id())).body(response);
     }
 
     @GetMapping
@@ -105,7 +104,7 @@ public class PortalController {
     @PutMapping("/shared/{portalId}/visibility")
     public ResponseEntity<Void> setPortalVisibility(@PathVariable @NotNull Long portalId,
             @Valid @RequestBody PortalVisibilityRequest request) throws PortalException {
-        portalManageService.setPortalStatus(portalId, request.getIsPublic());
+        portalManageService.setPortalStatus(portalId, request.isPublic());
         return ResponseEntity.noContent().build();
     }
 
@@ -119,7 +118,7 @@ public class PortalController {
     @PutMapping("/shared/{portalId}/users")
     public ResponseEntity<Void> setPortalUsers(@PathVariable @NotNull Long portalId, @Valid @RequestBody PortalUsersRequest request)
             throws PortalException, LimitException {
-        portalManageService.addUserForPortal(portalId, request.getUserIds());
+        portalManageService.addUserForPortal(portalId, request.userIds());
         return ResponseEntity.noContent().build();
     }
 

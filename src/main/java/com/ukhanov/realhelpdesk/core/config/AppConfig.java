@@ -18,16 +18,15 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.ukhanov.realhelpdesk.core.security.user.service.CustomUserDetailsService;
 
+import lombok.RequiredArgsConstructor;
+
 // Периодические задачи (повторы оповещений) считаются по расписанию, а не по запросам
+@RequiredArgsConstructor
 @EnableScheduling
 @Configuration
 public class AppConfig {
 
     private final CustomUserDetailsService customUserDetailsService;
-
-    public AppConfig(CustomUserDetailsService customUserDetailsService) {
-        this.customUserDetailsService = customUserDetailsService;
-    }
 
     @Bean
     public AntPathMatcher antPathMatcher() {

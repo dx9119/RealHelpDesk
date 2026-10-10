@@ -5,8 +5,6 @@ import java.util.Objects;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,9 +21,13 @@ import com.ukhanov.realhelpdesk.core.security.auth.tokens.utils.JwtClaims;
 import com.ukhanov.realhelpdesk.core.security.user.SecurityUser;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class GetTokenService {
-    private static final Logger logger = LoggerFactory.getLogger(GetTokenService.class);
 
     private final GenTokenService genTokenService;
     private final SaveTokenService saveTokenService;
@@ -33,18 +35,6 @@ public class GetTokenService {
     private final FindTokenService findTokenService;
     private final ValidTokenService validTokenService;
     private final DecodeTokenService decodeTokenService;
-
-    public GetTokenService(GenTokenService genTokenService, SaveTokenService saveTokenService,
-            JwtRefreshTokenRepository jwtRefreshTokenRepository, FindTokenService findTokenService, ValidTokenService validTokenService,
-            DecodeTokenService decodeTokenService) {
-        this.genTokenService = genTokenService;
-        this.saveTokenService = saveTokenService;
-        this.jwtRefreshTokenRepository = jwtRefreshTokenRepository;
-        this.findTokenService = findTokenService;
-        this.validTokenService = validTokenService;
-        this.decodeTokenService = decodeTokenService;
-    }
-
     // Новые токены: access + свежий refresh. Ротация при каждом входе/регистрации:
     // предыдущие активные refresh-токены пользователя отзываются, поэтому старый
     // токен перестаёт быть валидным сразу после выдачи нового.
@@ -61,8 +51,7 @@ public class GetTokenService {
         }
         saveTokenService.saveRefreshToken(refreshToken);
 
-        return TokensResponse.builder().accessToken(tokenBearerResponse.getToken()).refreshToken(refreshToken.getRawToken())
-                .message(securityUser.getUsername()).build();
+        return new TokensResponse(tokenBearerResponse.token(), refreshToken.getRawToken(), securityUser.getUsername());
     }
 
     private int revokeActiveRefreshTokens(UserModel user) {
@@ -96,7 +85,7 @@ public class GetTokenService {
         Token tokenRefresh = extractAndValidateToken(request, "refreshToken");
         RefreshTokenModel refreshToken = findTokenService.findRefreshToken(tokenRefresh);
 
-        return TokenStatusResponse.builder().tokenStatus(refreshToken.getStatus()).createdAt(refreshToken.getCreatedAt()).build();
+        return new TokenStatusResponse(refreshToken.getStatus(), refreshToken.getCreatedAt());
     }
 
     // Новый access по валидному активному refresh-токену

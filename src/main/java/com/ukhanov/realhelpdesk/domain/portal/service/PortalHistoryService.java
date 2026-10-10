@@ -1,7 +1,5 @@
 package com.ukhanov.realhelpdesk.domain.portal.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -10,10 +8,15 @@ import com.ukhanov.realhelpdesk.domain.portal.model.PortalHistoryEvent;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalHistoryModel;
 import com.ukhanov.realhelpdesk.domain.portal.repository.PortalHistoryRepository;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * Запись истории портала: передачи владения и изменения самого портала. Вызывается в той же транзакции, что и само изменение, поэтому
  * история не расходится с состоянием портала; обрезка длинных полей — по ограничениям колонок.
  */
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class PortalHistoryService {
 
@@ -21,14 +24,7 @@ public class PortalHistoryService {
     private static final int FIELD_NAME_MAX_LENGTH = 40;
     private static final int VALUE_MAX_LENGTH = 1000;
 
-    private static final Logger logger = LoggerFactory.getLogger(PortalHistoryService.class);
-
     private final PortalHistoryRepository portalHistoryRepository;
-
-    public PortalHistoryService(PortalHistoryRepository portalHistoryRepository) {
-        this.portalHistoryRepository = portalHistoryRepository;
-    }
-
     /** Системное событие (actorId = null) или действие пользователя: actorId — кто выполнил, targetUserId — второй участник. */
     public void record(Long portalId, PortalHistoryEvent event, Long actorId, Long targetUserId, String reason, String fieldName,
             String oldValue, String newValue) {

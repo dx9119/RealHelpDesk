@@ -7,8 +7,6 @@ import java.util.Set;
 
 import jakarta.mail.MessagingException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
@@ -30,10 +28,14 @@ import com.ukhanov.realhelpdesk.feature.notificationmanager.service.Notification
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class MessageManageService {
 
-    private static final Logger logger = LoggerFactory.getLogger(MessageManageService.class);
     private final MessageMapper messageMapper;
     private final CurrentUserProvider currentUserProvider;
     private final TicketDomainService ticketDomainService;
@@ -41,18 +43,6 @@ public class MessageManageService {
     private final EmailDeliveryService emailDeliveryService;
     private final EmailTemplates emailTemplates;
     private final NotificationPublisher notificationPublisher;
-
-    public MessageManageService(MessageMapper messageMapper, CurrentUserProvider currentUserProvider,
-            TicketDomainService ticketDomainService, MessageDomainService messageDomainService, EmailDeliveryService emailDeliveryService,
-            EmailTemplates emailTemplates, NotificationPublisher notificationPublisher) {
-        this.messageMapper = messageMapper;
-        this.currentUserProvider = currentUserProvider;
-        this.ticketDomainService = ticketDomainService;
-        this.messageDomainService = messageDomainService;
-        this.emailDeliveryService = emailDeliveryService;
-        this.emailTemplates = emailTemplates;
-        this.notificationPublisher = notificationPublisher;
-    }
 
     public CreateMessageResponse createMessage(CreateMessageRequest request, Long ticketId, Long portalId)
             throws MessagingException, TicketException, UnsupportedEncodingException {

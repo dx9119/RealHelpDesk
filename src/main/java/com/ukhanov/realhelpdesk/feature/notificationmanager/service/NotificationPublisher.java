@@ -10,8 +10,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -23,6 +21,9 @@ import com.ukhanov.realhelpdesk.domain.notification.repository.NotificationRepos
 import com.ukhanov.realhelpdesk.domain.notification.repository.UserNotificationPreferencesRepository;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * Фан-аут in-app оповещений: те же получатели, что у email-оповещений (владелец портала + доверенные), без автора действия и с учётом
  * настроек пользователя ({@link UserNotificationPreferencesModel}). Публикация не валит основную операцию: любая ошибка пишется в лог.
@@ -32,6 +33,8 @@ import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
  * видимой.
  * </p>
  */
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class NotificationPublisher {
 
@@ -47,19 +50,9 @@ public class NotificationPublisher {
 
     private static final int TITLE_MAX_LENGTH = 255;
 
-    private static final Logger logger = LoggerFactory.getLogger(NotificationPublisher.class);
-
     private final NotificationRepository notificationRepository;
     private final UserNotificationPreferencesRepository preferencesRepository;
     private final NotificationWaitRegistry waitRegistry;
-
-    public NotificationPublisher(NotificationRepository notificationRepository, UserNotificationPreferencesRepository preferencesRepository,
-            NotificationWaitRegistry waitRegistry) {
-        this.notificationRepository = notificationRepository;
-        this.preferencesRepository = preferencesRepository;
-        this.waitRegistry = waitRegistry;
-    }
-
     /** Получатели как у email: владелец портала + allowedUserIds, без автора действия (actorId). */
     public void publishToPortalUsers(PortalModel portal, NotificationEvent event, Long actorId, Long ticketId, String title) {
         Objects.requireNonNull(portal, "portal не должен быть null");

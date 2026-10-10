@@ -18,6 +18,9 @@ import jakarta.persistence.Table;
 
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * Настройки in-app оповещений пользователя: набор событий, о которых он хочет получать оповещения, и повтор непрочитанных
  * NEW_TICKET/NEW_MESSAGE. Строки нет — включены все события и повтор (opt-out, интервал {@value #DEFAULT_REPEAT_INTERVAL_MINUTES} минут);
@@ -25,6 +28,8 @@ import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
  */
 @Entity
 @Table(name = "user_notification_preferences")
+@Getter
+@Setter
 public class UserNotificationPreferencesModel {
 
     /** Повтор включён, пока пользователь не выключил его в настройках. */
@@ -64,35 +69,8 @@ public class UserNotificationPreferencesModel {
         this.enabledEvents = new HashSet<>(enabledEvents);
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public Long getUserId() {
-        return userId;
-    }
-
-    public Set<NotificationEvent> getEnabledEvents() {
-        return enabledEvents;
-    }
-
+    /** Копирует набор: сеттер изоляирует entity от мутаций внешней коллекции, поэтому оставлен ручной. */
     public void setEnabledEvents(Set<NotificationEvent> enabledEvents) {
         this.enabledEvents = new HashSet<>(enabledEvents);
-    }
-
-    public boolean isRepeatEnabled() {
-        return repeatEnabled;
-    }
-
-    public void setRepeatEnabled(boolean repeatEnabled) {
-        this.repeatEnabled = repeatEnabled;
-    }
-
-    public int getRepeatIntervalMinutes() {
-        return repeatIntervalMinutes;
-    }
-
-    public void setRepeatIntervalMinutes(int repeatIntervalMinutes) {
-        this.repeatIntervalMinutes = repeatIntervalMinutes;
     }
 }

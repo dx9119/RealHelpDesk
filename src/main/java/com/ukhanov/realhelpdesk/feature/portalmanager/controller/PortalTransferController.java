@@ -29,21 +29,19 @@ import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.portalmanager.service.PortalManageService;
 import com.ukhanov.realhelpdesk.feature.portalmanager.service.PortalOwnerTransferService;
 
+import lombok.RequiredArgsConstructor;
+
 /**
  * Передача владения порталом и история портала. Подтверждение и отклонение делает предлагаемый владелец — у него ещё нет доступа к порталу,
  * поэтому авторизация этих операций проверяется в сервисе (пользователю без запроса отвечается 404, чтобы не раскрывать его существование).
  */
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/v1/portals")
 public class PortalTransferController {
 
     private final PortalOwnerTransferService transferService;
     private final PortalManageService portalManageService;
-
-    public PortalTransferController(PortalOwnerTransferService transferService, PortalManageService portalManageService) {
-        this.transferService = transferService;
-        this.portalManageService = portalManageService;
-    }
 
     @PreAuthorize("@accessValidationService.hasPortalOwner(#portalId)")
     @RateLimit(key = "portal-transfer-request")

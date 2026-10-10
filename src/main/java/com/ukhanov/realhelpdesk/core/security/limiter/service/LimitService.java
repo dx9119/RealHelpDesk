@@ -6,13 +6,12 @@ import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import com.ukhanov.realhelpdesk.domain.portal.repository.PortalRepository;
 
+import lombok.RequiredArgsConstructor;
+
+@RequiredArgsConstructor
 @Service
 public class LimitService {
     private final PortalRepository portalRepository;
-
-    public LimitService(PortalRepository portalRepository) {
-        this.portalRepository = portalRepository;
-    }
 
     public boolean hasUserReachedPortalLimit(UserModel user) {
         Integer userPortalLimit = user.getPortalCuntLimit();

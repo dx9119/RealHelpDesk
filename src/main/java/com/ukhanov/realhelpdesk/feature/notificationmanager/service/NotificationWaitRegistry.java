@@ -5,19 +5,18 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Реестр ожидающих long-polling запросов оповещений: один инстанс приложения, поэтому достаточно общих структур в памяти. Клиент
  * регистрирует колбэк ({@code onWake}), публикатор будит его после коммита новой записи — ожидающий запрос сразу перечитывает БД и
  * отвечает, не дожидаясь таймаута.
  */
+@Slf4j
 @Component
 public class NotificationWaitRegistry {
-
-    private static final Logger logger = LoggerFactory.getLogger(NotificationWaitRegistry.class);
 
     private final ConcurrentMap<Long, List<Runnable>> waiters = new ConcurrentHashMap<>();
 

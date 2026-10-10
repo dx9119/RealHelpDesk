@@ -11,14 +11,13 @@ import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.core.security.user.repository.UserDetailsProjection;
 import com.ukhanov.realhelpdesk.core.security.user.repository.UserRepository;
 
+import lombok.RequiredArgsConstructor;
+
+@RequiredArgsConstructor
 @Service
 public class UserDomainService {
 
     private final UserRepository userRepository;
-
-    public UserDomainService(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
 
     private UserModel resolveUserByIdentifier(String identifier, boolean isEmail) {
         Objects.requireNonNull(identifier, "Идентификатор не может быть null");

@@ -142,10 +142,7 @@ class TicketSearchControllerTest {
     @DisplayName("search → возвращает страницу заявок из сервиса в JSON")
     void search_returnsServiceResultAsJson() throws Exception {
         // given
-        TicketResponse ticket = new TicketResponse();
-        ticket.setId(42L);
-        ticket.setTitle("Ошибка входа");
-        ticket.setPortalId(7L);
+        TicketResponse ticket = new TicketResponse(42L, "Ошибка входа", null, null, null, 7L);
 
         Pageable pageable = PageRequest.of(0, 10);
         when(mockTicketSearchService.searchTickets(any(), any(), any(), any(), any(), anyBoolean(), any(Pageable.class)))
@@ -160,9 +157,7 @@ class TicketSearchControllerTest {
     @Test
     @DisplayName("mine → страница заявок текущего автора")
     void mine_returnsPagedTicketsOfAuthor() throws Exception {
-        TicketResponseOld ticket = new TicketResponseOld();
-        ticket.setId(9L);
-        ticket.setTitle("Моя заявка");
+        TicketResponseOld ticket = new TicketResponseOld(9L, "Моя заявка", null, null, null, null, null, null, null, null);
 
         when(mockTicketManageService.getPageTicketsByAutor(anyInt(), anyInt(), any(), any()))
                 .thenReturn(new PageResponse.Builder<TicketResponseOld>().content(List.of(ticket)).page(0).size(10).totalElements(1)

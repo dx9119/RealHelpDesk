@@ -22,15 +22,14 @@ import com.ukhanov.realhelpdesk.feature.usermanager.dto.UserInfoRequest;
 import com.ukhanov.realhelpdesk.feature.usermanager.dto.UserInfoResponse;
 import com.ukhanov.realhelpdesk.feature.usermanager.service.UserManageService;
 
+import lombok.RequiredArgsConstructor;
+
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/v1/users")
 public class UserController {
 
     private final UserManageService userManageService;
-
-    public UserController(UserManageService userManageService) {
-        this.userManageService = userManageService;
-    }
 
     @GetMapping("/profile")
     public ResponseEntity<UserInfoResponse> getUserInfo() {

@@ -6,6 +6,8 @@ import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import lombok.Getter;
+
 /**
  * CORS-политика из конфигурации: origin'ы фронта, которым разрешён доступ к API.
  *
@@ -16,14 +18,11 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @ConfigurationProperties(prefix = "cors")
+@Getter
 public class CorsProperties {
 
     /** Разрешённые origin'ы фронта; пустой список = доступ не пройдёт ни одному origin, включая фронт. */
     private List<String> allowedOrigins = new ArrayList<>();
-
-    public List<String> getAllowedOrigins() {
-        return allowedOrigins;
-    }
 
     /** Убирает пробелы вокруг origin и пустые элементы: браузер сравнивает origin запроса со списком буквально. */
     public void setAllowedOrigins(List<String> allowedOrigins) {

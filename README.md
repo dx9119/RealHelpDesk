@@ -24,7 +24,7 @@ REST API для системы управления заявками. Польз
 | Аутентификация | JWT (jjwt) в http-only cookies, refresh-токен хранится как SHA-256 хеш |
 | Файлы | MinIO (метаданные в БД, содержимое — в бакете)                         |
 | Почта | Spring Mail, шаблоны сообщений в `messages.properties`                 |
-| Прочее | Hibernate Validator, Spotless, Checkstyle                              |
+| Прочее | Lombok, Hibernate Validator, Spotless, Checkstyle                     |
 
 ## Архитектура
 

@@ -148,10 +148,10 @@ class PortalOwnerTransferServiceTest {
 
         PortalTransferResponse response = service.initiate(PORTAL_ID, initiateRequest());
 
-        assertThat(response.getStatus()).isEqualTo("PENDING");
-        assertThat(response.getReasonInitiator()).isEqualTo("Причина");
-        assertThat(response.isKeepOldOwnerAsMember()).isTrue();
-        assertThat(response.getExpiresAt()).isAfter(Instant.now().plus(Duration.ofHours(70)));
+        assertThat(response.status()).isEqualTo("PENDING");
+        assertThat(response.reasonInitiator()).isEqualTo("Причина");
+        assertThat(response.keepOldOwnerAsMember()).isTrue();
+        assertThat(response.expiresAt()).isAfter(Instant.now().plus(Duration.ofHours(70)));
 
         ArgumentCaptor<PortalTransferRequestModel> captor = ArgumentCaptor.forClass(PortalTransferRequestModel.class);
         verify(transferRequestRepository).save(captor.capture());
@@ -182,8 +182,7 @@ class PortalOwnerTransferServiceTest {
     @Test
     @DisplayName("Инициирование чужим паролем: 401, ничего не сохраняется")
     void initiate_wrongPassword_rejects() throws Exception {
-        PortalTransferRequest request = initiateRequest();
-        request.setPassword(BAD_PASSWORD);
+        PortalTransferRequest request = initiateRequest(PROPOSED_EMAIL, BAD_PASSWORD);
 
         assertThatThrownBy(() -> service.initiate(PORTAL_ID, request)).isInstanceOf(PortalException.class).hasMessage("Неверный пароль");
 
@@ -194,8 +193,7 @@ class PortalOwnerTransferServiceTest {
     @DisplayName("Передача самому себе: ошибка, запроса нет")
     void initiate_selfTransfer_rejects() throws Exception {
         when(userDomainService.getUserByEmail(OWNER_EMAIL)).thenReturn(owner);
-        PortalTransferRequest request = initiateRequest();
-        request.setEmail(OWNER_EMAIL);
+        PortalTransferRequest request = initiateRequest(OWNER_EMAIL, GOOD_PASSWORD);
 
         assertThatThrownBy(() -> service.initiate(PORTAL_ID, request)).isInstanceOf(PortalException.class)
                 .hasMessageContaining("самому себе");
@@ -249,7 +247,7 @@ class PortalOwnerTransferServiceTest {
 
         PortalTransferResponse response = service.initiate(PORTAL_ID, initiateRequest());
 
-        assertThat(response.getStatus()).isEqualTo("PENDING");
+        assertThat(response.status()).isEqualTo("PENDING");
         assertThat(stale.getStatus()).isEqualTo(PortalTransferStatus.EXPIRED);
         verify(portalHistoryService).record(eq(PORTAL_ID), eq(PortalHistoryEvent.TRANSFER_EXPIRED), isNull(), eq(PROPOSED_ID), isNull(),
                 isNull(), isNull(), isNull());
@@ -271,7 +269,7 @@ class PortalOwnerTransferServiceTest {
 
         PortalTransferResponse response = service.confirm(PORTAL_ID, confirmRequest());
 
-        assertThat(response.getStatus()).isEqualTo("ACCEPTED");
+        assertThat(response.status()).isEqualTo("ACCEPTED");
         assertThat(portal.getOwner()).isSameAs(proposed);
         assertThat(portal.getAllowedUserIds()).containsExactlyInAnyOrder(OWNER_ID, MEMBER_ID);
         assertThat(pending.getStatus()).isEqualTo(PortalTransferStatus.ACCEPTED);
@@ -337,8 +335,7 @@ class PortalOwnerTransferServiceTest {
         asProposed();
         PortalTransferRequestModel pending = pendingTransfer(Instant.now().plus(Duration.ofHours(1)));
         when(transferRequestRepository.findByPortalIdAndStatus(PORTAL_ID, PortalTransferStatus.PENDING)).thenReturn(Optional.of(pending));
-        PortalTransferConfirmRequest request = confirmRequest();
-        request.setPassword(BAD_PASSWORD);
+        PortalTransferConfirmRequest request = confirmRequest(BAD_PASSWORD);
 
         assertThatThrownBy(() -> service.confirm(PORTAL_ID, request)).isInstanceOf(PortalException.class).hasMessage("Неверный пароль");
 
@@ -374,7 +371,7 @@ class PortalOwnerTransferServiceTest {
 
         PortalTransferResponse response = service.reject(PORTAL_ID, rejectRequest());
 
-        assertThat(response.getStatus()).isEqualTo("REJECTED");
+        assertThat(response.status()).isEqualTo("REJECTED");
         assertThat(pending.getStatus()).isEqualTo(PortalTransferStatus.REJECTED);
         assertThat(pending.getReasonProposed()).isEqualTo("Отклоняю");
 
@@ -395,7 +392,7 @@ class PortalOwnerTransferServiceTest {
 
         PortalTransferResponse response = service.cancel(PORTAL_ID);
 
-        assertThat(response.getStatus()).isEqualTo("CANCELLED");
+        assertThat(response.status()).isEqualTo("CANCELLED");
         assertThat(pending.getStatus()).isEqualTo(PortalTransferStatus.CANCELLED);
 
         verify(portalHistoryService).record(eq(PORTAL_ID), eq(PortalHistoryEvent.TRANSFER_CANCELLED), eq(OWNER_ID), eq(PROPOSED_ID),
@@ -423,8 +420,8 @@ class PortalOwnerTransferServiceTest {
 
         PortalTransferResponse response = service.getPending(PORTAL_ID);
 
-        assertThat(response.getStatus()).isEqualTo("PENDING");
-        assertThat(response.getProposedOwnerEmail()).isEqualTo(PROPOSED_EMAIL);
+        assertThat(response.status()).isEqualTo("PENDING");
+        assertThat(response.proposedOwnerEmail()).isEqualTo(PROPOSED_EMAIL);
     }
 
     @Test
@@ -490,24 +487,22 @@ class PortalOwnerTransferServiceTest {
     }
 
     private PortalTransferRequest initiateRequest() {
-        PortalTransferRequest request = new PortalTransferRequest();
-        request.setEmail(PROPOSED_EMAIL);
-        request.setPassword(GOOD_PASSWORD);
-        request.setReason("Причина");
-        request.setKeepOldOwnerAsMember(true);
-        return request;
+        return initiateRequest(PROPOSED_EMAIL, GOOD_PASSWORD);
+    }
+
+    private PortalTransferRequest initiateRequest(String email, String password) {
+        return new PortalTransferRequest(email, password, "Причина", true);
     }
 
     private PortalTransferConfirmRequest confirmRequest() {
-        PortalTransferConfirmRequest request = new PortalTransferConfirmRequest();
-        request.setPassword(GOOD_PASSWORD);
-        request.setReason("Принято");
-        return request;
+        return confirmRequest(GOOD_PASSWORD);
+    }
+
+    private PortalTransferConfirmRequest confirmRequest(String password) {
+        return new PortalTransferConfirmRequest(password, "Принято");
     }
 
     private PortalTransferRejectRequest rejectRequest() {
-        PortalTransferRejectRequest request = new PortalTransferRejectRequest();
-        request.setReason("Отклоняю");
-        return request;
+        return new PortalTransferRejectRequest("Отклоняю");
     }
 }

@@ -24,8 +24,13 @@ import jakarta.persistence.Version;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 
+import lombok.Getter;
+import lombok.Setter;
+
 @Entity
 @Table(name = "portals", uniqueConstraints = {@UniqueConstraint(columnNames = {"owner_id", "name"})})
+@Getter
+@Setter
 public class PortalModel {
 
     @Id
@@ -68,85 +73,5 @@ public class PortalModel {
         if (this.createdAt == null) {
             this.createdAt = Instant.now();
         }
-    }
-
-    public void setCreatedAt(Instant createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public boolean isDeleted() {
-        return isDeleted;
-    }
-
-    public void setDeleted(boolean deleted) {
-        isDeleted = deleted;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public boolean isPublic() {
-        return isPublic;
-    }
-
-    public void setPublic(boolean aPublic) {
-        isPublic = aPublic;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public UserModel getOwner() {
-        return owner;
-    }
-
-    public Set<Long> getAllowedUserIds() {
-        return allowedUserIds;
-    }
-
-    public Instant getTimeDelete() {
-        return timeDelete;
-    }
-
-    public void setTimeDelete(Instant timeDelete) {
-        this.timeDelete = timeDelete;
-    }
-
-    public void setAllowedUserIds(Set<Long> allowedUserIds) {
-        this.allowedUserIds = allowedUserIds;
-    }
-
-    public void setOwner(UserModel owner) {
-        this.owner = owner;
-    }
-
-    public Set<TicketModel> getTickets() {
-        return tickets;
-    }
-
-    public void setTickets(Set<TicketModel> tickets) {
-        this.tickets = tickets;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
     }
 }

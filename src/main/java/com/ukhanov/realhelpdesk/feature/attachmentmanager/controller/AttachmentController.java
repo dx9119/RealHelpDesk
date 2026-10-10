@@ -80,9 +80,9 @@ public class AttachmentController {
     public ResponseEntity<AttachmentResponse> uploadAttachment(@Valid @ModelAttribute UploadAttachmentRequest form,
             @RequestParam("file") MultipartFile file, @PathVariable Long portalId, @PathVariable Long ticketId)
             throws AttachmentException, TicketException, MessageException, MessagingException, UnsupportedEncodingException {
-        AttachmentResponse response = attachmentManageService.uploadAttachment(file, form.getMessageText(), portalId, ticketId);
+        AttachmentResponse response = attachmentManageService.uploadAttachment(file, form.messageText(), portalId, ticketId);
         // Location — тот же URL, что у клиента в downloadUrl: при заданном static.base-url он абсолютный и указывает на origin раздачи.
-        return ResponseEntity.created(URI.create(response.getDownloadUrl())).body(response);
+        return ResponseEntity.created(URI.create(response.downloadUrl())).body(response);
     }
 
     @GetMapping

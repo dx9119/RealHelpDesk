@@ -226,12 +226,12 @@ class TicketSearchServiceTest {
         assertThat(result.getContent()).hasSize(1);
 
         TicketResponse response = result.getContent().get(0);
-        assertThat(response.getId()).isEqualTo(100L);
-        assertThat(response.getTitle()).isEqualTo("Заявка на доступ");
-        assertThat(response.getAuthorFullName()).isEqualTo("Иван");
-        assertThat(response.getPortalName()).isEqualTo("Портал Х");
-        assertThat(response.getPortalId()).isEqualTo(9L);
-        assertThat(response.getCreatedAt()).isEqualTo(createdAt);
+        assertThat(response.id()).isEqualTo(100L);
+        assertThat(response.title()).isEqualTo("Заявка на доступ");
+        assertThat(response.authorFullName()).isEqualTo("Иван");
+        assertThat(response.portalName()).isEqualTo("Портал Х");
+        assertThat(response.portalId()).isEqualTo(9L);
+        assertThat(response.createdAt()).isEqualTo(createdAt);
     }
 
     @Test
@@ -248,9 +248,9 @@ class TicketSearchServiceTest {
 
         // then
         TicketResponse response = result.getContent().get(0);
-        assertThat(response.getAuthorFullName()).isNull();
-        assertThat(response.getPortalName()).isNull();
-        assertThat(response.getPortalId()).isNull();
+        assertThat(response.authorFullName()).isNull();
+        assertThat(response.portalName()).isNull();
+        assertThat(response.portalId()).isNull();
     }
 
     @Test

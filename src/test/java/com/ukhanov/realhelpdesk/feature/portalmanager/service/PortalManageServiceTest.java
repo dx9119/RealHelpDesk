@@ -120,7 +120,7 @@ class PortalManageServiceTest {
 
         CreatePortalResponse response = service.createPortal(request("Портал"));
 
-        assertThat(response.getId()).isEqualTo(PORTAL_ID);
+        assertThat(response.id()).isEqualTo(PORTAL_ID);
         verify(emailDeliveryService).initNotifyPortalUsers(any(PortalModel.class), eq(emailTemplates.portalCreatedSubject(PORTAL_ID)),
                 eq(emailTemplates.portalCreatedBody(PORTAL_ID)), eq(NotificationEvent.NEW_PORTAL));
     }
@@ -160,7 +160,7 @@ class PortalManageServiceTest {
 
         DeleteResult result = service.deletePortals(Set.of(PORTAL_ID));
 
-        assertThat(result.getCount()).isEqualTo(1);
+        assertThat(result.count()).isEqualTo(1);
         verify(emailDeliveryService).initNotifyPortalUsers(eq(portal), eq(emailTemplates.deletedPortalSubject(PORTAL_ID)),
                 eq(emailTemplates.deletedPortalBody(PORTAL_ID, OWNER_EMAIL)), eq(NotificationEvent.PORTAL_DELETED));
     }
@@ -172,7 +172,7 @@ class PortalManageServiceTest {
 
         DeleteResult result = service.deletePortals(Set.of(PORTAL_ID));
 
-        assertThat(result.getCount()).isZero();
+        assertThat(result.count()).isZero();
         verifyNoInteractions(emailDeliveryService);
     }
 
@@ -268,9 +268,7 @@ class PortalManageServiceTest {
     // ────────────────────────────────────────────────
 
     private CreatePortalRequest request(String name) {
-        CreatePortalRequest request = new CreatePortalRequest();
-        request.setName(name);
-        return request;
+        return new CreatePortalRequest(name, null);
     }
 
     private PortalModel portal(Long id) {

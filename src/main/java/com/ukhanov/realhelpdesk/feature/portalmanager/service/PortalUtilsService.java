@@ -2,17 +2,16 @@ package com.ukhanov.realhelpdesk.feature.portalmanager.service;
 
 import java.util.Set;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 public class PortalUtilsService {
-
-    private static final Logger logger = LoggerFactory.getLogger(PortalUtilsService.class);
 
     public boolean isValidUserId(String idStr) {
         if (idStr == null || idStr.isBlank()) {

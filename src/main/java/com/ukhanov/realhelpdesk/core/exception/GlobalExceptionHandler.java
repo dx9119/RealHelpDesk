@@ -8,8 +8,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.data.core.PropertyReferenceException;
@@ -41,12 +39,12 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 import com.ukhanov.realhelpdesk.core.log.LogSanitizer;
 
 import io.jsonwebtoken.JwtException;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @ControllerAdvice
 @Order(Ordered.LOWEST_PRECEDENCE)
 public class GlobalExceptionHandler {
-
-    private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ProblemDetail> handleApiException(ApiException ex, HttpServletRequest request) {

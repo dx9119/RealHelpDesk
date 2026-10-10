@@ -16,7 +16,12 @@ import jakarta.persistence.Version;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 
+import lombok.Getter;
+import lombok.Setter;
+
 @Entity
+@Getter
+@Setter
 public class MessageModel {
 
     @Id
@@ -46,45 +51,4 @@ public class MessageModel {
             this.createdAt = Instant.now();
         }
     }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public void setCreatedAt(Instant createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public TicketModel getTicket() {
-        return ticket;
-    }
-
-    public void setTicket(TicketModel ticket) {
-        this.ticket = ticket;
-    }
-
-    public UserModel getAuthor() {
-        return author;
-    }
-
-    public void setAuthor(UserModel author) {
-        this.author = author;
-    }
-
-    public String getMessageText() {
-        return messageText;
-    }
-
-    public void setMessageText(String messageText) {
-        this.messageText = messageText;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
 }

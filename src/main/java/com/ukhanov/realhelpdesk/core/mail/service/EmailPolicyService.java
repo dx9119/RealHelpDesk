@@ -4,8 +4,6 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.ukhanov.realhelpdesk.core.mail.dto.EmailInfoResponse;
@@ -15,17 +13,15 @@ import com.ukhanov.realhelpdesk.core.mail.repository.UnsubscribedEmailRepository
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class EmailPolicyService {
     private final UnsubscribedEmailRepository repository;
     private final CurrentUserProvider currentUserProvider;
-
-    private static final Logger logger = LoggerFactory.getLogger(EmailPolicyService.class);
-
-    public EmailPolicyService(UnsubscribedEmailRepository repository, CurrentUserProvider currentUserProvider) {
-        this.repository = repository;
-        this.currentUserProvider = currentUserProvider;
-    }
 
     public boolean isStopList(String email, NotificationEvent sourceEvent) {
         Objects.requireNonNull(email, "Email должен иметь значение");
@@ -78,9 +74,7 @@ public class EmailPolicyService {
         NotificationEvent level = repository.findByEmail(user.getEmail()).map(UnsubscribedEmail::getMuteEvent)
                 .orElse(NotificationEvent.NONE);
 
-        EmailInfoResponse response = new EmailInfoResponse();
-        response.setMuteLevel(level);
-        return response;
+        return new EmailInfoResponse(level);
     }
 
 }

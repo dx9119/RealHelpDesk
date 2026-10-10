@@ -2,8 +2,6 @@ package com.ukhanov.realhelpdesk.core.security.auth.tokens.service;
 
 import java.util.Objects;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
@@ -12,16 +10,15 @@ import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenBearer;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.repository.JwtRefreshTokenRepository;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.utils.TokenHasher;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class FindTokenService {
-    private static final Logger logger = LoggerFactory.getLogger(FindTokenService.class);
 
     private final JwtRefreshTokenRepository jwtRefreshTokenRepository;
-
-    public FindTokenService(JwtRefreshTokenRepository jwtRefreshTokenRepository) {
-        this.jwtRefreshTokenRepository = jwtRefreshTokenRepository;
-    }
-
     // В БД хранится SHA-256 хеш токена
     public RefreshTokenModel findRefreshToken(TokenBearer token) throws TokenException {
         Objects.requireNonNull(token, "Токен не может быть null!");

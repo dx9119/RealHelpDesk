@@ -97,8 +97,7 @@ class EmailPolicyControllerTest {
     @Test
     @DisplayName("GET /email/info → 204? нет, 200 с текущим уровнем глушения")
     void getInfo_returnsMuteLevel() throws Exception {
-        EmailInfoResponse response = new EmailInfoResponse();
-        response.setMuteLevel(NotificationEvent.NEW_TICKET);
+        EmailInfoResponse response = new EmailInfoResponse(NotificationEvent.NEW_TICKET);
         when(emailPolicyService.getEmailInfo()).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/email/info")).andExpect(status().isOk()).andExpect(jsonPath("$.muteLevel").value("NEW_TICKET"));

@@ -1,27 +1,21 @@
 package com.ukhanov.realhelpdesk.core.security.accesscontrol;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import com.ukhanov.realhelpdesk.domain.portal.service.PortalDomainService;
-import com.ukhanov.realhelpdesk.domain.ticket.service.TicketDomainService;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class AccessValidationService {
     private final PortalDomainService portalDomainService;
     private final CurrentUserProvider currentUserProvider;
-
-    private static final Logger logger = LoggerFactory.getLogger(AccessValidationService.class);
-
-    public AccessValidationService(PortalDomainService portalDomainService, CurrentUserProvider currentUserProvider,
-            TicketDomainService ticketDomainService) {
-        this.portalDomainService = portalDomainService;
-        this.currentUserProvider = currentUserProvider;
-    }
 
     public boolean hasPortalAccess(Long portalId) throws PortalException {
         PortalModel portal = portalDomainService.getPortalById(portalId);

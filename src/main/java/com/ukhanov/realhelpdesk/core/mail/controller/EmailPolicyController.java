@@ -22,6 +22,9 @@ import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaException
 import com.ukhanov.realhelpdesk.core.security.captcha.service.CaptchaService;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.annotation.RateLimit;
 
+import lombok.RequiredArgsConstructor;
+
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/v1/email")
 public class EmailPolicyController {
@@ -29,13 +32,6 @@ public class EmailPolicyController {
     private final EmailDeliveryService emailDeliveryService;
     private final EmailPolicyService emailPolicyService;
     private final CaptchaService captchaService;
-
-    public EmailPolicyController(EmailDeliveryService emailDeliveryService, EmailPolicyService emailPolicyService,
-            CaptchaService captchaService) {
-        this.emailDeliveryService = emailDeliveryService;
-        this.emailPolicyService = emailPolicyService;
-        this.captchaService = captchaService;
-    }
 
     @PostMapping("/confirmations/{token}")
     public ResponseEntity<Void> confirmEmail(@PathVariable Long token) throws EmailAccessDeniedException {

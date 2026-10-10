@@ -15,11 +15,16 @@ import jakarta.persistence.PrePersist;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.message.model.MessageModel;
 
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * Файл, прикреплённый к сообщению заявки. Содержимое живёт в MinIO, здесь — только метаданные и ключ объекта: строка тяжелее файла в БД не
  * хранится. Таблица append-only: вложения не редактируются (поэтому нет @Version — конфликт версий здесь бессмыслен).
  */
 @Entity
+@Getter
+@Setter
 public class AttachmentModel {
 
     @Id
@@ -56,69 +61,5 @@ public class AttachmentModel {
         if (this.createdAt == null) {
             this.createdAt = Instant.now();
         }
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public MessageModel getMessage() {
-        return message;
-    }
-
-    public void setMessage(MessageModel message) {
-        this.message = message;
-    }
-
-    public String getFileName() {
-        return fileName;
-    }
-
-    public void setFileName(String fileName) {
-        this.fileName = fileName;
-    }
-
-    public String getStorageKey() {
-        return storageKey;
-    }
-
-    public void setStorageKey(String storageKey) {
-        this.storageKey = storageKey;
-    }
-
-    public String getContentType() {
-        return contentType;
-    }
-
-    public void setContentType(String contentType) {
-        this.contentType = contentType;
-    }
-
-    public Long getSizeBytes() {
-        return sizeBytes;
-    }
-
-    public void setSizeBytes(Long sizeBytes) {
-        this.sizeBytes = sizeBytes;
-    }
-
-    public UserModel getUploadedBy() {
-        return uploadedBy;
-    }
-
-    public void setUploadedBy(UserModel uploadedBy) {
-        this.uploadedBy = uploadedBy;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(Instant createdAt) {
-        this.createdAt = createdAt;
     }
 }

@@ -15,6 +15,9 @@ import jakarta.persistence.Table;
 
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * In-app оповещение пользователя о событии в доступных ему порталах. Одна строка — одно событие для одного получателя: читается через
  * {@code /api/v1/notifications}, событие выбирается в настройках ({@link UserNotificationPreferencesModel}).
@@ -27,6 +30,8 @@ import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 @Entity
 @Table(name = "notifications", indexes = {@Index(name = "idx_notifications_recipient_created", columnList = "recipient_id, created_at"),
         @Index(name = "idx_notifications_recipient_read", columnList = "recipient_id, is_read")})
+@Getter
+@Setter
 public class NotificationModel {
 
     @Id
@@ -86,50 +91,5 @@ public class NotificationModel {
         if (createdAt == null) {
             createdAt = Instant.now();
         }
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public Long getRecipientId() {
-        return recipientId;
-    }
-
-    public NotificationEvent getEvent() {
-        return event;
-    }
-
-    public Long getTicketId() {
-        return ticketId;
-    }
-
-    public Long getPortalId() {
-        return portalId;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public boolean isRead() {
-        return read;
-    }
-
-    public void setRead(boolean read) {
-        this.read = read;
-    }
-
-    public Long getGroupId() {
-        return groupId;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    /** Только для тестов и восстановления данных: в обычном потоке время выставляет {@link #onCreate()}. */
-    public void setCreatedAt(Instant createdAt) {
-        this.createdAt = createdAt;
     }
 }

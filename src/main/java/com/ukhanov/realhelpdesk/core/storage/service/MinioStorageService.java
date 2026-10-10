@@ -3,8 +3,6 @@ package com.ukhanov.realhelpdesk.core.storage.service;
 import java.io.InputStream;
 import java.util.Objects;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.ukhanov.realhelpdesk.core.storage.config.MinioProperties;
@@ -17,6 +15,7 @@ import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
 import io.minio.errors.ErrorResponseException;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Хранилище файлов поверх MinIO: бакет создаётся автоматически, объекты адресуются ключом вида {@code tickets/{ticketId}/{uuid}.{ext}}.
@@ -26,26 +25,25 @@ import io.minio.errors.ErrorResponseException;
  * раскладывать их по слоям выше смысла нет — это одна и та же «хранилище не ответило».
  * </p>
  */
+@Slf4j
 @Service
 public class MinioStorageService {
-
-    private static final Logger logger = LoggerFactory.getLogger(MinioStorageService.class);
 
     private final MinioClient minioClient;
     private final MinioProperties properties;
 
     /** После успешной проверки бакет не перепроверяется на каждой операции; при сбое флаг не поднимается и проверка повторится. */
     private volatile boolean bucketReady;
+    /**
+     * Идемпотентная подготовка бакета: создаёт его при отсутствии. Вызывается на старте (StorageBucketInitializer) и перед каждой
+     * операцией, пока не пройдёт успешно.
+     */
 
     public MinioStorageService(MinioClient minioClient, MinioProperties properties) {
         this.minioClient = Objects.requireNonNull(minioClient, "minioClient не должен быть null");
         this.properties = Objects.requireNonNull(properties, "Настройки MinIO не должны быть null");
     }
 
-    /**
-     * Идемпотентная подготовка бакета: создаёт его при отсутствии. Вызывается на старте (StorageBucketInitializer) и перед каждой
-     * операцией, пока не пройдёт успешно.
-     */
     public void ensureBucket() {
         if (bucketReady) {
             return;

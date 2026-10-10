@@ -11,7 +11,12 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Version;
 
+import lombok.Getter;
+import lombok.Setter;
+
 @Entity
+@Getter
+@Setter
 public class EmailLog {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -40,45 +45,5 @@ public class EmailLog {
         this.recipient = recipient;
         this.notificationEvent = notificationEvent;
         this.sentAt = LocalDateTime.now();
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public LocalDateTime getSentAt() {
-        return sentAt;
-    }
-
-    public void setSentAt(LocalDateTime sentAt) {
-        this.sentAt = sentAt;
-    }
-
-    public NotificationEvent getNotificationEvent() {
-        return notificationEvent;
-    }
-
-    public void setNotificationEvent(NotificationEvent notificationEvent) {
-        this.notificationEvent = notificationEvent;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public String getSender() {
-        return sender;
-    }
-
-    public void setSender(String sender) {
-        this.sender = sender;
-    }
-
-    public String getRecipient() {
-        return recipient;
-    }
-
-    public void setRecipient(String recipient) {
-        this.recipient = recipient;
     }
 }

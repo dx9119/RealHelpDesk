@@ -5,8 +5,6 @@ import java.util.Objects;
 
 import jakarta.transaction.Transactional;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.ukhanov.realhelpdesk.domain.attachment.model.AttachmentModel;
@@ -14,10 +12,11 @@ import com.ukhanov.realhelpdesk.domain.attachment.repository.AttachmentRepositor
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketLiveStatus;
 import com.ukhanov.realhelpdesk.feature.attachmentmanager.exception.AttachmentException;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 public class AttachmentDomainService {
-
-    private static final Logger logger = LoggerFactory.getLogger(AttachmentDomainService.class);
 
     private final AttachmentRepository attachmentRepository;
 

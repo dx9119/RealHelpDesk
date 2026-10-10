@@ -24,17 +24,15 @@ import com.ukhanov.realhelpdesk.feature.notificationmanager.dto.UnreadCountRespo
 import com.ukhanov.realhelpdesk.feature.notificationmanager.exception.NotificationException;
 import com.ukhanov.realhelpdesk.feature.notificationmanager.service.NotificationManageService;
 
+import lombok.RequiredArgsConstructor;
+
+@RequiredArgsConstructor
 @RestController
 @Validated
 @RequestMapping("/api/v1/notifications")
 public class NotificationController {
 
     private final NotificationManageService notificationManageService;
-
-    public NotificationController(NotificationManageService notificationManageService) {
-        this.notificationManageService = notificationManageService;
-    }
-
     /** Список оповещений пользователя (все или только непрочитанные), новые сверху. */
     @GetMapping
     public ResponseEntity<PageResponse<NotificationResponse>> getNotifications(@RequestParam(defaultValue = "0") @Min(0) int page,

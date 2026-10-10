@@ -38,6 +38,9 @@ import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.GetTokenServic
 import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaException;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.annotation.RateLimit;
 
+import lombok.RequiredArgsConstructor;
+
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {
@@ -58,16 +61,6 @@ public class AuthController {
     private final RefreshService refreshService;
     private final JwtProperties jwtProperties;
 
-    public AuthController(RegistrationService registrationService, LoginService loginService, LogoutService logoutService,
-            GetTokenService getTokenService, RefreshService refreshService, JwtProperties jwtProperties) {
-        this.registrationService = registrationService;
-        this.loginService = loginService;
-        this.logoutService = logoutService;
-        this.getTokenService = getTokenService;
-        this.refreshService = refreshService;
-        this.jwtProperties = jwtProperties;
-    }
-
     @PostMapping("/register")
     @RateLimit(key = "auth-register")
     public ResponseEntity<Void> registration(@Valid @RequestBody RegisterRequest registerRequest,
@@ -77,8 +70,8 @@ public class AuthController {
         TokensResponse tokens = registrationService.processRegistration(registerRequest, capId);
 
         return ResponseEntity.created(PROFILE_URI)
-                .header(HttpHeaders.SET_COOKIE, accessCookie(tokens.getAccessToken(), ACCESS_TOKEN_TTL).toString(),
-                        refreshCookie(tokens.getRefreshToken(), REFRESH_TOKEN_TTL).toString())
+                .header(HttpHeaders.SET_COOKIE, accessCookie(tokens.accessToken(), ACCESS_TOKEN_TTL).toString(),
+                        refreshCookie(tokens.refreshToken(), REFRESH_TOKEN_TTL).toString())
                 .build();
     }
 
@@ -87,8 +80,8 @@ public class AuthController {
     public ResponseEntity<Void> login(@Valid @RequestBody LoginRequest loginRequest) throws TokenException {
         TokensResponse tokens = loginService.processLogin(loginRequest);
 
-        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, accessCookie(tokens.getAccessToken(), ACCESS_TOKEN_TTL).toString(),
-                refreshCookie(tokens.getRefreshToken(), REFRESH_TOKEN_TTL).toString()).build();
+        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, accessCookie(tokens.accessToken(), ACCESS_TOKEN_TTL).toString(),
+                refreshCookie(tokens.refreshToken(), REFRESH_TOKEN_TTL).toString()).build();
     }
 
     // Отдать новый токен авторизации при наличии активного refresh token

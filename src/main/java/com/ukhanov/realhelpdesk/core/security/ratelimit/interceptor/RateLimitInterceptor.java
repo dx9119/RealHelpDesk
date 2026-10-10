@@ -9,8 +9,6 @@ import java.util.Map;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -23,22 +21,18 @@ import com.ukhanov.realhelpdesk.core.security.ratelimit.annotation.RateLimit;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.config.RateLimitProperties;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.service.RateLimitService;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.ObjectMapper;
 
+@Slf4j
+@RequiredArgsConstructor
 @Component
 public class RateLimitInterceptor implements HandlerInterceptor {
-
-    private static final Logger logger = LoggerFactory.getLogger(RateLimitInterceptor.class);
 
     private final RateLimitService rateLimitService;
     private final ObjectMapper objectMapper;
     private final RateLimitProperties rateLimitProperties;
-
-    public RateLimitInterceptor(RateLimitService rateLimitService, ObjectMapper objectMapper, RateLimitProperties rateLimitProperties) {
-        this.rateLimitService = rateLimitService;
-        this.objectMapper = objectMapper;
-        this.rateLimitProperties = rateLimitProperties;
-    }
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
