@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Проверки собранного образа. Ненулевой код возврата = найдено нарушение.
-# Вызов: docker/check-image.sh [образ]   (по умолчанию realhelpdesk:latest)
+# Вызов: scripts/docker/check-image.sh [образ]   (по умолчанию realhelpdesk:latest)
 set -u
 IMG="${1:-realhelpdesk:latest}"
 fail=0

@@ -6,10 +6,10 @@
 
 ## Что было сделано
 
-1. Полное чтение JWT-цепочки: `JwtConfig`, `WebSecurityConfiguration`, `WhiteUrlConfig`, `JwtAuthFilter`, `GenTokenService`, `ValidTokenService`, `DecodeTokenService`, `FindTokenService`, `GetTokenService`, `ChangeTokenService`, `RefreshService`, `LoginService`, `LogoutService`, `RegistrationService`, `AuthController`, `UserManageService`, `SecurityUser`, `CurrentUserProvider`, `RefreshTokenModel`, репозитории, `application.properties`, `.env(.example)`, `docker-compose.yaml`, `pom.xml`, `logback-spring.xml`.
+1. Полное чтение JWT-цепочки: `JwtConfig`, `WebSecurityConfiguration`, `WhiteUrlConfig`, `JwtAuthFilter`, `GenTokenService`, `ValidTokenService`, `DecodeTokenService`, `FindTokenService`, `GetTokenService`, `ChangeTokenService`, `RefreshService`, `LoginService`, `LogoutService`, `RegistrationService`, `AuthController`, `UserManageService`, `SecurityUser`, `CurrentUserProvider`, `RefreshTokenModel`, репозитории, `application.properties`, `.env(.example)`, `../infrastructure/docker-compose.yaml`, `pom.xml`, `logback-spring.xml`.
 2. Исправление критичных и высоких находок (см. таблицу), включая две проблемы, найденные при e2e-прогоне (№ 10, 11).
 3. Прогон `mvn test` — 157 тестов, 0 ошибок.
-4. E2E-скрипт `scripts/e2e-jwt-flow.sh` — 21/21 проверок на живом стеке.
+4. E2E-скрипт `../scripts/e2e-jwt-flow.sh` — 21/21 проверок на живом стеке.
 
 ---
 
@@ -21,7 +21,7 @@
 | 2 | **Смена пароля не отзывала старые refresh-токены (инверсия бага).** `setNewPasswd` сначала создавала новый токен, затем `getActiveRefreshToken` возвращал **только что созданный** и помечала `PASSWD_CHANGE` **его**; старые активные оставались валидными | `UserManageService.java:116-125` | Все активные refresh-токены помечаются `PASSWD_CHANGE`; метод стал `@Transactional` |
 | 3 | **Статус пользователя не проверялся.** `isEnabled/isAccountNonLocked` нигде не вызывались — заблокированный пользователь продолжал работать | `SecurityUser`, `LoginService`, `JwtAuthFilter` | Проверка `UserStatus.ACTIVE` при логине и в фильтре на каждый запрос |
 | 5 | **Токены в логах/ответах.** Значения cookie писались в INFO/DEBUG, а значение refresh-токена попадало в текст `TokenException` и уходило клиенту в JSON | `FindTokenService:34,38,39`, `GetTokenService:99`, `DecodeTokenService:67`, `ChangeTokenService:41`, `TokenExceptionHandler`, `LoggingFilter` | Значения токенов из логов убраны (логируются id/статус); `TokenExceptionHandler` больше не отдаёт `cause` и тексты ошибок jjwt; `LoggingFilter` не пишет query-string (там код сброса пароля) |
-| 6 | **Refresh-токен в БД открытым текстом**, без индекса/уникальности | `RefreshTokenModel`, `FindTokenService` | В БД хранится SHA-256 хеш (`TokenHasher`, 64 симв., `unique`); сырой токен — только transient-поле для cookie. Поиск строго по хешу; старые строки (сырой токен) переводятся в хеш одним SQL из `scripts/sql/2026-09-29-jwt-security-audit.sql` — runtime-совместимости со старым форматом нет. Побочно: **login теперь ротирует refresh** (сырой токен из БД не восстановить) |
+| 6 | **Refresh-токен в БД открытым текстом**, без индекса/уникальности | `RefreshTokenModel`, `FindTokenService` | В БД хранится SHA-256 хеш (`TokenHasher`, 64 симв., `unique`); сырой токен — только transient-поле для cookie. Поиск строго по хешу; старые строки (сырой токен) переводятся в хеш одним SQL из `../scripts/sql/2026-09-29-jwt-security-audit.sql` — runtime-совместимости со старым форматом нет. Побочно: **login теперь ротирует refresh** (сырой токен из БД не восстановить) |
 | 7 | **Rate limit отсутствовал на `POST /api/v1/auth/update`** — единственном критичном auth-эндпоинте без лимита | `AuthController` | `@RateLimit(requests = 30, windowSeconds = 300)` |
 | 8 | **Тип токена не разграничен** — refresh-cookie, подставленная вместо access, аутентифицировала пользователя с ролью `ROLE_null` | `GenTokenService`, `ValidTokenService`, `JwtAuthFilter` | Claim `typ` (`access`/`refresh`); `ValidTokenService.lowLevelVerifyToken(token, expectedType)` проверяет тип. Плюс: `getNewAccessToken` теперь **всегда** верифицирует токен (раньше — только при `ACTIVE`); `RefreshService` ловит `JwtException` (истёкший refresh раньше давал 409 с текстом jjwt и не помечался `REVOKED`) |
 | 4 (част.) | **Cookie refresh-токена на `path=/`** — уходил на все эндпоинты API | `AuthController` | `path=/api/v1/auth`; `SameSite` вынесен в свойство `jwt.cookie.same-site` (дефолт `None` — поведение не меняется) |
@@ -67,7 +67,7 @@ CSRF **не зависит от наличия серверных сессий**
 
 ## Миграция и ломающие изменения
 
-1. **Схема БД** (только для сред с `ddl-auto=none`): `scripts/sql/2026-09-29-jwt-security-audit.sql`
+1. **Схема БД** (только для сред с `ddl-auto=none`): `../scripts/sql/2026-09-29-jwt-security-audit.sql`
    - `users.token_version` (новая колонка);
    - хеширование существующих `jwt_tokens.token_refresh` + unique-индекс.
    - В docker-compose (`create-drop`) скрипт не нужен.
@@ -83,7 +83,7 @@ CSRF **не зависит от наличия серверных сессий**
 
 - `mvn test` — **157 tests, 0 failures, 0 errors** (`BUILD SUCCESS`).
 - Обновлён `UserManageServiceTest.setNewPasswd_shouldUpdatePasswordAndInvalidateOldTokens` — теперь проверяет отзыв **всех** активных refresh-токенов и инкремент версии access-токенов.
-- **E2E-скрипт `scripts/e2e-jwt-flow.sh`** (нужен запущенный `docker compose up -d`) — **21/21 OK**:
+- **E2E-скрипт `../scripts/e2e-jwt-flow.sh`** (нужен запущенный `docker compose up -d`) — **21/21 OK**:
   - refresh-cookie как access → 401;
   - `/auth/update` выдаёт новый access, старый работает;
   - логаут → старый access 401, refresh 409;

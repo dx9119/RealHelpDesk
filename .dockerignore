@@ -1,6 +1,7 @@
 # Контекст сборки Docker. Dockerfile копирует только pom.xml, src/, config/
-# и docker/, но в контекст daemon'а уходит ВСЯ рабочая директория — поэтому
-# здесь явно отсекается то, что не должно покидать рабочую станцию.
+# и scripts/docker/entrypoint.sh, но в контекст daemon'а уходит ВСЯ рабочая
+# директория — поэтому здесь явно отсекается то, что не должно покидать
+# рабочую станцию.
 #
 # ВАЖНО: в .dockerignore паттерны без косой черты (как в .gitignore)
 # сопоставляются только с корнем контекста. Поэтому для файлов, которые
@@ -24,9 +25,12 @@ build/
 .git/
 *.iml
 
-# Документация и скрипты для образа не нужны
+# Документация и скрипты для образа не нужны. `scripts/docker/entrypoint.sh`
+# нужен Dockerfile — поэтому scripts/ не исключается целиком, а по частям.
 docs/
-scripts/
-postman_collection.json
+scripts/e2e-*.sh
+scripts/sql/
+scripts/docker/stack.env
+scripts/docker/check-image.sh
 **/*.md
 **/*.log

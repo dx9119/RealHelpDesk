@@ -2,7 +2,7 @@ package com.ukhanov.realhelpdesk.core.config;
 
 /**
  * Значения SameSite для auth-cookie — весь набор, который вообще допустим в ключе {@code jwt.cookie.same-site} (переменная
- * {@code JWT_COOKIE_SAMESITE}, см. application.properties и docker/app.env).
+ * {@code JWT_COOKIE_SAMESITE}, см. application.properties и scripts/docker/stack.env).
  *
  * <p>
  * Какой элемент подставить, решает биндинг Spring: строка из конфигурации превращается в элемент enum без учёта регистра, поэтому писать

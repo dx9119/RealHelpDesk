@@ -14,7 +14,7 @@ set -eu
 KEY_STORE_FILE=/app/ssl/keystore.p12
 
 if [[ ! -f "$KEY_STORE_FILE" ]]; then
-    : "${KEY_STORE_PASS:?KEY_STORE_PASS is required - copy .env.example to .env}"
+    : "${KEY_STORE_PASS:?KEY_STORE_PASS is required - copy infrastructure/.env.example to infrastructure/.env}"
     : "${KEY_STORE_ALIAS:?KEY_STORE_ALIAS is required - set it in services.app.environment}"
 
     # Пароли уходят в keytool через переменную окружения (:env), а не как
@@ -34,7 +34,7 @@ fi
 
 # Память: JAVA_XMX задаёт жёсткий -Xmx. Пустой JAVA_XMX переключает JVM на
 # долю от лимита контейнера (-XX:MaxRAMPercentage) — этот режим корректен
-# только вместе с mem_limit в docker-compose.yaml, иначе JVM возьмёт долю
+# только вместе с mem_limit в infrastructure/docker-compose.yaml, иначе JVM возьмёт долю
 # от памяти хоста. При заданном JAVA_XMX доля игнорируется (проверено).
 if [[ -n "${JAVA_XMX:-}" ]]; then
     MEM_OPTS=(-Xmx"${JAVA_XMX}")

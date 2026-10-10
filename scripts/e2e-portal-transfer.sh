@@ -10,11 +10,11 @@
 # постороннему — 403), ошибки (409 второй запрос, 401 чужой пароль, 404
 # чужой confirm) и события PORTAL_TRANSFER_* в email_log.
 #
-# Требования: поднятый стек (docker compose up -d), капча выключена
+# Требования: поднятый стек (make up), капча выключена
 # (по умолчанию), docker для запросов к postgres, smtp4dev на localhost:3000.
 # За прогон тратит лимит portal-transfer-request (5 initiate / 5 мин):
 # повторный запуск до истечения окна упрётся в 429 — перезапустите
-# приложение (docker compose restart app) или подождите.
+# приложение (make restart) или подождите.
 set -u
 BASE=${BASE:-https://localhost:8443}
 SMTP=${SMTP:-http://localhost:3000}
@@ -190,7 +190,7 @@ check 404 "$(status -b "$TMP/owner.jar" -X POST "$BASE/api/v1/portals/$PORTAL3/o
 
 # ── журнал писем: события передачи ──────────────────
 step "Журнал email_log: события PORTAL_TRANSFER_*"
-EVENTS=$(docker compose exec -T postgres psql -U user -d desk -tAc \
+EVENTS=$(docker compose -f infrastructure/docker-compose.yaml exec -T postgres psql -U user -d desk -tAc \
   "SELECT DISTINCT notification_event FROM email_log WHERE notification_event LIKE 'PORTAL_TRANSFER%' ORDER BY 1")
 echo "  events=$EVENTS"
 check_contains "PORTAL_TRANSFER_REQUESTED" "$EVENTS" "email_log: REQUESTED"

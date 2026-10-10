@@ -21,7 +21,7 @@ RUN java -Djarmode=tools -jar app.jar extract --layers --destination /app/extrac
 
 # Самоподписанный keystore при сборке НЕ генерируется: пароль не должен
 # попадать в слои образа и в `docker history`. Он создаётся при старте
-# контейнера — см. docker/entrypoint.sh.
+# контейнера — см. scripts/docker/entrypoint.sh.
 
 
 # ---------- STAGE 2: Runtime ----------
@@ -38,13 +38,13 @@ RUN groupadd -r spring-group && \
             spring-user
 
 # Директория для SSL: keystore.p12 появляется здесь при старте контейнера,
-# если свой файл не смонтирован volume (см. docker/entrypoint.sh)
+# если свой файл не смонтирован volume (см. scripts/docker/entrypoint.sh)
 RUN mkdir -p /app/ssl && chown spring-user:spring-group /app /app/ssl
 
 # Точка входа: поднимает keystore (пароль берёт из окружения, не из сборки)
 # и запускает приложение. --chown/--chmod задаются здесь же, чтобы не делать
 # отдельный слой chown -R: он повторял бы содержимое слоёв jar (+73 МБ).
-COPY --chown=spring-user:spring-group --chmod=755 docker/entrypoint.sh /app/entrypoint.sh
+COPY --chown=spring-user:spring-group --chmod=755 scripts/docker/entrypoint.sh /app/entrypoint.sh
 
 # Слои jar вместо одного жирного файла (sec.md §7.6). Порядок важен для кэша:
 # реже меняющиеся слои идут первыми, слой приложения — последним.
@@ -69,10 +69,10 @@ ENV JAVA_MAX_METASPACE_SIZE="179M"
 # Размер стека на поток (-Xss).
 ENV JAVA_XSS="1M"
 # Максимальный размер heap. Пустое значение (переопределяется в
-# docker-compose.yaml) переключает entrypoint на -XX:MaxRAMPercentage.
+# infrastructure/docker-compose.yaml) переключает entrypoint на -XX:MaxRAMPercentage.
 ENV JAVA_XMX="345M"
 # Доля heap от лимита памяти контейнера — используется, только если JAVA_XMX пуст.
-# Имеет смысл только с mem_limit в docker-compose.yaml.
+# Имеет смысл только с mem_limit в infrastructure/docker-compose.yaml.
 ENV JAVA_RAM_PERCENTAGE="75"
 # Логирование GC и safepoint-пауз с ротацией файлов
 ENV JAVA_GC_LOG_OPTS="-Xlog:gc*,safepoint:/tmp/gc.log::filecount=10,filesize=100M"

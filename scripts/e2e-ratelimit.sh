@@ -10,7 +10,7 @@
 #
 # Счетчики живут в памяти приложения: если лимит уже исчерпан прошлым
 # запуском, скрипт об этом скажет — перезапустите приложение
-# (docker compose restart app) и повторите. Пока окно /captcha не истекло
+# (make restart) и повторите. Пока окно /captcha не истекло
 # (60 сек), проверка капчи не сойдется. Капча должна быть выключена
 # (по умолчанию).
 set -u
@@ -46,7 +46,7 @@ step "GET /captcha: 31 запрос подряд (лимит 30/60с)"
 first=$(curl -sk -o /dev/null -w "%{http_code}" "$BASE/captcha?capId=rl-probe")
 if [ "$first" != "200" ]; then
   echo "  FAIL окно /captcha уже исчерпано (http=$first)"
-  echo "  подсказка: docker compose restart app && bash scripts/e2e-ratelimit.sh"
+  echo "  подсказка: make restart && bash scripts/e2e-ratelimit.sh"
   exit 1
 fi
 ok=1; r429=0

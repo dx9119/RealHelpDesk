@@ -2,7 +2,7 @@
 # Запуск: make help
 
 MVN ?= mvn
-COMPOSE ?= docker compose
+COMPOSE ?= docker compose -f infrastructure/docker-compose.yaml
 IMAGE ?= realhelpdesk:latest
 APP_JAR ?= target/realhelpdesk-0.0.1-SNAPSHOT.jar
 E2E_DIR ?= scripts
@@ -10,6 +10,7 @@ E2E_DIR ?= scripts
 .DEFAULT_GOAL := help
 
 .PHONY: help build clean compile package test verify format check run \
+        dev-run dev-test \
         env docker-build up up-sharding down down-volumes logs ps restart shell check-image \
         e2e-portal-access e2e-ratelimit e2e-jwt e2e-notifications e2e-portal-transfer e2e-all
 
@@ -45,10 +46,17 @@ check: ## Проверки стиля (spotless:check + checkstyle)
 run: ## Запустить приложение локально (spring-boot:run)
 	$(MVN) spring-boot:run
 
+dev-run: env ## Dev-среда: compose up в foreground (логи всех сервисов, Ctrl+C — стоп)
+	$(COMPOSE) up --build
+
+dev-test: ## Dev-среда: mvn verify + e2e-сценарии (нужен поднятый стек: dev-run/up)
+	$(MVN) verify
+	$(MAKE) e2e-all
+
 ## --- Docker ---
 
-env: ## Создать .env из .env.example, если его нет
-	@test -f .env || (cp .env.example .env && echo "Создан .env — заполните секреты")
+env: ## Создать infrastructure/.env из infrastructure/.env.example, если его нет
+	@test -f infrastructure/.env || (cp infrastructure/.env.example infrastructure/.env && echo "Создан infrastructure/.env — заполните секреты")
 
 docker-build: ## Собрать docker-образ приложения
 	$(COMPOSE) build
@@ -78,7 +86,7 @@ shell: ## Shell внутри контейнера app
 	$(COMPOSE) exec app sh
 
 check-image: docker-build ## Проверки образа: секреты, ФС, jar
-	./docker/check-image.sh $(IMAGE)
+	./scripts/docker/check-image.sh $(IMAGE)
 
 ## --- E2E (нужен поднятый стек: make up) ---
 

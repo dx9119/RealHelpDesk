@@ -20,21 +20,22 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Контракт конфигурации приложения: {@code application.properties} и {@code application-domains.properties} (домены) — только схема из
- * обязательных {@code ${VAR}}, а значения лежат в двух местах: {@code docker/app.env} (продукт) и {@code services.app.environment} в
- * {@code docker-compose.yaml} (окружение и секреты).
+ * обязательных {@code ${VAR}}, а значения лежат в двух местах: {@code scripts/docker/stack.env} (весь несекретный набор — продукт,
+ * окружение, инфраструктура) и {@code services.app.environment} в {@code infrastructure/docker-compose.yaml} (только секреты через
+ * {@code ${VAR}} из {@code infrastructure/.env}).
  *
  * <p>
  * Файлы читаются напрямую по пути {@code src/main/resources/...}, а не с classpath, поэтому на результат не влияет даже
  * {@code src/test/resources/application.properties}, который перекрывает main-конфиг в тестовом класслоаде.
  * </p>
  */
-@DisplayName("Конфигурация: схема application*.properties, docker-compose.yaml и docker/app.env")
+@DisplayName("Конфигурация: схема application*.properties, infrastructure/docker-compose.yaml и scripts/docker/stack.env")
 class ApplicationConfigSchemaTest {
 
     private static final Path APPLICATION_PROPERTIES = Path.of("src", "main", "resources", "application.properties");
     private static final Path APPLICATION_DOMAINS_PROPERTIES = Path.of("src", "main", "resources", "application-domains.properties");
-    private static final Path DOCKER_COMPOSE = Path.of("docker-compose.yaml");
-    private static final Path APP_ENV = Path.of("docker", "app.env");
+    private static final Path DOCKER_COMPOSE = Path.of("infrastructure", "docker-compose.yaml");
+    private static final Path STACK_ENV = Path.of("scripts", "docker", "stack.env");
     /** Ровно ${VAR}: без дефолта после двоеточия и без литерала до/после. */
     private static final Pattern SCHEMA_VALUE = Pattern.compile("\\$\\{[A-Z_][A-Z0-9_]*}");
     private static final Pattern SCHEMA_VARIABLE = Pattern.compile("\\$\\{([A-Z_][A-Z0-9_]*)}");
@@ -54,17 +55,18 @@ class ApplicationConfigSchemaTest {
     private static final List<Path> ENVIRONMENT_FILES = List.of(Path.of("src", "main", "resources", "application.properties"),
             Path.of("src", "main", "resources", "application-domains.properties"),
             Path.of("src", "main", "resources", "application-debug.properties"),
-            Path.of("src", "main", "resources", "application-prod.properties"), Path.of("docker-compose.yaml"),
-            Path.of("docker-compose.debug.yaml"), Path.of("docker", "app.env"));
+            Path.of("src", "main", "resources", "application-prod.properties"), DOCKER_COMPOSE, STACK_ENV);
 
     /** Любой ddl-auto в конфигурации среды: имя ключа и режим после {@code =}/{@code :}, кавычки опциональны. */
     private static final Pattern DDL_AUTO_ASSIGNMENT = Pattern.compile("(?i)ddl[-_]auto\\s*[=:]\\s*\"?([a-z-]+)\"?");
 
     /**
-     * Ключи {@code services.app.environment}, которых нет в схеме приложения: они переопределяют {@code ENV} образа (JVM-флаги, см. sec.md
-     * §7.8) и приложению не нужны. В {@code docker/app.env} такого быть не должно.
+     * Ключи {@code services.app.environment} и {@code scripts/docker/stack.env}, которых нет в схеме приложения. {@code JAVA_} — JVM-флаги,
+     * переопределяющие {@code ENV} образа (sec.md §7.8); {@code INFRA} — инфраструктурные переменные compose (БД и прокси), которые нужны
+     * контейнерам, но не приложению.
      */
     private static final String NON_SCHEMA_ENV_PREFIX = "JAVA_";
+    private static final Set<String> NON_SCHEMA_ENV_KEYS = Set.of("POSTGRES_USER", "POSTGRES_DB", "SHARD_DB", "SHARD_DB_USER", "PORT");
 
     @Test
     @DisplayName("application*.properties — чистая схема: только обязательные ${VAR}, без дефолтов и литералов")
@@ -80,22 +82,23 @@ class ApplicationConfigSchemaTest {
     }
 
     @Test
-    @DisplayName("Переменные схемы (оба файла) и ключи docker-compose.yaml + docker/app.env совпадают один в один")
-    void everySchemaVariableIsDeclaredInDockerComposeOrAppEnv() throws Exception {
+    @DisplayName("Переменные схемы (оба файла) и ключи infrastructure/docker-compose.yaml + scripts/docker/stack.env совпадают один в один")
+    void everySchemaVariableIsDeclaredInComposeOrStackEnv() throws Exception {
         Properties schema = loadSchema();
 
         Set<String> schemaVariables = schema.stringPropertyNames().stream().map(schema::getProperty)
                 .flatMap(value -> variables(value).stream()).collect(Collectors.toCollection(LinkedHashSet::new));
 
         Set<String> composeKeys = composeAppEnvironment();
-        Set<String> appEnvKeys = appEnvKeys();
+        Set<String> stackEnvKeys = appKeysOfStackEnv();
 
-        assertThat(composeKeys.stream().filter(appEnvKeys::contains).toList())
-                .as("одно значение может быть задано только в одном месте: docker-compose.yaml или docker/app.env").isEmpty();
+        assertThat(composeKeys.stream().filter(stackEnvKeys::contains).toList())
+                .as("одно значение может быть задано только в одном месте: scripts/docker/stack.env или services.app.environment")
+                .isEmpty();
 
         Set<String> declaredValues = new LinkedHashSet<>(composeKeys);
-        declaredValues.addAll(appEnvKeys);
-        assertThat(declaredValues).as("схема application.properties + application-domains.properties и ключи compose + app.env")
+        declaredValues.addAll(stackEnvKeys);
+        assertThat(declaredValues).as("схема application.properties + application-domains.properties и ключи compose + stack.env")
                 .containsExactlyInAnyOrderElementsOf(schemaVariables);
     }
 
@@ -107,8 +110,9 @@ class ApplicationConfigSchemaTest {
         assertThat(schema.getProperty("spring.jpa.hibernate.ddl-auto")).as("режим схемы задан в коде, а не в окружении")
                 .isEqualTo("validate");
 
-        assertThat(composeAppEnvironment()).as("переменной ddl-auto в docker-compose.yaml быть не должно").doesNotContain("JPA_DDL_AUTO");
-        assertThat(appEnvKeys()).as("переменной ddl-auto в docker/app.env быть не должно").doesNotContain("JPA_DDL_AUTO");
+        assertThat(composeAppEnvironment()).as("переменной ddl-auto в infrastructure/docker-compose.yaml быть не должно")
+                .doesNotContain("JPA_DDL_AUTO");
+        assertThat(appKeysOfStackEnv()).as("переменной ddl-auto в scripts/docker/stack.env быть не должно").doesNotContain("JPA_DDL_AUTO");
 
         for (Path file : ENVIRONMENT_FILES) {
             assertThat(Files.exists(file)).as(file.toString()).isTrue();
@@ -149,6 +153,7 @@ class ApplicationConfigSchemaTest {
         return variables;
     }
 
+    /** Ключи {@code services.app.environment} — только секреты (ссылки на переменные хоста); JVM-флаги туда не входят. */
     @SuppressWarnings("unchecked")
     private Set<String> composeAppEnvironment() throws Exception {
         assertThat(Files.exists(DOCKER_COMPOSE)).as(DOCKER_COMPOSE.toString()).isTrue();
@@ -158,20 +163,21 @@ class ApplicationConfigSchemaTest {
             Map<String, Object> app = (Map<String, Object>) services.get("app");
             Map<String, Object> environment = (Map<String, Object>) app.get("environment");
 
-            assertThat(environment).as("services.app.environment в docker-compose.yaml").isNotNull();
+            assertThat(environment).as("services.app.environment в infrastructure/docker-compose.yaml (только секреты)").isNotNull();
             return environment.keySet().stream().filter(key -> !key.startsWith(NON_SCHEMA_ENV_PREFIX))
                     .collect(Collectors.toCollection(LinkedHashSet::new));
         }
     }
 
     /**
-     * Ключи {@code docker/app.env}: только имя до первого {@code =}, комментарии и пустые строки пропускаются. Значения здесь не
-     * проверяются — их смысл зависит от ключа, а не от формы.
+     * Ключи приложения в {@code scripts/docker/stack.env}: только имя до первого {@code =}, комментарии и пустые строки пропускаются.
+     * Значения здесь не проверяются — их смысл зависит от ключа, а не от формы. JVM-флаги и инфраструктурные ключи compose из контракта
+     * исключаются.
      */
-    private Set<String> appEnvKeys() throws Exception {
-        assertThat(Files.exists(APP_ENV)).as(APP_ENV.toString()).isTrue();
+    private Set<String> appKeysOfStackEnv() throws Exception {
+        assertThat(Files.exists(STACK_ENV)).as(STACK_ENV.toString()).isTrue();
         Set<String> keys = new LinkedHashSet<>();
-        for (String line : Files.readAllLines(APP_ENV, StandardCharsets.UTF_8)) {
+        for (String line : Files.readAllLines(STACK_ENV, StandardCharsets.UTF_8)) {
             String trimmed = line.trim();
             if (trimmed.isEmpty() || trimmed.startsWith("#")) {
                 continue;
@@ -180,7 +186,8 @@ class ApplicationConfigSchemaTest {
             assertThat(separator).as("строка без = : " + line).isPositive();
             keys.add(trimmed.substring(0, separator).trim());
         }
-        assertThat(keys).as(APP_ENV.toString()).isNotEmpty();
-        return keys;
+        assertThat(keys).as(STACK_ENV.toString()).isNotEmpty();
+        return keys.stream().filter(key -> !key.startsWith(NON_SCHEMA_ENV_PREFIX)).filter(key -> !NON_SCHEMA_ENV_KEYS.contains(key))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 }

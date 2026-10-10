@@ -3,7 +3,7 @@
 #
 # Паролей в git нет: файл — шаблон, entrypoint.sh подставляет значения
 # __SHARDINGSPHERE_*__ из окружения контейнера (см. services.shardingsphere
-# в docker-compose.yaml) перед запуском start.sh.
+# в infrastructure/docker-compose.yaml) перед запуском start.sh.
 authority:
   users:
     # root@% — суперпользователь прокси (любой хост); admin: true даёт

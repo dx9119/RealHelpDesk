@@ -44,8 +44,8 @@ application-dev.properties
 *.pem
 ssl/
 
-# Локальные секреты (шаблон хранится в .env.example)
-.env
+# Локальные секреты (шаблон хранится в infrastructure/.env.example)
+infrastructure/.env
 
 # Файлы Docker (если не коммитите образы)
 # Dockerfile.local

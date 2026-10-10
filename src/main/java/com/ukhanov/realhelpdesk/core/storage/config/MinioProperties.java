@@ -7,8 +7,9 @@ import org.springframework.stereotype.Component;
  * Подключение к MinIO: адрес, учётные данные и бакет для файлов вложений заявок.
  *
  * <p>
- * Значения — только переменные окружения (см. application.properties): адрес сервиса и учётки приходят из docker-compose.yaml, имя бакета —
- * из docker/app.env. Файлы лежат в MinIO, в БД хранятся только метаданные (attachment_model).
+ * Значения — только переменные окружения (см. application.properties): адрес сервиса и имя бакета — из scripts/docker/stack.env, учётки —
+ * из infrastructure/docker-compose.yaml (секреты infrastructure/.env). Файлы лежат в MinIO, в БД хранятся только метаданные
+ * (attachment_model).
  * </p>
  */
 @Component
@@ -21,7 +22,7 @@ public class MinioProperties {
     /** Доступ (MINIO_ROOT_USER / аналогичная учётная запись с правами на бакет). */
     private String accessKey;
 
-    /** Секрет доступа, хранится в .env и подставляется через docker-compose.yaml. */
+    /** Секрет доступа, хранится в infrastructure/.env и подставляется через infrastructure/docker-compose.yaml. */
     private String secretKey;
 
     /** Бакет с файлами вложений; создаётся автоматически при первом обращении. */

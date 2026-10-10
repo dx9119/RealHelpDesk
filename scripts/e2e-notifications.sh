@@ -14,7 +14,7 @@
 # прочтение напоминания гасит всю группу; выключенный повтор напоминаний
 # не даёт (проверка ~2 минуты ожидания).
 #
-# Требования: поднятый стек (docker compose up -d), капча выключена (по
+# Требования: поднятый стек (make up), капча выключена (по
 # умолчанию), docker для запросов к postgres. Регистрирует двух
 # пользователей со временными email.
 set -u
@@ -76,7 +76,7 @@ step "Регистрация владельца A и доверенного B"
 s=$(code -c "$JAR_A" -X POST "$BASE/auth/register" -H 'Content-Type: application/json' \
   -d "{\"firstName\":\"Alpha\",\"lastName\":\"Owner\",\"email\":\"$OWNER_EMAIL\",\"password\":\"Password123!\"}")
 if [ "$s" = "429" ]; then
-  echo "  FAIL лимит регистрации исчерпан — docker compose restart app и повторите скрипт"
+  echo "  FAIL лимит регистрации исчерпан — make restart и повторите скрипт"
   exit 1
 fi
 check "$s" "201" "A зарегистрирован"
