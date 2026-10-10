@@ -88,10 +88,10 @@ class NotificationManageServiceTest {
 
         PageResponse<NotificationResponse> response = service.getNotifications(0, 10, "createdAt", "desc", true);
 
-        assertThat(response.getContent()).hasSize(1);
-        assertThat(response.getContent().get(0).getEvent()).isEqualTo(NotificationEvent.NEW_TICKET);
-        assertThat(response.getContent().get(0).getTitle()).isEqualTo("Проблема с оплатой");
-        assertThat(response.getTotalElements()).isEqualTo(1);
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).event()).isEqualTo(NotificationEvent.NEW_TICKET);
+        assertThat(response.content().get(0).title()).isEqualTo("Проблема с оплатой");
+        assertThat(response.totalElements()).isEqualTo(1);
         verify(notificationRepository, never()).findByRecipientId(eq(USER_ID), any(PageRequest.class));
     }
 
@@ -103,7 +103,7 @@ class NotificationManageServiceTest {
 
         PageResponse<NotificationResponse> response = service.getNotifications(0, 10, "createdAt", "desc", false);
 
-        assertThat(response.getContent()).isEmpty();
+        assertThat(response.content()).isEmpty();
         verify(notificationRepository, never()).findByRecipientIdAndReadFalse(eq(USER_ID), any(PageRequest.class));
     }
 
@@ -121,7 +121,7 @@ class NotificationManageServiceTest {
 
         UnreadCountResponse response = service.getUnreadCount();
 
-        assertThat(response.getCount()).isEqualTo(5L);
+        assertThat(response.count()).isEqualTo(5L);
     }
 
     // ────────────────────────────────────────────────
@@ -201,9 +201,9 @@ class NotificationManageServiceTest {
 
         NotificationPreferencesResponse response = service.getPreferences();
 
-        assertThat(response.getEvents()).containsExactlyInAnyOrderElementsOf(NotificationPublisher.SUPPORTED_EVENTS);
-        assertThat(response.isRepeatEnabled()).isTrue();
-        assertThat(response.getRepeatIntervalMinutes()).isEqualTo(UserNotificationPreferencesModel.DEFAULT_REPEAT_INTERVAL_MINUTES);
+        assertThat(response.events()).containsExactlyInAnyOrderElementsOf(NotificationPublisher.SUPPORTED_EVENTS);
+        assertThat(response.repeatEnabled()).isTrue();
+        assertThat(response.repeatIntervalMinutes()).isEqualTo(UserNotificationPreferencesModel.DEFAULT_REPEAT_INTERVAL_MINUTES);
     }
 
     @Test
@@ -216,15 +216,16 @@ class NotificationManageServiceTest {
 
         NotificationPreferencesResponse response = service.getPreferences();
 
-        assertThat(response.getEvents()).containsExactly(NotificationEvent.NEW_MESSAGE);
-        assertThat(response.isRepeatEnabled()).isFalse();
-        assertThat(response.getRepeatIntervalMinutes()).isEqualTo(5);
+        assertThat(response.events()).containsExactly(NotificationEvent.NEW_MESSAGE);
+        assertThat(response.repeatEnabled()).isFalse();
+        assertThat(response.repeatIntervalMinutes()).isEqualTo(5);
     }
 
     @Test
     @DisplayName("Настройки: событие вне каталога → 400")
     void updatePreferences_unsupportedEvent_throwsBadRequest() {
-        NotificationPreferencesRequest request = new NotificationPreferencesRequest(Set.of(NotificationEvent.RECOVERY_PASSWORD));
+        NotificationPreferencesRequest request = new NotificationPreferencesRequest(Set.of(NotificationEvent.RECOVERY_PASSWORD), null,
+                null);
 
         assertThatThrownBy(() -> service.updatePreferences(request)).isInstanceOf(NotificationException.class)
                 .hasMessageContaining("Неподдерживаемые события");
@@ -235,13 +236,13 @@ class NotificationManageServiceTest {
     @DisplayName("Настройки: без строки создаётся с дефолтами повтора, со строкой — повтор меняется")
     void updatePreferences_createsAndUpdates() throws NotificationException {
         when(preferencesRepository.findByUserId(USER_ID)).thenReturn(Optional.empty());
-        NotificationPreferencesRequest request = new NotificationPreferencesRequest(Set.of(NotificationEvent.NEW_TICKET));
+        NotificationPreferencesRequest request = new NotificationPreferencesRequest(Set.of(NotificationEvent.NEW_TICKET), null, null);
 
         NotificationPreferencesResponse created = service.updatePreferences(request);
 
-        assertThat(created.getEvents()).containsExactly(NotificationEvent.NEW_TICKET);
-        assertThat(created.isRepeatEnabled()).isTrue();
-        assertThat(created.getRepeatIntervalMinutes()).isEqualTo(UserNotificationPreferencesModel.DEFAULT_REPEAT_INTERVAL_MINUTES);
+        assertThat(created.events()).containsExactly(NotificationEvent.NEW_TICKET);
+        assertThat(created.repeatEnabled()).isTrue();
+        assertThat(created.repeatIntervalMinutes()).isEqualTo(UserNotificationPreferencesModel.DEFAULT_REPEAT_INTERVAL_MINUTES);
         ArgumentCaptor<UserNotificationPreferencesModel> captor = ArgumentCaptor.forClass(UserNotificationPreferencesModel.class);
         verify(preferencesRepository).save(captor.capture());
         assertThat(captor.getValue().getUserId()).isEqualTo(USER_ID);
@@ -254,10 +255,10 @@ class NotificationManageServiceTest {
 
         NotificationPreferencesResponse updated = service.updatePreferences(second);
 
-        assertThat(updated.getEvents()).containsExactly(NotificationEvent.CHANGE_TICKET);
+        assertThat(updated.events()).containsExactly(NotificationEvent.CHANGE_TICKET);
         assertThat(existing.getEnabledEvents()).containsExactly(NotificationEvent.CHANGE_TICKET);
-        assertThat(updated.isRepeatEnabled()).isFalse();
-        assertThat(updated.getRepeatIntervalMinutes()).isEqualTo(5);
+        assertThat(updated.repeatEnabled()).isFalse();
+        assertThat(updated.repeatIntervalMinutes()).isEqualTo(5);
         assertThat(existing.isRepeatEnabled()).isFalse();
         assertThat(existing.getRepeatIntervalMinutes()).isEqualTo(5);
     }
@@ -271,10 +272,10 @@ class NotificationManageServiceTest {
         when(preferencesRepository.findByUserId(USER_ID)).thenReturn(Optional.of(existing));
 
         NotificationPreferencesResponse response = service
-                .updatePreferences(new NotificationPreferencesRequest(Set.of(NotificationEvent.NEW_TICKET)));
+                .updatePreferences(new NotificationPreferencesRequest(Set.of(NotificationEvent.NEW_TICKET), null, null));
 
-        assertThat(response.isRepeatEnabled()).isFalse();
-        assertThat(response.getRepeatIntervalMinutes()).isEqualTo(7);
+        assertThat(response.repeatEnabled()).isFalse();
+        assertThat(response.repeatIntervalMinutes()).isEqualTo(7);
         assertThat(existing.isRepeatEnabled()).isFalse();
         assertThat(existing.getRepeatIntervalMinutes()).isEqualTo(7);
     }
@@ -297,7 +298,7 @@ class NotificationManageServiceTest {
         @SuppressWarnings("unchecked")
         ResponseEntity<PageResponse<NotificationResponse>> entity = (ResponseEntity<PageResponse<NotificationResponse>>) deferred
                 .getResult();
-        assertThat(entity.getBody().getContent()).hasSize(1);
+        assertThat(entity.getBody().content()).hasSize(1);
         // регистрация была (защита от гонки), резолв — сразу, без пробуждения
         verify(waitRegistry).register(eq(USER_ID), any(Runnable.class));
         verify(waitRegistry, never()).wake(anyLong());
@@ -323,7 +324,7 @@ class NotificationManageServiceTest {
         @SuppressWarnings("unchecked")
         ResponseEntity<PageResponse<NotificationResponse>> entity = (ResponseEntity<PageResponse<NotificationResponse>>) deferred
                 .getResult();
-        assertThat(entity.getBody().getContent()).hasSize(1);
+        assertThat(entity.getBody().content()).hasSize(1);
     }
 
     @Test

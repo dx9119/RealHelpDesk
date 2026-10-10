@@ -25,6 +25,9 @@ import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.service.TicketManageService;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.service.TicketSearchService;
 
+import lombok.RequiredArgsConstructor;
+
+@RequiredArgsConstructor
 @RestController
 @Validated
 @RequestMapping("/api/v1/tickets")
@@ -33,13 +36,6 @@ public class TicketSearchController {
     private final TicketSearchService ticketSearchService;
     private final TicketManageService ticketManageService;
     private final PaginationAdapter paginationAdapter;
-
-    public TicketSearchController(TicketSearchService ticketSearchService, TicketManageService ticketManageService,
-            PaginationAdapter paginationAdapter) {
-        this.ticketSearchService = ticketSearchService;
-        this.ticketManageService = ticketManageService;
-        this.paginationAdapter = paginationAdapter;
-    }
 
     @GetMapping
     public ResponseEntity<PageResponse<TicketResponse>> searchTickets(

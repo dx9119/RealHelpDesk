@@ -2,8 +2,6 @@ package com.ukhanov.realhelpdesk.core.security.auth.refresh.service;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.ukhanov.realhelpdesk.core.security.auth.refresh.exception.RefreshException;
@@ -21,7 +19,11 @@ import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.ValidTokenServ
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.utils.JwtClaims;
 
 import io.jsonwebtoken.JwtException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class RefreshService {
     private final DecodeTokenService decodeTokenService;
@@ -30,22 +32,11 @@ public class RefreshService {
     private final FindTokenService findTokenService;
     private final SaveTokenService saveTokenService;
 
-    private static final Logger logger = LoggerFactory.getLogger(RefreshService.class);
-
-    public RefreshService(DecodeTokenService decodeTokenService, GetTokenService getTokenService, ValidTokenService validTokenService,
-            FindTokenService findTokenService, SaveTokenService saveTokenService) {
-        this.decodeTokenService = decodeTokenService;
-        this.getTokenService = getTokenService;
-        this.validTokenService = validTokenService;
-        this.findTokenService = findTokenService;
-        this.saveTokenService = saveTokenService;
-    }
-
     public String updateAccess(HttpServletRequest request) throws TokenException, RefreshException {
         Token refreshToken = new Token(decodeTokenService.extractTokenFromCookies(request, "refreshToken"));
 
         TokenStatusResponse tokenStatus = getTokenService.getStatusRefreshTokenFromCookie(request);
-        if (tokenStatus.getTokenStatus() != TokenStatus.ACTIVE) {
+        if (tokenStatus.tokenStatus() != TokenStatus.ACTIVE) {
             throw new RefreshException("Токен обновления не активен");
         }
         try {

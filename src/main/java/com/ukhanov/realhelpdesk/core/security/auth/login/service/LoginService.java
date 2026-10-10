@@ -1,7 +1,5 @@
 package com.ukhanov.realhelpdesk.core.security.auth.login.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -16,41 +14,35 @@ import com.ukhanov.realhelpdesk.core.security.user.model.UserStatus;
 import com.ukhanov.realhelpdesk.core.security.user.service.CustomUserDetailsService;
 import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class LoginService {
-    private static final Logger logger = LoggerFactory.getLogger(LoginService.class);
 
     private final PasswordEncoder passwordEncoder;
     private final GetTokenService getTokenService;
     private final UserDomainService userDomainService;
     private final CustomUserDetailsService customUserDetailsService;
-
-    public LoginService(PasswordEncoder passwordEncoder, GetTokenService getTokenService, UserDomainService userDomainService,
-            CustomUserDetailsService customUserDetailsService) {
-        this.passwordEncoder = passwordEncoder;
-        this.getTokenService = getTokenService;
-
-        this.userDomainService = userDomainService;
-        this.customUserDetailsService = customUserDetailsService;
-    }
-
     // Проверяем, если пользователь существует и пароль правильный - отдаем токены
     // Аутентификация/Аутентификация происходит в фильтре JwtAuthFilter
     public TokensResponse processLogin(LoginRequest loginRequest) throws TokenException {
-        if (!userDomainService.isUserExistsByEmail(loginRequest.getEmail())) {
-            logger.warn("Отказ во входе: пользователь не найден, email={}", loginRequest.getEmail());
+        if (!userDomainService.isUserExistsByEmail(loginRequest.email())) {
+            logger.warn("Отказ во входе: пользователь не найден, email={}", loginRequest.email());
             throw new UsernameNotFoundException("Ошибка авторизации: неверный логин, пароль или отсутствующий пользователь");
         }
 
-        SecurityUser user = customUserDetailsService.loadUserByUsername(loginRequest.getEmail());
+        SecurityUser user = customUserDetailsService.loadUserByUsername(loginRequest.email());
 
         if (user.getOriginalUser().getUserStatus() != UserStatus.ACTIVE) {
-            logger.warn("Отказ во входе: учётная запись не активна, email={}", loginRequest.getEmail());
+            logger.warn("Отказ во входе: учётная запись не активна, email={}", loginRequest.email());
             throw new BadCredentialsException("Ошибка авторизации: неверный логин, пароль или отсутствующий пользователь");
         }
 
-        if (!isPasswordValid(loginRequest.getPassword(), user.getPassword())) {
-            logger.warn("Отказ во входе: неверный пароль, email={}", loginRequest.getEmail());
+        if (!isPasswordValid(loginRequest.password(), user.getPassword())) {
+            logger.warn("Отказ во входе: неверный пароль, email={}", loginRequest.email());
             throw new BadCredentialsException("Ошибка авторизации: неверный логин, пароль или отсутствующий пользователь");
 
         }

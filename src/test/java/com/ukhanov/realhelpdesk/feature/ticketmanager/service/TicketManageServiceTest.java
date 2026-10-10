@@ -131,8 +131,7 @@ class TicketManageServiceTest {
     @Test
     @DisplayName("createTicket → успех")
     void createTicket_success() throws Exception {
-        CreateTicketRequest request = new CreateTicketRequest();
-        request.setTitle("New Issue");
+        CreateTicketRequest request = new CreateTicketRequest("New Issue", null, null, null);
 
         PortalModel portal = defaultPortal(PORTAL_ID);
         when(mockPortalDomainService.getPortalById(PORTAL_ID)).thenReturn(portal);
@@ -142,7 +141,7 @@ class TicketManageServiceTest {
 
         CreateTicketResponse response = service.createTicket(request, PORTAL_ID);
 
-        assertThat(response.getId()).isEqualTo(TICKET_ID);
+        assertThat(response.id()).isEqualTo(TICKET_ID);
 
         verify(mockTicketDomainService).saveTicket(ticketCaptor.capture());
         assertThat(ticketCaptor.getValue().getTitle()).isEqualTo("New Issue");
@@ -244,16 +243,12 @@ class TicketManageServiceTest {
         when(mockTicketDomainService.getTicketsPageByPortalId(PORTAL_ID, pageRequest)).thenReturn(ticketPage);
 
         // Создаём маппинг вручную
-        TicketResponseOld dto = new TicketResponseOld.Builder().id(1L).title("Test Ticket").build();
+        TicketResponseOld dto = new TicketResponseOld(1L, "Test Ticket", null, null, null, null, null, null, null, null);
 
         Page<TicketResponseOld> mappedPage = ticketPage.map(t -> dto); // имитируем map
 
-        PageResponse<TicketResponseOld> expected = new PageResponse<>();
-        expected.setPage(0);
-        expected.setSize(10);
-        expected.setTotalElements(1L);
-        expected.setTotalPages(1);
-        expected.setContent(List.of(dto));
+        PageResponse<TicketResponseOld> expected = new PageResponse.Builder<TicketResponseOld>().page(0).size(10).totalElements(1L)
+                .totalPages(1).content(List.of(dto)).build();
 
         // Стабим mapToResponse с mappedPage (имитируем, что map уже прошёл)
         when(mockPaginationAdapter.<TicketResponseOld>mapToResponse(any(Page.class), eq("title"), eq("asc"))).thenReturn(expected);
@@ -261,8 +256,8 @@ class TicketManageServiceTest {
         PageResponse<TicketResponseOld> result = service.getPageTickets(PORTAL_ID, 0, 10, "title", "asc");
 
         assertThat(result).isNotNull();
-        assertThat(result.getTotalElements()).isEqualTo(1L);
-        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.totalElements()).isEqualTo(1L);
+        assertThat(result.content()).hasSize(1);
     }
 
     // ────────────────────────────────────────────────

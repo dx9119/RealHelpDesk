@@ -7,13 +7,12 @@ import org.springframework.stereotype.Service;
 import com.ukhanov.realhelpdesk.core.security.user.SecurityUser;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 
+import lombok.RequiredArgsConstructor;
+
+@RequiredArgsConstructor
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
     private final UserDomainService userDomainService;
-
-    public CustomUserDetailsService(UserDomainService userDomainService) {
-        this.userDomainService = userDomainService;
-    }
 
     @Override
     public SecurityUser loadUserByUsername(String email) throws UsernameNotFoundException {

@@ -63,9 +63,9 @@ class AttachmentMapperTest {
 
         AttachmentResponse response = mapper.toResponse(attachment, PORTAL_ID, TICKET_ID, properties);
 
-        assertThat(response.getDownloadUrl()).isEqualTo("https://cdn.example.com" + PATH);
-        assertThat(response.getTicketId()).isEqualTo(TICKET_ID);
-        assertThat(response.getMessageId()).isNull();
-        assertThat(response.getUploadedByFullName()).isEqualTo("Неизвестный автор");
+        assertThat(response.downloadUrl()).isEqualTo("https://cdn.example.com" + PATH);
+        assertThat(response.ticketId()).isEqualTo(TICKET_ID);
+        assertThat(response.messageId()).isNull();
+        assertThat(response.uploadedByFullName()).isEqualTo("Неизвестный автор");
     }
 }

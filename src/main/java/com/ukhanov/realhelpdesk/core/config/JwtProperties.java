@@ -6,6 +6,9 @@ import java.util.Set;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * Настройки JWT из конфигурации: подпись, адреса, сроки жизни и cookie. Только биндинг ключей {@code jwt.*} — валидация значений и
  * вычисление ключа подписи живут в {@link JwtConfig}, их легко тестировать, подставляя готовый экземпляр.
@@ -16,6 +19,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @ConfigurationProperties(prefix = "jwt")
+@Getter
+@Setter
 public class JwtProperties {
 
     /** Base64-секрет подписи HS256: минимум 32 байта. */
@@ -40,6 +45,8 @@ public class JwtProperties {
     private Cookie cookie = new Cookie();
 
     /** Cookie auth-токенов. */
+    @Getter
+    @Setter
     public static class Cookie {
 
         /**
@@ -54,18 +61,6 @@ public class JwtProperties {
          */
         private String domain;
 
-        public SameSite getSameSite() {
-            return sameSite;
-        }
-
-        public void setSameSite(SameSite sameSite) {
-            this.sameSite = sameSite;
-        }
-
-        public String getDomain() {
-            return domain;
-        }
-
         /** Пробелы и пустое значение нормализуются в {@code null}: пустой атрибут Domain в Set-Cookie браузер отбрасывает сам. */
         public void setDomain(String domain) {
             if (domain == null) {
@@ -75,53 +70,5 @@ public class JwtProperties {
             String trimmed = domain.trim();
             this.domain = trimmed.isEmpty() ? null : trimmed;
         }
-    }
-
-    public String getSecretForGenJwt() {
-        return secretForGenJwt;
-    }
-
-    public void setSecretForGenJwt(String secretForGenJwt) {
-        this.secretForGenJwt = secretForGenJwt;
-    }
-
-    public String getIssuer() {
-        return issuer;
-    }
-
-    public void setIssuer(String issuer) {
-        this.issuer = issuer;
-    }
-
-    public Set<String> getAudience() {
-        return audience;
-    }
-
-    public void setAudience(Set<String> audience) {
-        this.audience = audience;
-    }
-
-    public Integer getAccessTokenExpiration() {
-        return accessTokenExpiration;
-    }
-
-    public void setAccessTokenExpiration(Integer accessTokenExpiration) {
-        this.accessTokenExpiration = accessTokenExpiration;
-    }
-
-    public Integer getRefreshTokenExpiration() {
-        return refreshTokenExpiration;
-    }
-
-    public void setRefreshTokenExpiration(Integer refreshTokenExpiration) {
-        this.refreshTokenExpiration = refreshTokenExpiration;
-    }
-
-    public Cookie getCookie() {
-        return cookie;
-    }
-
-    public void setCookie(Cookie cookie) {
-        this.cookie = cookie;
     }
 }

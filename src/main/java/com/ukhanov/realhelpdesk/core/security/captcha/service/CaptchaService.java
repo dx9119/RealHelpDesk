@@ -6,8 +6,6 @@ import java.io.IOException;
 
 import javax.imageio.ImageIO;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.google.code.kaptcha.impl.DefaultKaptcha;
@@ -15,17 +13,16 @@ import com.ukhanov.realhelpdesk.core.security.captcha.dto.DtoCaptchaProperties;
 import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaException;
 import com.ukhanov.realhelpdesk.core.security.captcha.utils.CaptchaStorage;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class CaptchaService {
 
     private final DefaultKaptcha captchaProducer;
     private final DtoCaptchaProperties captchaProperties;
-    private static final Logger logger = LoggerFactory.getLogger(CaptchaService.class);
-
-    public CaptchaService(DefaultKaptcha captchaProducer, DtoCaptchaProperties captchaProperties) {
-        this.captchaProducer = captchaProducer;
-        this.captchaProperties = captchaProperties;
-    }
 
     public String generateCaptchaText(String capId) {
         String captchaText = captchaProducer.createText();

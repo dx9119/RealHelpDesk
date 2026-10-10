@@ -14,15 +14,14 @@ import org.springframework.web.bind.annotation.RestController;
 import com.ukhanov.realhelpdesk.core.security.captcha.service.CaptchaService;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.annotation.RateLimit;
 
+import lombok.RequiredArgsConstructor;
+
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/v1/captcha")
 public class CaptchaController {
 
     private final CaptchaService captchaService;
-
-    public CaptchaController(CaptchaService captchaService) {
-        this.captchaService = captchaService;
-    }
 
     @GetMapping
     @RateLimit(key = "captcha")

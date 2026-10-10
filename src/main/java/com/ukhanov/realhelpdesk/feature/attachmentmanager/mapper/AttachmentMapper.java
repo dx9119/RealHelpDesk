@@ -2,12 +2,10 @@ package com.ukhanov.realhelpdesk.feature.attachmentmanager.mapper;
 
 import java.util.Objects;
 
-import org.mapstruct.AfterMapping;
 import org.mapstruct.BeanMapping;
 import org.mapstruct.Context;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
 import org.mapstruct.Named;
 import org.mapstruct.ReportingPolicy;
 
@@ -39,7 +37,7 @@ public interface AttachmentMapper {
     @Mapping(target = "ticketId", source = "ticketId")
     @Mapping(target = "messageId", source = "attachment.message.id")
     @Mapping(target = "uploadedByFullName", source = "attachment.uploadedBy", qualifiedByName = "authorFullName")
-    @Mapping(target = "downloadUrl", ignore = true)
+    @Mapping(target = "downloadUrl", expression = "java(downloadUrl(staticProperties, portalId, ticketId, attachment.getId()))")
     AttachmentResponse toResponse(AttachmentModel attachment, Long portalId, Long ticketId, @Context StaticProperties staticProperties);
 
     /** «Фамилия Имя» загружающего; если автор не проставлен — так и пишем, чтобы ответ не уходил с пустым полем. */
@@ -57,13 +55,6 @@ public interface AttachmentMapper {
         String path = "/api/v1/portals/" + portalId + "/tickets/" + ticketId + "/attachments/" + attachmentId;
         String baseUrl = staticProperties.getBaseUrl();
         return baseUrl != null ? baseUrl + path : path;
-    }
-
-    /** Отдельно от {@link #toResponse}: {@code downloadUrl} собирается из настройки, которой нет ни в entity, ни в пути запроса. */
-    @AfterMapping
-    default void fillDownloadUrl(@MappingTarget AttachmentResponse response, AttachmentModel attachment, Long portalId, Long ticketId,
-            @Context StaticProperties staticProperties) {
-        response.setDownloadUrl(downloadUrl(staticProperties, portalId, ticketId, attachment.getId()));
     }
 
 }

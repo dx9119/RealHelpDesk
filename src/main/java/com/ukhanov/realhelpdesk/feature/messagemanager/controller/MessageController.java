@@ -24,15 +24,14 @@ import com.ukhanov.realhelpdesk.feature.messagemanager.service.MessageManageServ
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 
+import lombok.RequiredArgsConstructor;
+
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/v1/portals/{portalId}/tickets/{ticketId}/messages")
 public class MessageController {
 
     private final MessageManageService messageManageService;
-
-    public MessageController(MessageManageService messageManageService) {
-        this.messageManageService = messageManageService;
-    }
 
     @PostMapping
     @PreAuthorize("@ticketAccessValidationService.hasTicketAccess(#portalId, #ticketId)")
@@ -40,7 +39,7 @@ public class MessageController {
             @PathVariable Long portalId, @PathVariable Long ticketId)
             throws MessageException, MessagingException, TicketException, UnsupportedEncodingException {
         CreateMessageResponse response = messageManageService.createMessage(request, ticketId, portalId);
-        return ResponseEntity.created(URI.create("/api/v1/portals/" + portalId + "/tickets/" + ticketId + "/messages/" + response.getId()))
+        return ResponseEntity.created(URI.create("/api/v1/portals/" + portalId + "/tickets/" + ticketId + "/messages/" + response.id()))
                 .body(response);
     }
 

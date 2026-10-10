@@ -30,6 +30,9 @@
         <greenmail.version>2.1.0</greenmail.version>
         <minio.version>8.5.17</minio.version>
         <mapstruct.version>1.6.3</mapstruct.version>
+        <!-- lombok-mapstruct-binding: без него Lombok 1.18.16+ «заглушает» MapStruct,
+             и генерация XxxMapperImpl перестаёт видеть геттеры/сеттеры DTO. -->
+        <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
     </properties>
 
     <dependencies>
@@ -136,6 +139,14 @@
             <version>${mapstruct.version}</version>
         </dependency>
 
+        <!-- Lombok: геттеры/сеттеры/конструкторы/логгеры генерируются на этапе компиляции.
+             provided — в рантайм-класспейт не попадает; версию задаёт spring-boot-starter-parent. -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
         <!-- TEST DEPENDENCIES -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -196,13 +207,27 @@
                 <configuration>
                     <source>${java.version}</source>
                     <target>${java.version}</target>
-                    <!-- Аннотационные процессоры только здесь: mapstruct-processor
-                         генерирует XxxMapperImpl из интерфейсов @Mapper. -->
+                    <!-- Аннотационные процессоры только здесь (порядок важен):
+                         mapstruct-processor генерирует XxxMapperImpl из интерфейсов @Mapper;
+                         lombok генерирует геттеры/сеттеры/конструкторы/логгеры;
+                         lombok-mapstruct-binding «примиряет» их: без него Lombok 1.18.16+
+                         обрабатывает класс раньше MapStruct, и маппер не видит сгенерированные
+                         аксессоры DTO. -->
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.mapstruct</groupId>
                             <artifactId>mapstruct-processor</artifactId>
                             <version>${mapstruct.version}</version>
+                        </path>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok-mapstruct-binding</artifactId>
+                            <version>${lombok-mapstruct-binding.version}</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>

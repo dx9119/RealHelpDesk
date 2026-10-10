@@ -89,8 +89,7 @@ class MessageManageServiceTest {
     @DisplayName("createMessage → создаёт сообщение, меняет статус тикета и отправляет уведомление")
     void createMessage_successFlow() throws Exception {
         // given
-        CreateMessageRequest request = new CreateMessageRequest();
-        request.setMessageText(MESSAGE_TEXT);
+        CreateMessageRequest request = new CreateMessageRequest(MESSAGE_TEXT);
 
         UserModel currentUser = createUser(USER_EMAIL);
         when(mockCurrentUserProvider.getCurrentUserModel()).thenReturn(currentUser);
@@ -109,7 +108,7 @@ class MessageManageServiceTest {
         CreateMessageResponse response = service.createMessage(request, TICKET_ID, PORTAL_ID);
 
         // then
-        assertThat(response.getId()).isEqualTo(777L);
+        assertThat(response.id()).isEqualTo(777L);
 
         // Проверяем изменение статуса тикета
         verify(mockTicketDomainService).saveTicket(ticketCaptor.capture());
@@ -137,8 +136,7 @@ class MessageManageServiceTest {
     @Test
     @DisplayName("createMessage → тикет не найден → TicketException")
     void createMessage_ticketNotFound_throwsTicketException() throws TicketException {
-        CreateMessageRequest request = new CreateMessageRequest();
-        request.setMessageText(MESSAGE_TEXT);
+        CreateMessageRequest request = new CreateMessageRequest(MESSAGE_TEXT);
 
         when(mockCurrentUserProvider.getCurrentUserModel()).thenReturn(createUser(USER_EMAIL));
         when(mockTicketDomainService.findTicketById(TICKET_ID)).thenThrow(new TicketException("Тикет не найден"));
@@ -160,20 +158,15 @@ class MessageManageServiceTest {
 
         when(mockMessageDomainService.getMessagesByTicketId(TICKET_ID)).thenReturn(List.of(msg1, msg2));
 
-        MessageResponse resp1 = new MessageResponse();
-        resp1.setId(1L);
-        resp1.setMessageText("Сообщение 1");
-
-        MessageResponse resp2 = new MessageResponse();
-        resp2.setId(2L);
-        resp2.setMessageText("Сообщение 2");
+        MessageResponse resp1 = new MessageResponse(1L, "Сообщение 1", null, null, null);
+        MessageResponse resp2 = new MessageResponse(2L, "Сообщение 2", null, null, null);
 
         when(mockMessageMapper.toResponse(msg1)).thenReturn(resp1);
         when(mockMessageMapper.toResponse(msg2)).thenReturn(resp2);
 
         List<MessageResponse> result = service.getAllMessage(TICKET_ID);
 
-        assertThat(result).hasSize(2).extracting(MessageResponse::getMessageText).containsExactly("Сообщение 1", "Сообщение 2");
+        assertThat(result).hasSize(2).extracting(MessageResponse::messageText).containsExactly("Сообщение 1", "Сообщение 2");
     }
 
     @Test

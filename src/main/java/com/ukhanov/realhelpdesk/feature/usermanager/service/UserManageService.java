@@ -7,8 +7,6 @@ import java.util.Objects;
 import jakarta.mail.MessagingException;
 import jakarta.transaction.Transactional;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -29,10 +27,14 @@ import com.ukhanov.realhelpdesk.feature.usermanager.dto.UserInfoRequest;
 import com.ukhanov.realhelpdesk.feature.usermanager.dto.UserInfoResponse;
 import com.ukhanov.realhelpdesk.feature.usermanager.mapper.UserMapper;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class UserManageService {
 
-    private static final Logger logger = LoggerFactory.getLogger(UserManageService.class);
     private static final SecureRandom RANDOM = new SecureRandom();
 
     private final CurrentUserProvider currentUserProvider;
@@ -43,19 +45,6 @@ public class UserManageService {
     private final SaveTokenService saveTokenService;
     private final EmailTemplates emailTemplates;
     private final UserMapper userMapper;
-
-    public UserManageService(CurrentUserProvider currentUserProvider, UserDomainService userDomainService,
-            EmailDeliveryService emailDeliveryService, PasswordEncoder passwordEncoder, GetTokenService getTokenService,
-            SaveTokenService saveTokenService, EmailTemplates emailTemplates, UserMapper userMapper) {
-        this.currentUserProvider = currentUserProvider;
-        this.userDomainService = userDomainService;
-        this.emailDeliveryService = emailDeliveryService;
-        this.passwordEncoder = passwordEncoder;
-        this.getTokenService = getTokenService;
-        this.saveTokenService = saveTokenService;
-        this.emailTemplates = emailTemplates;
-        this.userMapper = userMapper;
-    }
 
     public UserInfoResponse getUserInfo() {
         UserModel user = currentUserProvider.getCurrentUserModel();
@@ -68,10 +57,10 @@ public class UserManageService {
 
         UserModel currentUser = currentUserProvider.getCurrentUserModel();
 
-        currentUser.setFirstName(request.getFirstName());
-        currentUser.setLastName(request.getLastName());
-        currentUser.setMiddleName(request.getMiddleName());
-        currentUser.setAdditionalInfo(request.getAdditionalInfo());
+        currentUser.setFirstName(request.firstName());
+        currentUser.setLastName(request.lastName());
+        currentUser.setMiddleName(request.middleName());
+        currentUser.setAdditionalInfo(request.additionalInfo());
 
         UserModel updatedUser = userDomainService.saveUser(currentUser);
         logger.info("Профиль пользователя {} обновлён", updatedUser.getId());
@@ -82,9 +71,9 @@ public class UserManageService {
     public void sendResetLink(RecoveryRequest request) throws MessagingException, UnsupportedEncodingException {
         Objects.requireNonNull(request, "RecoveryRequest не должен быть null");
 
-        logger.debug("Запрошено восстановление пароля, email={}", request.getEmail());
+        logger.debug("Запрошено восстановление пароля, email={}", request.email());
 
-        UserModel user = userDomainService.getUserByEmail(request.getEmail());
+        UserModel user = userDomainService.getUserByEmail(request.email());
 
         Long recoverPasswdToken = RANDOM.nextLong();
         user.setRecoveryPasswdToken(recoverPasswdToken);
@@ -103,7 +92,7 @@ public class UserManageService {
 
         UserModel user = userDomainService.getUserByRecoveryPasswdToken(code);
 
-        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setRecoveryPasswdToken(RANDOM.nextLong());
         // Отзываем access-токены, выданные до смены пароля
         user.incrementTokenVersion();

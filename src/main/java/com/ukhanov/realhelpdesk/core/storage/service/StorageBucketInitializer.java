@@ -1,10 +1,11 @@
 package com.ukhanov.realhelpdesk.core.storage.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Готовит бакет к работе при старте приложения.
@@ -14,16 +15,12 @@ import org.springframework.stereotype.Component;
  * сообщения). Незавершённая подготовка повторится при первой загрузке — см. {@link MinioStorageService#ensureBucket()}.
  * </p>
  */
+@Slf4j
+@RequiredArgsConstructor
 @Component
 public class StorageBucketInitializer implements ApplicationRunner {
 
-    private static final Logger logger = LoggerFactory.getLogger(StorageBucketInitializer.class);
-
     private final MinioStorageService storageService;
-
-    public StorageBucketInitializer(MinioStorageService storageService) {
-        this.storageService = storageService;
-    }
 
     @Override
     public void run(ApplicationArguments args) {

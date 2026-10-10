@@ -9,8 +9,6 @@ import java.util.Set;
 
 import jakarta.transaction.Transactional;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -39,6 +37,9 @@ import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalTransferRequest;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.PortalTransferResponse;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * Передача владения порталом: владелец инициирует запрос (своим паролем и причиной), предлагаемый владелец подтверждает или отклоняет
  * запрос своим паролем, владелец может отозвать запрос до решения. Запрос действует ограниченный срок и закрывается лениво как EXPIRED при
@@ -49,13 +50,13 @@ import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
  * считаются — их сбой логируется и не откатывает передачу.
  * </p>
  */
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class PortalOwnerTransferService {
 
     /** Срок действия запроса на передачу: после него запрос лениво закрывается как EXPIRED. */
     private static final Duration TRANSFER_REQUEST_TTL = Duration.ofHours(72);
-
-    private static final Logger logger = LoggerFactory.getLogger(PortalOwnerTransferService.class);
 
     private final CurrentUserProvider currentUserProvider;
     private final PortalDomainService portalDomainService;
@@ -67,23 +68,6 @@ public class PortalOwnerTransferService {
     private final EmailDeliveryService emailDeliveryService;
     private final EmailTemplates emailTemplates;
     private final NotificationPublisher notificationPublisher;
-
-    public PortalOwnerTransferService(CurrentUserProvider currentUserProvider, PortalDomainService portalDomainService,
-            PortalTransferRequestRepository transferRequestRepository, PortalHistoryService portalHistoryService,
-            UserDomainService userDomainService, LoginService loginService, LimitService limitService,
-            EmailDeliveryService emailDeliveryService, EmailTemplates emailTemplates, NotificationPublisher notificationPublisher) {
-        this.currentUserProvider = currentUserProvider;
-        this.portalDomainService = portalDomainService;
-        this.transferRequestRepository = transferRequestRepository;
-        this.portalHistoryService = portalHistoryService;
-        this.userDomainService = userDomainService;
-        this.loginService = loginService;
-        this.limitService = limitService;
-        this.emailDeliveryService = emailDeliveryService;
-        this.emailTemplates = emailTemplates;
-        this.notificationPublisher = notificationPublisher;
-    }
-
     /** Инициирование передачи владельцем: пароль владельца подтверждает личность, активный запрос может быть только один. */
     @Transactional
     public PortalTransferResponse initiate(Long portalId, PortalTransferRequest request) throws PortalException {
@@ -93,11 +77,11 @@ public class PortalOwnerTransferService {
         UserModel initiator = currentUserProvider.getCurrentUserModel();
         requireOwner(portal, initiator);
 
-        if (!loginService.isPasswordValid(request.getPassword(), initiator.getPasswordHash())) {
+        if (!loginService.isPasswordValid(request.password(), initiator.getPasswordHash())) {
             throw new PortalException("Неверный пароль", HttpStatus.UNAUTHORIZED);
         }
 
-        UserModel proposed = findActiveUserByEmail(request.getEmail());
+        UserModel proposed = findActiveUserByEmail(request.email());
 
         if (proposed.getId().equals(initiator.getId())) {
             throw new PortalException("Нельзя передать портал самому себе");
@@ -114,14 +98,14 @@ public class PortalOwnerTransferService {
         transfer.setPortalId(portalId);
         transfer.setInitiatorId(initiator.getId());
         transfer.setProposedOwnerId(proposed.getId());
-        transfer.setReasonInitiator(request.getReason());
-        transfer.setKeepOldOwner(Boolean.TRUE.equals(request.getKeepOldOwnerAsMember()));
+        transfer.setReasonInitiator(request.reason());
+        transfer.setKeepOldOwner(Boolean.TRUE.equals(request.keepOldOwnerAsMember()));
         transfer.setStatus(PortalTransferStatus.PENDING);
         transfer.setExpiresAt(Instant.now().plus(TRANSFER_REQUEST_TTL));
         transferRequestRepository.save(transfer);
 
-        portalHistoryService.record(portalId, PortalHistoryEvent.TRANSFER_REQUESTED, initiator.getId(), proposed.getId(),
-                request.getReason(), null, null, null);
+        portalHistoryService.record(portalId, PortalHistoryEvent.TRANSFER_REQUESTED, initiator.getId(), proposed.getId(), request.reason(),
+                null, null, null);
 
         logger.info("Инициирована передача портала {} с пользователя {} на пользователя {}", portalId, initiator.getId(), proposed.getId());
         notifyTransferRequested(portal, transfer, initiator, proposed);
@@ -137,7 +121,7 @@ public class PortalOwnerTransferService {
         PortalModel portal = portalDomainService.getPortalById(portalId);
         PortalTransferRequestModel transfer = requirePendingForCurrentUser(portalId);
 
-        if (!loginService.isPasswordValid(request.getPassword(), currentUserProvider.getCurrentUserModel().getPasswordHash())) {
+        if (!loginService.isPasswordValid(request.password(), currentUserProvider.getCurrentUserModel().getPasswordHash())) {
             throw new PortalException("Неверный пароль", HttpStatus.UNAUTHORIZED);
         }
 
@@ -163,11 +147,11 @@ public class PortalOwnerTransferService {
         portalDomainService.savePortal(portal);
 
         transfer.setStatus(PortalTransferStatus.ACCEPTED);
-        transfer.setReasonProposed(request.getReason());
+        transfer.setReasonProposed(request.reason());
         transfer.setDecidedAt(Instant.now());
         transferRequestRepository.save(transfer);
 
-        portalHistoryService.record(portalId, PortalHistoryEvent.TRANSFER_ACCEPTED, proposed.getId(), oldOwner.getId(), request.getReason(),
+        portalHistoryService.record(portalId, PortalHistoryEvent.TRANSFER_ACCEPTED, proposed.getId(), oldOwner.getId(), request.reason(),
                 null, null, null);
 
         logger.info("Портал {} передан: владелец {} → {}", portalId, oldOwner.getId(), proposed.getId());
@@ -187,12 +171,12 @@ public class PortalOwnerTransferService {
         UserModel initiator = safeUser(transfer.getInitiatorId());
 
         transfer.setStatus(PortalTransferStatus.REJECTED);
-        transfer.setReasonProposed(request.getReason());
+        transfer.setReasonProposed(request.reason());
         transfer.setDecidedAt(Instant.now());
         transferRequestRepository.save(transfer);
 
-        portalHistoryService.record(portalId, PortalHistoryEvent.TRANSFER_REJECTED, proposed.getId(), initiator.getId(),
-                request.getReason(), null, null, null);
+        portalHistoryService.record(portalId, PortalHistoryEvent.TRANSFER_REJECTED, proposed.getId(), initiator.getId(), request.reason(),
+                null, null, null);
 
         logger.info("Передача портала {} отклонена пользователем {}", portalId, proposed.getId());
         notifyTransferRejected(portal, transfer, initiator, proposed);
@@ -415,20 +399,10 @@ public class PortalOwnerTransferService {
     private PortalTransferResponse toResponse(PortalTransferRequestModel transfer, PortalModel portal, UserModel initiator,
             UserModel proposed) {
         UserModel proposedUser = proposed != null ? proposed : safeUser(transfer.getProposedOwnerId());
-        PortalTransferResponse response = new PortalTransferResponse();
-        response.setId(transfer.getId());
-        response.setPortalId(portal.getId());
-        response.setPortalName(portal.getName());
-        response.setInitiatorName(initiator != null ? displayName(initiator) : null);
-        response.setProposedOwnerEmail(proposedUser != null ? proposedUser.getEmail() : null);
-        response.setReasonInitiator(transfer.getReasonInitiator());
-        response.setReasonProposed(transfer.getReasonProposed());
-        response.setKeepOldOwnerAsMember(transfer.isKeepOldOwner());
-        response.setStatus(transfer.getStatus().name());
-        response.setCreatedAt(transfer.getCreatedAt());
-        response.setExpiresAt(transfer.getExpiresAt());
-        response.setDecidedAt(transfer.getDecidedAt());
-        return response;
+        return new PortalTransferResponse(transfer.getId(), portal.getId(), portal.getName(),
+                initiator != null ? displayName(initiator) : null, proposedUser != null ? proposedUser.getEmail() : null,
+                transfer.getReasonInitiator(), transfer.getReasonProposed(), transfer.isKeepOldOwner(), transfer.getStatus().name(),
+                transfer.getCreatedAt(), transfer.getExpiresAt(), transfer.getDecidedAt());
     }
 
     private UserModel safeUser(Long userId) {

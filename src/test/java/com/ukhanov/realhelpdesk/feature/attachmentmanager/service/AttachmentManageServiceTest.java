@@ -122,21 +122,21 @@ class AttachmentManageServiceTest {
 
         AttachmentResponse response = service.uploadAttachment(file, "Вот отчёт", PORTAL_ID, TICKET_ID);
 
-        assertThat(response.getId()).isEqualTo(ATTACHMENT_ID);
-        assertThat(response.getMessageId()).isEqualTo(MESSAGE_ID);
-        assertThat(response.getTicketId()).isEqualTo(TICKET_ID);
-        assertThat(response.getFileName()).isEqualTo("report.pdf");
-        assertThat(response.getContentType()).isEqualTo("application/pdf");
-        assertThat(response.getSizeBytes()).isEqualTo((long) CONTENT.length);
-        assertThat(response.getUploadedByFullName()).isEqualTo("Иванов Иван");
-        assertThat(response.getDownloadUrl()).isEqualTo("/api/v1/portals/5/tickets/77/attachments/15");
-        assertThat(response.getCreatedAt()).isNotNull();
+        assertThat(response.id()).isEqualTo(ATTACHMENT_ID);
+        assertThat(response.messageId()).isEqualTo(MESSAGE_ID);
+        assertThat(response.ticketId()).isEqualTo(TICKET_ID);
+        assertThat(response.fileName()).isEqualTo("report.pdf");
+        assertThat(response.contentType()).isEqualTo("application/pdf");
+        assertThat(response.sizeBytes()).isEqualTo((long) CONTENT.length);
+        assertThat(response.uploadedByFullName()).isEqualTo("Иванов Иван");
+        assertThat(response.downloadUrl()).isEqualTo("/api/v1/portals/5/tickets/77/attachments/15");
+        assertThat(response.createdAt()).isNotNull();
 
         verify(mockStorageService).upload(keyCaptor.capture(), any(InputStream.class), eq((long) CONTENT.length), eq("application/pdf"));
         assertThat(keyCaptor.getValue()).startsWith("tickets/77/").endsWith(".pdf");
 
         verify(mockMessageManageService).createMessage(requestCaptor.capture(), eq(TICKET_ID), eq(PORTAL_ID));
-        assertThat(requestCaptor.getValue().getMessageText()).isEqualTo("Вот отчёт");
+        assertThat(requestCaptor.getValue().messageText()).isEqualTo("Вот отчёт");
     }
 
     @Test
@@ -153,7 +153,7 @@ class AttachmentManageServiceTest {
         service.uploadAttachment(file, "   ", PORTAL_ID, TICKET_ID);
 
         verify(mockMessageManageService).createMessage(requestCaptor.capture(), eq(TICKET_ID), eq(PORTAL_ID));
-        assertThat(requestCaptor.getValue().getMessageText()).isEqualTo("Файл: report.pdf");
+        assertThat(requestCaptor.getValue().messageText()).isEqualTo("Файл: report.pdf");
     }
 
     @Test
@@ -173,8 +173,8 @@ class AttachmentManageServiceTest {
 
         AttachmentResponse response = service.uploadAttachment(file, null, PORTAL_ID, TICKET_ID);
 
-        assertThat(response.getFileName()).isEqualTo("report.PDF");
-        assertThat(response.getContentType()).isEqualTo("application/octet-stream");
+        assertThat(response.fileName()).isEqualTo("report.PDF");
+        assertThat(response.contentType()).isEqualTo("application/octet-stream");
         verify(mockStorageService).upload(keyCaptor.capture(), any(InputStream.class), anyLong(), eq("application/octet-stream"));
         assertThat(keyCaptor.getValue()).endsWith(".pdf");
     }
@@ -246,9 +246,9 @@ class AttachmentManageServiceTest {
 
         assertThat(responses).hasSize(1);
         AttachmentResponse response = responses.getFirst();
-        assertThat(response.getFileName()).isEqualTo("report.pdf");
-        assertThat(response.getMessageId()).isEqualTo(MESSAGE_ID);
-        assertThat(response.getDownloadUrl()).isEqualTo("/api/v1/portals/5/tickets/77/attachments/15");
+        assertThat(response.fileName()).isEqualTo("report.pdf");
+        assertThat(response.messageId()).isEqualTo(MESSAGE_ID);
+        assertThat(response.downloadUrl()).isEqualTo("/api/v1/portals/5/tickets/77/attachments/15");
     }
 
     @Test

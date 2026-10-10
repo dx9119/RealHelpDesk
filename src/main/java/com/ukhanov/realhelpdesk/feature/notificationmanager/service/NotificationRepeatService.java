@@ -8,8 +8,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -21,6 +19,9 @@ import com.ukhanov.realhelpdesk.domain.notification.model.UserNotificationPrefer
 import com.ukhanov.realhelpdesk.domain.notification.repository.NotificationRepository;
 import com.ukhanov.realhelpdesk.domain.notification.repository.UserNotificationPreferencesRepository;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * Повторы непрочитанных оповещений о новых заявках и сообщениях ({@link NotificationPublisher#REPEATABLE_EVENTS}): каждые
  * {@link UserNotificationPreferencesModel#getRepeatIntervalMinutes()} минут получателю создаётся новая строка-напоминание с той же группой,
@@ -31,6 +32,8 @@ import com.ukhanov.realhelpdesk.domain.notification.repository.UserNotificationP
  * Пробуждение ожидающих long polling — после коммита, как у публикации.
  * </p>
  */
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class NotificationRepeatService {
 
@@ -39,18 +42,9 @@ public class NotificationRepeatService {
 
     private static final long SCAN_PERIOD_MS = 60_000L;
 
-    private static final Logger logger = LoggerFactory.getLogger(NotificationRepeatService.class);
-
     private final NotificationRepository notificationRepository;
     private final UserNotificationPreferencesRepository preferencesRepository;
     private final NotificationPublisher notificationPublisher;
-
-    public NotificationRepeatService(NotificationRepository notificationRepository,
-            UserNotificationPreferencesRepository preferencesRepository, NotificationPublisher notificationPublisher) {
-        this.notificationRepository = notificationRepository;
-        this.preferencesRepository = preferencesRepository;
-        this.notificationPublisher = notificationPublisher;
-    }
 
     @Scheduled(fixedDelay = SCAN_PERIOD_MS, initialDelay = SCAN_PERIOD_MS)
     @Transactional

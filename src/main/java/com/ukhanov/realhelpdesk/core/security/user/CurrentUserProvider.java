@@ -2,8 +2,6 @@ package com.ukhanov.realhelpdesk.core.security.user;
 
 import java.util.Objects;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -11,18 +9,16 @@ import org.springframework.stereotype.Component;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 // Провайдер текущего пользователя
+@Slf4j
+@RequiredArgsConstructor
 @Component
 public class CurrentUserProvider {
 
-    private static final Logger logger = LoggerFactory.getLogger(CurrentUserProvider.class);
-
     private final UserDomainService userDomainService;
-
-    public CurrentUserProvider(UserDomainService userDomainService) {
-        this.userDomainService = userDomainService;
-    }
-
     // Получить ID текущего пользователя
     public Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

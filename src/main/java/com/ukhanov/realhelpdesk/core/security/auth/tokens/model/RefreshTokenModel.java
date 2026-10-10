@@ -19,8 +19,14 @@ import jakarta.persistence.Transient;
 
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.Setter;
+
 @Entity
 @Table(name = "jwt_tokens")
+@Getter
+@Setter
 public class RefreshTokenModel implements TokenBearer {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -40,7 +46,9 @@ public class RefreshTokenModel implements TokenBearer {
     @JoinColumn(name = "user_id", nullable = false)
     private UserModel user; // Пользователь, которому принадлежит токен
 
+    // createdAt выставляет только @PrePersist: сеттера снаружи нет (см. CreatedAtPrePersistTest)
     @Column(nullable = false, updatable = false)
+    @Setter(AccessLevel.NONE)
     private Instant createdAt;
 
     @PrePersist
@@ -55,43 +63,7 @@ public class RefreshTokenModel implements TokenBearer {
         return tokenRefresh;
     }
 
-    public UUID getUuid() {
-        return uuid;
-    }
     public void setToken(String tokenRefresh) {
         this.tokenRefresh = tokenRefresh;
     }
-
-    public String getRawToken() {
-        return rawToken;
-    }
-
-    public void setRawToken(String rawToken) {
-        this.rawToken = rawToken;
-    }
-
-    public void setUuid(UUID uuid) {
-        this.uuid = uuid;
-    }
-
-    public UserModel getUser() {
-        return user;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setUser(UserModel user) {
-        this.user = user;
-    }
-
-    public TokenStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(TokenStatus status) {
-        this.status = status;
-    }
-
 }

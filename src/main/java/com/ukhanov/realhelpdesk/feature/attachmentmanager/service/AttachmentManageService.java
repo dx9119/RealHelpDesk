@@ -10,8 +10,6 @@ import java.util.UUID;
 
 import jakarta.mail.MessagingException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -37,6 +35,8 @@ import com.ukhanov.realhelpdesk.feature.messagemanager.exception.MessageExceptio
 import com.ukhanov.realhelpdesk.feature.messagemanager.service.MessageManageService;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * Вложения заявок: файл живёт в MinIO, в БД — метаданные и ключ объекта.
  *
@@ -53,10 +53,9 @@ import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
  * запросом к БД (404, а не 403, чтобы не подтверждать существование чужих файлов).
  * </p>
  */
+@Slf4j
 @Service
 public class AttachmentManageService {
-
-    private static final Logger logger = LoggerFactory.getLogger(AttachmentManageService.class);
 
     private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
     private static final String DEFAULT_FILE_NAME = "file";
@@ -113,10 +112,9 @@ public class AttachmentManageService {
         }
 
         try {
-            CreateMessageRequest request = new CreateMessageRequest();
-            request.setMessageText(resolveMessageText(messageText, fileName));
+            CreateMessageRequest request = new CreateMessageRequest(resolveMessageText(messageText, fileName));
             CreateMessageResponse createdMessage = messageManageService.createMessage(request, ticketId, portalId);
-            MessageModel message = messageDomainService.getMessageById(createdMessage.getId());
+            MessageModel message = messageDomainService.getMessageById(createdMessage.id());
 
             AttachmentModel attachment = attachmentDomainService.saveAttachment(attachmentMapper.toEntity(message,
                     currentUserProvider.getCurrentUserModel(), fileName, storageKey, contentType, sizeBytes));

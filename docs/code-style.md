@@ -75,16 +75,17 @@ import static ...;               // static — всегда в конце
 | Тест-методы | `method_condition_outcome` (через `_`) | `getTicketById_nullId_throwsNPE` |
 | Поля/переменные/параметры | `camelCase` | `currentUserProvider` |
 | Константы | `UPPER_SNAKE_CASE` | `SORTABLE_TICKET_FIELDS` |
-| Логгер | строчный `logger` (исключение в Checkstyle) | `private static final Logger logger` |
+| Логгер | строчный `logger` из `@Slf4j` (`lombok.log.fieldName=logger`) | `logger.debug("...")` |
 
 Суффиксы ролей: `*Service`, `*Controller`, `*Repository`, `*Mapper`, `*ExceptionHandler`, `*Config`, `*Request`, `*Response`, `*Exception`, `*Model` (JPA entity).
 
 ## Spring / Java-конвенции
 
-- **Java 21**, `jakarta.*` (не `javax.*`), Lombok не используется.
+- **Java 21**, `jakarta.*` (не `javax.*`); **Lombok** — `@Slf4j`, `@Getter`/`@Setter`, `@RequiredArgsConstructor`, `@Builder` не используется, `@Data` запрещён.
+- **JPA entity** — только `@Getter @Setter` (без `@Data`: equals/hashCode/toString не должны трогать lazy-связи).
 - **Constructor injection** — только через конструктор с `private final`-полями, `@Autowired` запрещён.
 - Утилитарные классы (только static-методы): `final class` + приватный конструктор.
-- DTO — обычные классы с геттерами/сеттерами (без Lombok); `record` — для immutable value-объектов.
+- DTO — `record` (и `PageResponse.Builder` для сборки страницы), без Lombok.
 - `@Transactional` — только на методах, кроме `readOnly`-поисковых сервисов.
 - Аннотации — с отдельной строки, порядок: stereotype → mapping/транзакция.
 

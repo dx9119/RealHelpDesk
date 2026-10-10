@@ -5,8 +5,6 @@ import java.util.Date;
 import java.util.Optional;
 import java.util.Set;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.ukhanov.realhelpdesk.core.config.JwtConfig;
@@ -15,19 +13,16 @@ import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenBearer;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.utils.JwtClaims;
 
 import io.jsonwebtoken.Claims;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class ValidTokenService {
 
-    private static final Logger logger = LoggerFactory.getLogger(ValidTokenService.class);
-
     private final JwtConfig jwtConfig;
     private final DecodeTokenService decodeTokenService;
-
-    public ValidTokenService(JwtConfig jwtConfig, DecodeTokenService getTokenService1) {
-        this.jwtConfig = jwtConfig;
-        this.decodeTokenService = getTokenService1;
-    }
 
     public void lowLevelVerifyToken(TokenBearer token, String expectedType) throws TokenException {
         Claims claims = decodeTokenService.decodeJwtClaims(token);

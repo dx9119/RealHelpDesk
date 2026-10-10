@@ -47,8 +47,7 @@ class GetTokenServiceTest {
         user.setId(7L);
         user.setEmail(EMAIL);
 
-        TokenBearerResponse access = new TokenBearerResponse();
-        access.setToken("access-token");
+        TokenBearerResponse access = new TokenBearerResponse("access-token");
         when(genTokenService.generateAccessJwtToken(any(SecurityUser.class))).thenReturn(access);
 
         RefreshTokenModel newToken = new RefreshTokenModel();
@@ -70,7 +69,7 @@ class GetTokenServiceTest {
 
         assertThat(previousSession.getStatus()).isEqualTo(TokenStatus.REVOKED);
         assertThat(staleToken.getStatus()).isEqualTo(TokenStatus.REVOKED);
-        assertThat(response.getRefreshToken()).isEqualTo(NEW_REFRESH);
+        assertThat(response.refreshToken()).isEqualTo(NEW_REFRESH);
         verify(saveTokenService, times(3)).saveRefreshToken(any(RefreshTokenModel.class));
     }
 

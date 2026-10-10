@@ -2,6 +2,9 @@ package com.ukhanov.realhelpdesk.core.exception;
 
 import org.springframework.http.HttpStatus;
 
+import lombok.Getter;
+
+@Getter
 public class ApiException extends Exception {
 
     private final HttpStatus status;
@@ -14,9 +17,5 @@ public class ApiException extends Exception {
     public ApiException(String message, HttpStatus status, Throwable cause) {
         super(message, cause);
         this.status = status;
-    }
-
-    public HttpStatus getStatus() {
-        return status;
     }
 }

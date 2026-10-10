@@ -5,8 +5,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
@@ -28,16 +26,19 @@ import com.ukhanov.realhelpdesk.feature.notificationmanager.dto.UnreadCountRespo
 import com.ukhanov.realhelpdesk.feature.notificationmanager.exception.NotificationException;
 import com.ukhanov.realhelpdesk.feature.notificationmanager.mapper.NotificationMapper;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * Чтение in-app оповещений: список, счётчик непрочитанных, отметка о прочтении, настройки событий и long polling. Публикация —
  * {@link NotificationPublisher}; ожидающих будит он же через {@link NotificationWaitRegistry}.
  */
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class NotificationManageService {
 
     private static final Set<String> SORTABLE_NOTIFICATION_FIELDS = Set.of("createdAt");
-
-    private static final Logger logger = LoggerFactory.getLogger(NotificationManageService.class);
 
     private final NotificationRepository notificationRepository;
     private final UserNotificationPreferencesRepository preferencesRepository;
@@ -45,17 +46,6 @@ public class NotificationManageService {
     private final PaginationAdapter paginationAdapter;
     private final NotificationWaitRegistry waitRegistry;
     private final NotificationMapper notificationMapper;
-
-    public NotificationManageService(NotificationRepository notificationRepository,
-            UserNotificationPreferencesRepository preferencesRepository, CurrentUserProvider currentUserProvider,
-            PaginationAdapter paginationAdapter, NotificationWaitRegistry waitRegistry, NotificationMapper notificationMapper) {
-        this.notificationRepository = notificationRepository;
-        this.preferencesRepository = preferencesRepository;
-        this.currentUserProvider = currentUserProvider;
-        this.paginationAdapter = paginationAdapter;
-        this.waitRegistry = waitRegistry;
-        this.notificationMapper = notificationMapper;
-    }
 
     public PageResponse<NotificationResponse> getNotifications(int page, int size, String sortBy, String order, boolean unreadOnly) {
         Long userId = currentUserProvider.getCurrentUserId();
@@ -88,7 +78,7 @@ public class NotificationManageService {
                 return;
             }
             PageResponse<NotificationResponse> fresh = fetchAfter(userId, afterId, size);
-            if (!fresh.getContent().isEmpty()) {
+            if (!fresh.content().isEmpty()) {
                 deferred.setResult(ResponseEntity.ok(fresh));
             }
         };
@@ -138,7 +128,7 @@ public class NotificationManageService {
         Objects.requireNonNull(request, "request не должен быть null");
         Long userId = currentUserProvider.getCurrentUserId();
 
-        Set<NotificationEvent> events = request.getEvents();
+        Set<NotificationEvent> events = request.events();
         if (!NotificationPublisher.SUPPORTED_EVENTS.containsAll(events)) {
             throw NotificationException.badRequest("Неподдерживаемые события оповещений: " + unsupported(events));
         }
@@ -162,15 +152,15 @@ public class NotificationManageService {
 
     // null в запросе — не менять: у существующей строки берётся её значение, у новой — дефолт
     private boolean repeatEnabled(NotificationPreferencesRequest request, UserNotificationPreferencesModel preferences) {
-        if (request.getRepeatEnabled() != null) {
-            return request.getRepeatEnabled();
+        if (request.repeatEnabled() != null) {
+            return request.repeatEnabled();
         }
         return preferences != null ? preferences.isRepeatEnabled() : UserNotificationPreferencesModel.DEFAULT_REPEAT_ENABLED;
     }
 
     private int repeatIntervalMinutes(NotificationPreferencesRequest request, UserNotificationPreferencesModel preferences) {
-        if (request.getRepeatIntervalMinutes() != null) {
-            return request.getRepeatIntervalMinutes();
+        if (request.repeatIntervalMinutes() != null) {
+            return request.repeatIntervalMinutes();
         }
         return preferences != null
                 ? preferences.getRepeatIntervalMinutes()

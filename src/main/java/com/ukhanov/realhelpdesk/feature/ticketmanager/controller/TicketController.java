@@ -33,22 +33,21 @@ import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketStatusRequest;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.service.TicketManageService;
 
+import lombok.RequiredArgsConstructor;
+
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/v1/portals")
 public class TicketController {
 
     private final TicketManageService ticketManageService;
 
-    public TicketController(TicketManageService ticketManageService) {
-        this.ticketManageService = ticketManageService;
-    }
-
     @PostMapping("/{portalId}/tickets")
     @PreAuthorize("@accessValidationService.hasPortalAccess(#portalId)")
     public ResponseEntity<CreateTicketResponse> createTicketForPortal(@Valid @RequestBody CreateTicketRequest request,
             @PathVariable Long portalId) throws TicketException, PortalException, MessagingException, UnsupportedEncodingException {
         CreateTicketResponse response = ticketManageService.createTicket(request, portalId);
-        return ResponseEntity.created(URI.create("/api/v1/portals/" + portalId + "/tickets/" + response.getId())).body(response);
+        return ResponseEntity.created(URI.create("/api/v1/portals/" + portalId + "/tickets/" + response.id())).body(response);
     }
 
     @GetMapping("/{portalId}/tickets")
@@ -77,7 +76,7 @@ public class TicketController {
         if (status != null) {
             return ticketManageService.getIdTicketWithStatus(portalId, status);
         }
-        return ticketManageService.getAllTickets(portalId).stream().map(TicketResponseOld::getId).collect(Collectors.toSet());
+        return ticketManageService.getAllTickets(portalId).stream().map(TicketResponseOld::id).collect(Collectors.toSet());
     }
 
     @PreAuthorize("@ticketAccessValidationService.hasTicketAccess(#portalId, #ticketId)")
@@ -91,7 +90,7 @@ public class TicketController {
     public ResponseEntity<Void> setTicketStatus(@PathVariable Long portalId, @PathVariable Long ticketId,
             @Valid @RequestBody TicketStatusRequest request)
             throws TicketException, PortalException, MessagingException, UnsupportedEncodingException {
-        ticketManageService.setTicketStatus(portalId, ticketId, request.getStatus());
+        ticketManageService.setTicketStatus(portalId, ticketId, request.status());
         return ResponseEntity.noContent().build();
     }
 
@@ -100,7 +99,7 @@ public class TicketController {
     public ResponseEntity<Void> setTicketPriority(@PathVariable Long portalId, @PathVariable Long ticketId,
             @Valid @RequestBody TicketPriorityRequest request)
             throws TicketException, PortalException, MessagingException, UnsupportedEncodingException {
-        ticketManageService.setTicketPriority(portalId, ticketId, request.getPriority());
+        ticketManageService.setTicketPriority(portalId, ticketId, request.priority());
         return ResponseEntity.noContent().build();
     }
 

@@ -8,8 +8,6 @@ import java.util.Set;
 
 import jakarta.mail.MessagingException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -38,9 +36,13 @@ import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponseOld;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.mapper.TicketMapper;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class TicketManageService {
-    private static final Logger logger = LoggerFactory.getLogger(TicketManageService.class);
 
     private static final Set<String> SORTABLE_TICKET_FIELDS = Set.of("createdAt", "title", "ticketStatus", "ticketPriority");
 
@@ -50,27 +52,10 @@ public class TicketManageService {
     private final PaginationAdapter paginationAdapter;
     private final EmailDeliveryService emailDeliveryService;
     private final TicketAccessValidationService ticketAccessValidationService;
+    private final TicketRepository ticketRepository;
     private final EmailTemplates emailTemplates;
     private final NotificationPublisher notificationPublisher;
     private final TicketMapper ticketMapper;
-
-    private final TicketRepository ticketRepository;
-
-    public TicketManageService(TicketDomainService ticketDomainService, CurrentUserProvider currentUserProvider,
-            PortalDomainService portalDomainService, PaginationAdapter paginationAdapter, EmailDeliveryService emailDeliveryService,
-            TicketAccessValidationService ticketAccessValidationService, TicketRepository ticketRepository, EmailTemplates emailTemplates,
-            NotificationPublisher notificationPublisher, TicketMapper ticketMapper) {
-        this.ticketDomainService = ticketDomainService;
-        this.currentUserProvider = currentUserProvider;
-        this.portalDomainService = portalDomainService;
-        this.paginationAdapter = paginationAdapter;
-        this.emailDeliveryService = emailDeliveryService;
-        this.ticketAccessValidationService = ticketAccessValidationService;
-        this.ticketRepository = ticketRepository;
-        this.emailTemplates = emailTemplates;
-        this.notificationPublisher = notificationPublisher;
-        this.ticketMapper = ticketMapper;
-    }
 
     public TicketResponseOld getTicketById(Long ticketId) throws TicketException {
         Objects.requireNonNull(ticketId, "ticketId не должен быть null");

@@ -6,11 +6,16 @@ import java.util.Map;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * Пороги рейт-лимитов из конфига: ключи аннотации {@code @RateLimit(key = ...)} и лимит писем восстановления пароля.
  */
 @Component
 @ConfigurationProperties(prefix = "ratelimit")
+@Getter
+@Setter
 public class RateLimitProperties {
 
     /** Брат IP клиента из X-Forwarded-For (включать только за прокси). */
@@ -43,21 +48,5 @@ public class RateLimitProperties {
             throw new IllegalStateException("Rate limit не задан в конфиге: ratelimit.limits." + key);
         }
         return limit;
-    }
-
-    public boolean isTrustProxyHeaders() {
-        return trustProxyHeaders;
-    }
-
-    public void setTrustProxyHeaders(boolean trustProxyHeaders) {
-        this.trustProxyHeaders = trustProxyHeaders;
-    }
-
-    public Map<String, Limit> getLimits() {
-        return limits;
-    }
-
-    public void setLimits(Map<String, Limit> limits) {
-        this.limits = limits;
     }
 }

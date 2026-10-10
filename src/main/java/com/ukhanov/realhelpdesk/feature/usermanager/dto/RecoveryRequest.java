@@ -6,23 +6,6 @@ import jakarta.validation.constraints.NotNull;
 
 import com.ukhanov.realhelpdesk.core.annotation.NoHtml;
 
-public class RecoveryRequest {
-
-    @NotNull
-    @NoHtml
-    @NotBlank(message = "Поле Email обязательно для заполнения")
-    @Email(message = "Некорректный формат Email")
-    private String email;
-
-    public RecoveryRequest(String email) {
-        this.email = email;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
+public record RecoveryRequest(@NotNull @NoHtml @NotBlank(message = "Поле Email обязательно для заполнения")
+                               @Email(message = "Некорректный формат Email") String email) {
 }

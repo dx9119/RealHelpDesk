@@ -7,8 +7,6 @@ import java.util.UUID;
 
 import javax.crypto.SecretKey;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.ukhanov.realhelpdesk.core.config.JwtConfig;
@@ -20,16 +18,15 @@ import com.ukhanov.realhelpdesk.core.security.auth.tokens.utils.TokenHasher;
 import com.ukhanov.realhelpdesk.core.security.user.SecurityUser;
 
 import io.jsonwebtoken.Jwts;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class GenTokenService {
-    private static final Logger logger = LoggerFactory.getLogger(GenTokenService.class);
 
     private final JwtConfig jwtConfig;
-
-    public GenTokenService(JwtConfig jwtConfig) {
-        this.jwtConfig = jwtConfig;
-    }
 
     public TokenBearerResponse generateAccessJwtToken(SecurityUser securityUser) {
         Objects.requireNonNull(securityUser, "SecurityUser не может быть null!");
@@ -46,9 +43,7 @@ public class GenTokenService {
                 .claim(JwtClaims.ROLE, securityUser.getRule()).claim("aud", jwtConfig.getAudience()) // вместо audience().add
                 .signWith((SecretKey) jwtConfig.getJwtKey()).compact();
 
-        TokenBearerResponse accessTokenModel = new TokenBearerResponse();
-        accessTokenModel.setToken(token);
-        return accessTokenModel;
+        return new TokenBearerResponse(token);
     }
 
     public RefreshTokenModel generateRefreshJwtToken(SecurityUser securityUser) {

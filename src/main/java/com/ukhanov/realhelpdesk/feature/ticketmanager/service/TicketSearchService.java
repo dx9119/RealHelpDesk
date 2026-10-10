@@ -5,8 +5,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -23,22 +21,18 @@ import com.ukhanov.realhelpdesk.domain.ticket.repository.TicketRepository;
 import com.ukhanov.realhelpdesk.domain.ticket.repository.TicketSpecification;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponse;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@RequiredArgsConstructor
 @Service
 @Transactional(readOnly = true)
 public class TicketSearchService {
 
-    private static final Logger logger = LoggerFactory.getLogger(TicketSearchService.class);
-
     private final TicketRepository ticketRepository;
     private final PortalRepository portalRepository;
     private final CurrentUserProvider currentUserProvider;
-
-    public TicketSearchService(TicketRepository ticketRepository, PortalRepository portalRepository,
-            CurrentUserProvider currentUserProvider) {
-        this.ticketRepository = ticketRepository;
-        this.portalRepository = portalRepository;
-        this.currentUserProvider = currentUserProvider;
-    }
 
     public Page<TicketResponse> searchTickets(String search, Instant startDate, Instant endDate, TicketStatus ticketStatus,
             TicketPriority ticketPriority, boolean isMyTickets, Pageable pageable) {

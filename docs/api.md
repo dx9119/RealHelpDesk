@@ -53,7 +53,7 @@
 | `GET /info` | — | Краткая информация по доступным порталам |
 | `GET /{portalId}` | — | Информация о портале |
 | `PUT /{portalId}` | `{ name, description }` | Переименование/описание |
-| `GET /shared/{portalId}` | — | Настройки: участники + `isPublic` |
+| `GET /shared/{portalId}` | — | Настройки: участники + `public` |
 | `PUT /shared/{portalId}/users` | `{ userIds: [...] }` | Замена списка участников |
 | `GET /shared/{portalId}/visibility` | — | Текущая публичность |
 | `PUT /shared/{portalId}/visibility` | `{ isPublic }` | Смена публичности |
@@ -61,7 +61,7 @@
 
 `PortalModel`-контракт: `PortalResponse` (`id, name, description, createdAt`),
 `PortalInfoResponse` (`id, name, description`), `PortalSettingsResponse`
-(`users: [{id, firstName, lastName, middleName, email}], isPublic`).
+(`users: [{id, firstName, lastName, middleName, email}], public`).
 
 ## Передача владения и история (`/portals/{id}/...`)
 

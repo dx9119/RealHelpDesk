@@ -3,8 +3,6 @@ package com.ukhanov.realhelpdesk.core.security.auth.logout.service;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.ukhanov.realhelpdesk.core.security.auth.logout.exception.LogoutException;
@@ -15,20 +13,17 @@ import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class LogoutService {
-    private static final Logger logger = LoggerFactory.getLogger(LogoutService.class);
 
     private final CurrentUserProvider currentUserProvider;
     private final ChangeTokenService changeTokenService;
     private final UserDomainService userDomainService;
-
-    public LogoutService(CurrentUserProvider currentUserProvider, ChangeTokenService changeTokenService,
-            UserDomainService userDomainService) {
-        this.currentUserProvider = currentUserProvider;
-        this.changeTokenService = changeTokenService;
-        this.userDomainService = userDomainService;
-    }
 
     @Transactional
     public void processLogout(HttpServletRequest request) throws LogoutException, TokenException {

@@ -5,8 +5,6 @@ import java.util.Objects;
 
 import jakarta.transaction.Transactional;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -15,10 +13,11 @@ import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import com.ukhanov.realhelpdesk.domain.portal.repository.PortalRepository;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 public class PortalDomainService {
-
-    private static final Logger logger = LoggerFactory.getLogger(PortalDomainService.class);
 
     private final PortalRepository portalRepository;
 

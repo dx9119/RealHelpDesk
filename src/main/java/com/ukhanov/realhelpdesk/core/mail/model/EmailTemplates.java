@@ -8,16 +8,14 @@ import com.ukhanov.realhelpdesk.core.mail.config.EmailProperties;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 
+import lombok.RequiredArgsConstructor;
+
+@RequiredArgsConstructor
 @Component
 public class EmailTemplates {
 
     private final MessageSource messageSource;
     private final EmailProperties emailProperties;
-
-    public EmailTemplates(MessageSource messageSource, EmailProperties emailProperties) {
-        this.messageSource = messageSource;
-        this.emailProperties = emailProperties;
-    }
 
     public String registrationLinkSubject() {
         return text("email.registration.link.subject");

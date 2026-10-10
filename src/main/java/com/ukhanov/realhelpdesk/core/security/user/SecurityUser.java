@@ -13,12 +13,11 @@ import org.springframework.security.core.userdetails.UserDetails;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.RefreshTokenModel;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserStatus;
+
+import lombok.RequiredArgsConstructor;
+@RequiredArgsConstructor
 public class SecurityUser implements UserDetails {
     private final UserModel user;
-
-    public SecurityUser(UserModel user) {
-        this.user = user;
-    }
 
     public UserModel getOriginalUser() {
         return this.user;

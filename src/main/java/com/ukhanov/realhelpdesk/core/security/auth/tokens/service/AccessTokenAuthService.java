@@ -2,8 +2,6 @@ package com.ukhanov.realhelpdesk.core.security.auth.tokens.service;
 
 import java.util.Objects;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
@@ -13,19 +11,17 @@ import com.ukhanov.realhelpdesk.core.security.user.model.UserStatus;
 import com.ukhanov.realhelpdesk.core.security.user.repository.UserRepository;
 
 import io.jsonwebtoken.Claims;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 // Проверка access-токена против состояния пользователя в БД:
 // статус аккаунта и версия токена (отзыв после логаута/смены пароля)
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class AccessTokenAuthService {
 
-    private static final Logger logger = LoggerFactory.getLogger(AccessTokenAuthService.class);
-
     private final UserRepository userRepository;
-
-    public AccessTokenAuthService(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
 
     public UserModel loadVerifiedUser(Claims claims) throws TokenException {
         Objects.requireNonNull(claims, "Claims не могут быть null");

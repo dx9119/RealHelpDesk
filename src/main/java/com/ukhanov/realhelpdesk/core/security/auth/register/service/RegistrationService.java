@@ -5,8 +5,6 @@ import java.util.Objects;
 
 import jakarta.mail.MessagingException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -24,9 +22,13 @@ import com.ukhanov.realhelpdesk.core.security.captcha.service.CaptchaService;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class RegistrationService {
-    private static final Logger logger = LoggerFactory.getLogger(RegistrationService.class);
 
     private final PasswordEncoder passwordEncoder;
     private final UserDomainService userDomainService;
@@ -36,35 +38,23 @@ public class RegistrationService {
     private final EmailTemplates emailTemplates;
     private final AuthMapper authMapper;
 
-    public RegistrationService(PasswordEncoder passwordEncoder, UserDomainService userDomainService, GetTokenService getTokenService,
-            EmailDeliveryService emailDeliveryService, CaptchaService captchaService, EmailTemplates emailTemplates,
-            AuthMapper authMapper) {
-        this.passwordEncoder = passwordEncoder;
-        this.userDomainService = userDomainService;
-        this.getTokenService = getTokenService;
-        this.emailDeliveryService = emailDeliveryService;
-        this.captchaService = captchaService;
-        this.emailTemplates = emailTemplates;
-        this.authMapper = authMapper;
-    }
-
     public UserModel addUser(RegisterRequest registerRequest)
             throws RegistrationException, MessagingException, EmailAccessDeniedException, UnsupportedEncodingException {
         Objects.requireNonNull(registerRequest, "getTokensRequest cannot be null");
-        logger.debug("Начало регистрации, email={}", registerRequest.getEmail());
+        logger.debug("Начало регистрации, email={}", registerRequest.email());
 
         // Проверяем наличие прошлой регистрации
-        if (userDomainService.isUserExistsByEmail(registerRequest.getEmail())) {
+        if (userDomainService.isUserExistsByEmail(registerRequest.email())) {
             throw new RegistrationException("Почта уже используется.", new Throwable("Пользователь может занимать только один аккаунт."));
         }
 
         // Проверяем длину пароля(перестраховка)
-        if (registerRequest.getPassword().length() < 8) {
+        if (registerRequest.password().length() < 8) {
             throw new RegistrationException("Минимальная длина пароля - 8 символов.", new Throwable("Слишком короткий пароль."));
         }
 
         // создаем пользователя
-        UserModel newUser = authMapper.toEntity(registerRequest, passwordEncoder.encode(registerRequest.getPassword()));
+        UserModel newUser = authMapper.toEntity(registerRequest, passwordEncoder.encode(registerRequest.password()));
 
         // Сохраняем пользователя
         newUser = userDomainService.saveUser(newUser);
@@ -83,7 +73,7 @@ public class RegistrationService {
     public TokensResponse processRegistration(RegisterRequest registerRequest, String capId)
             throws RegistrationException, MessagingException, EmailAccessDeniedException, CaptchaException, UnsupportedEncodingException {
 
-        captchaService.captVerificationResult(capId, registerRequest.getCapCode());
+        captchaService.captVerificationResult(capId, registerRequest.capCode());
         UserModel user = addUser(registerRequest);
 
         return getTokenService.getNewTokens(user);

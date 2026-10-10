@@ -9,8 +9,6 @@ import java.util.Set;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -27,10 +25,13 @@ import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class EmailDeliveryService {
-
-    private static final Logger logger = LoggerFactory.getLogger(EmailDeliveryService.class);
 
     private final JavaMailSender mailSender;
     private final UserDomainService userDomainService;
@@ -40,19 +41,6 @@ public class EmailDeliveryService {
     private final EmailLogService emailLogService;
     private final RateLimitProperties rateLimitProperties;
     private final EmailTemplates emailTemplates;
-
-    public EmailDeliveryService(JavaMailSender mailSender, UserDomainService userDomainService, EmailProperties emailProperties,
-            EmailPolicyService emailPolicyService, CurrentUserProvider currentUserProvider, EmailLogService emailLogService,
-            RateLimitProperties rateLimitProperties, EmailTemplates emailTemplates) {
-        this.mailSender = mailSender;
-        this.userDomainService = userDomainService;
-        this.emailProperties = emailProperties;
-        this.emailPolicyService = emailPolicyService;
-        this.currentUserProvider = currentUserProvider;
-        this.emailLogService = emailLogService;
-        this.rateLimitProperties = rateLimitProperties;
-        this.emailTemplates = emailTemplates;
-    }
 
     public void sendEmail(String recipient, String subject, String text, NotificationEvent sourceEvent)
             throws MessagingException, EmailAccessDeniedException, UnsupportedEncodingException {

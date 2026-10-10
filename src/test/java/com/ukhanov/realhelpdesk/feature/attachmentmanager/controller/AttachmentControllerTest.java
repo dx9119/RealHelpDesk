@@ -85,8 +85,7 @@ class AttachmentControllerTest {
     @Test
     @DisplayName("Location повторяет downloadUrl: при заданном static.base-url — абсолютный origin раздачи")
     void uploadAttachment_locationFollowsDownloadUrl() throws Exception {
-        AttachmentResponse response = attachmentResponse();
-        response.setDownloadUrl("https://cdn.example.com/api/v1/portals/5/tickets/77/attachments/15");
+        AttachmentResponse response = attachmentResponse("https://cdn.example.com/api/v1/portals/5/tickets/77/attachments/15");
         when(mockAttachmentManageService.uploadAttachment(any(MockMultipartFile.class), eq("Вот отчёт"), eq(PORTAL_ID), eq(TICKET_ID)))
                 .thenReturn(response);
 
@@ -253,16 +252,11 @@ class AttachmentControllerTest {
     }
 
     private AttachmentResponse attachmentResponse() {
-        AttachmentResponse response = new AttachmentResponse();
-        response.setId(ATTACHMENT_ID);
-        response.setMessageId(900L);
-        response.setTicketId(TICKET_ID);
-        response.setFileName("report.pdf");
-        response.setContentType(MediaType.APPLICATION_PDF_VALUE);
-        response.setSizeBytes((long) FILE_CONTENT.length);
-        response.setUploadedByFullName("Иванов Иван");
-        response.setCreatedAt(Instant.now());
-        response.setDownloadUrl("/api/v1/portals/5/tickets/77/attachments/15");
-        return response;
+        return attachmentResponse("/api/v1/portals/5/tickets/77/attachments/15");
+    }
+
+    private AttachmentResponse attachmentResponse(String downloadUrl) {
+        return new AttachmentResponse(ATTACHMENT_ID, 900L, TICKET_ID, "report.pdf", MediaType.APPLICATION_PDF_VALUE,
+                (long) FILE_CONTENT.length, "Иванов Иван", Instant.now(), downloadUrl);
     }
 }

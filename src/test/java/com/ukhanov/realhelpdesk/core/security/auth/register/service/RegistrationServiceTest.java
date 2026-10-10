@@ -106,7 +106,7 @@ class RegistrationServiceTest {
     void addUser_shortPassword_throwsWithoutEmails() {
         when(userDomainService.isUserExistsByEmail(EMAIL)).thenReturn(false);
 
-        assertThatThrownBy(() -> service.addUser(new RegisterRequest("Имя", "Фамилия", EMAIL, "short")))
+        assertThatThrownBy(() -> service.addUser(new RegisterRequest("Имя", "Фамилия", null, EMAIL, "short", null, null)))
                 .isInstanceOf(RegistrationException.class).hasMessageContaining("Минимальная длина пароля");
 
         verifyNoInteractions(emailDeliveryService, passwordEncoder, getTokenService);
@@ -129,6 +129,6 @@ class RegistrationServiceTest {
     }
 
     private RegisterRequest request() {
-        return new RegisterRequest("Имя", "Фамилия", EMAIL, PASSWORD);
+        return new RegisterRequest("Имя", "Фамилия", null, EMAIL, PASSWORD, null, null);
     }
 }

@@ -11,8 +11,13 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+import lombok.Getter;
+import lombok.Setter;
+
 @Entity
 @Table(name = "unsubscribed_emails")
+@Getter
+@Setter
 public class UnsubscribedEmail {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -37,36 +42,8 @@ public class UnsubscribedEmail {
         this.inStopListAt = Instant.now();
     }
 
-    public String getEmail() {
-        return email;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public Instant getInStopListAt() {
-        return inStopListAt;
-    }
-
-    public NotificationEvent getMuteEvent() {
-        return muteEvent;
-    }
-
-    public void setMuteEvent(NotificationEvent muteEvent) {
-        this.muteEvent = muteEvent;
-    }
-
-    public void setInStopListAt(Instant inStopListAt) {
-        this.inStopListAt = inStopListAt;
-    }
-
+    /** Сбрасывает время выхода из стоп-листа на текущее; Lombok-сеттер с Instant здесь конфликтует по имени — оставлен только он. */
     public void setInStopListAt() {
         this.inStopListAt = Instant.now();
     }
-
 }

@@ -81,8 +81,8 @@ class UserManageServiceTest {
 
         UserInfoResponse response = service.getUserInfo();
 
-        assertThat(response.getFirstName()).isEqualTo("firstName");
-        assertThat(response.getEmail()).isEqualTo("email@example.com");
+        assertThat(response.firstName()).isEqualTo("firstName");
+        assertThat(response.email()).isEqualTo("email@example.com");
         assertThat(response).usingRecursiveComparison().isEqualTo(userMapper.toResponse(user));
 
         verifyNoInteractions(emailDeliveryService, passwordEncoder, getTokenService, saveTokenService);
@@ -106,8 +106,8 @@ class UserManageServiceTest {
 
         UserInfoResponse response = service.updateUserInfo(request);
 
-        assertThat(response.getFirstName()).isEqualTo("NewFirst");
-        assertThat(response.getLastName()).isEqualTo("NewLast");
+        assertThat(response.firstName()).isEqualTo("NewFirst");
+        assertThat(response.lastName()).isEqualTo("NewLast");
 
         verify(userDomainService).saveUser(argThat(u -> "NewFirst".equals(u.getFirstName()) && "NewLast".equals(u.getLastName())
                 && "NewMiddle".equals(u.getMiddleName()) && "NewInfo".equals(u.getAdditionalInfo())));

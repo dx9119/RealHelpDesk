@@ -3,6 +3,9 @@ package com.ukhanov.realhelpdesk.core.security.captcha.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import lombok.Getter;
+import lombok.Setter;
+
 /**
  * Настройка капчи из конфигурации: включена она или выключена ({@code CAPTCHA_ENABLED}).
  *
@@ -12,16 +15,10 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @ConfigurationProperties(prefix = "captcha")
+@Getter
+@Setter
 public class CaptchaProperties {
 
     /** Капча включена (true) или выключена (false). */
     private Boolean enabled;
-
-    public Boolean getEnabled() {
-        return enabled;
-    }
-
-    public void setEnabled(Boolean enabled) {
-        this.enabled = enabled;
-    }
 }

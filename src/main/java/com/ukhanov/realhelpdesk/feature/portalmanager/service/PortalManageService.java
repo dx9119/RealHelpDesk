@@ -15,8 +15,6 @@ import jakarta.mail.MessagingException;
 import jakarta.persistence.OptimisticLockException;
 import jakarta.transaction.Transactional;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -54,10 +52,13 @@ import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.portalmanager.mapper.PortalMapper;
 import com.ukhanov.realhelpdesk.feature.usermanager.exception.UserManageException;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class PortalManageService {
-
-    private static final Logger logger = LoggerFactory.getLogger(PortalManageService.class);
 
     private static final Set<String> SORTABLE_PORTAL_FIELDS = Set.of("createdAt", "name");
 
@@ -73,25 +74,6 @@ public class PortalManageService {
     private final NotificationPublisher notificationPublisher;
     private final PortalHistoryService portalHistoryService;
     private final PortalMapper portalMapper;
-
-    public PortalManageService(CurrentUserProvider currentUserProvider, PortalDomainService portalDomainService,
-            PaginationAdapter paginationAdapter, PortalUtilsService portalUtilsService, AccessValidationService accessValidationService,
-            LimitService limitService, UserDomainService userDomainService, EmailDeliveryService emailDeliveryService,
-            EmailTemplates emailTemplates, NotificationPublisher notificationPublisher, PortalHistoryService portalHistoryService,
-            PortalMapper portalMapper) {
-        this.currentUserProvider = currentUserProvider;
-        this.portalDomainService = portalDomainService;
-        this.paginationAdapter = paginationAdapter;
-        this.portalUtilsService = portalUtilsService;
-        this.accessValidationService = accessValidationService;
-        this.limitService = limitService;
-        this.userDomainService = userDomainService;
-        this.emailDeliveryService = emailDeliveryService;
-        this.emailTemplates = emailTemplates;
-        this.notificationPublisher = notificationPublisher;
-        this.portalHistoryService = portalHistoryService;
-        this.portalMapper = portalMapper;
-    }
 
     public CreatePortalResponse createPortal(CreatePortalRequest request)
             throws PortalException, LimitException, UserManageException, MessagingException, UnsupportedEncodingException {
@@ -220,21 +202,12 @@ public class PortalManageService {
         for (Long userId : portalUserIds) {
             try {
                 UserDetailsProjection user = userDomainService.getUserDetailsById(userId);
-                UserInfo userInfo = new UserInfo();
-                userInfo.setId(user.getId());
-                userInfo.setFirstName(user.getFirstName());
-                userInfo.setLastName(user.getLastName());
-                userInfo.setMiddleName(user.getMiddleName());
-                userInfo.setEmail(user.getEmail());
+                UserInfo userInfo = new UserInfo(user.getId(), user.getFirstName(), user.getLastName(), user.getMiddleName(),
+                        user.getEmail());
 
                 userInfoList.add(userInfo);
             } catch (UsernameNotFoundException e) {
-                UserInfo userInfo = new UserInfo();
-                userInfo.setId(userId);
-                userInfo.setFirstName("Пользователь не существует");
-                userInfo.setLastName("-");
-                userInfo.setMiddleName("-");
-                userInfo.setEmail("none@none.none");
+                UserInfo userInfo = new UserInfo(userId, "Пользователь не существует", "-", "-", "none@none.none");
                 userInfoList.add(userInfo);
             }
         }
@@ -254,20 +227,9 @@ public class PortalManageService {
     }
 
     private PortalHistoryResponse toHistoryResponse(PortalHistoryModel entry) {
-        PortalHistoryResponse response = new PortalHistoryResponse();
-        response.setId(entry.getId());
-        response.setPortalId(entry.getPortalId());
-        response.setEvent(entry.getEvent().name());
-        response.setActorId(entry.getActorId());
-        response.setActorName(resolveUserName(entry.getActorId()));
-        response.setTargetUserId(entry.getTargetUserId());
-        response.setTargetName(resolveUserName(entry.getTargetUserId()));
-        response.setReason(entry.getReason());
-        response.setFieldName(entry.getFieldName());
-        response.setOldValue(entry.getOldValue());
-        response.setNewValue(entry.getNewValue());
-        response.setCreatedAt(entry.getCreatedAt());
-        return response;
+        return new PortalHistoryResponse(entry.getId(), entry.getPortalId(), entry.getEvent().name(), entry.getActorId(),
+                resolveUserName(entry.getActorId()), entry.getTargetUserId(), resolveUserName(entry.getTargetUserId()), entry.getReason(),
+                entry.getFieldName(), entry.getOldValue(), entry.getNewValue(), entry.getCreatedAt());
     }
 
     /** Имя участника для истории: удалённый пользователь не должен ломать выдачу (точка входа — getPortalSettings). */
@@ -360,20 +322,20 @@ public class PortalManageService {
             String oldName = portal.getName();
             String oldDescription = portal.getDescription();
 
-            portal.setName(request.getName());
-            portal.setDescription(request.getDescription());
+            portal.setName(request.name());
+            portal.setDescription(request.description());
 
             portalDomainService.savePortal(portal);
             logger.info("Портал {} обновлён: имя — {}, описание — {}", portal.getId(), portal.getName(), portal.getDescription());
 
             Long actorId = currentUserProvider.getCurrentUserId();
-            if (!Objects.equals(oldName, request.getName())) {
+            if (!Objects.equals(oldName, request.name())) {
                 portalHistoryService.record(portalId, PortalHistoryEvent.NAME_CHANGED, actorId, null, null, "name", oldName,
-                        request.getName());
+                        request.name());
             }
-            if (!Objects.equals(oldDescription, request.getDescription())) {
+            if (!Objects.equals(oldDescription, request.description())) {
                 portalHistoryService.record(portalId, PortalHistoryEvent.DESCRIPTION_CHANGED, actorId, null, null, "description",
-                        oldDescription, request.getDescription());
+                        oldDescription, request.description());
             }
 
             return new PortalInfoResponse(portal.getId(), portal.getName(), portal.getDescription());

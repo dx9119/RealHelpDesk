@@ -12,14 +12,13 @@ import com.ukhanov.realhelpdesk.core.mail.model.EmailLog;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.repository.EmailLogRepository;
 
+import lombok.RequiredArgsConstructor;
+
+@RequiredArgsConstructor
 @Service
 public class EmailLogService {
 
     private final EmailLogRepository emailLogRepository;
-
-    public EmailLogService(EmailLogRepository emailLogRepository) {
-        this.emailLogRepository = emailLogRepository;
-    }
 
     public long countEmailsSentToByEventInWindow(String email, NotificationEvent event, Duration window) {
         LocalDateTime now = LocalDateTime.now();

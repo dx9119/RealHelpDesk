@@ -162,7 +162,7 @@ class EmailPolicyServiceTest {
     void getEmailInfo_withoutRecord_returnsNone() {
         EmailInfoResponse response = service.getEmailInfo();
 
-        assertThat(response.getMuteLevel()).isEqualTo(NotificationEvent.NONE);
+        assertThat(response.muteLevel()).isEqualTo(NotificationEvent.NONE);
     }
 
     @Test
@@ -172,7 +172,7 @@ class EmailPolicyServiceTest {
 
         EmailInfoResponse response = service.getEmailInfo();
 
-        assertThat(response.getMuteLevel()).isEqualTo(NotificationEvent.NEW_MESSAGE);
+        assertThat(response.muteLevel()).isEqualTo(NotificationEvent.NEW_MESSAGE);
     }
 
     private void muteLevel(NotificationEvent level) {

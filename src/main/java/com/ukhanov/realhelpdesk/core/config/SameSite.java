@@ -10,6 +10,9 @@ package com.ukhanov.realhelpdesk.core.config;
  * Set-Cookie уходит форма из {@link #getValue()}: строго {@code None}/{@code Lax}/{@code Strict}.
  * </p>
  */
+import lombok.Getter;
+
+@Getter
 public enum SameSite {
 
     /** Кросс-доменный фронт: браузер отправляет cookie и на чужие сайты. */
@@ -25,10 +28,5 @@ public enum SameSite {
 
     SameSite(String value) {
         this.value = value;
-    }
-
-    /** Значение для заголовка Set-Cookie. */
-    public String getValue() {
-        return value;
     }
 }

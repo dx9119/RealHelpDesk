@@ -7,19 +7,21 @@ import java.util.Set;
 import org.springframework.stereotype.Component;
 
 import io.jsonwebtoken.security.Keys;
+import lombok.Getter;
 
 /**
  * Готовый к работе конфиг JWT: проверяет настройки из {@link JwtProperties} и собирает ключ подписи. Падает на старте с понятной ошибкой,
  * если секрет или адреса не заданы.
  */
 @Component
+@Getter
 public class JwtConfig {
 
     private final Key jwtKey;
     private final String issuer;
     private final Set<String> audience;
     private final Integer accessTokenExp;
-    private final Integer refreshExp;
+    private final Integer refreshExpiration;
 
     public JwtConfig(JwtProperties properties) {
         String secretForGenJwt = properties.getSecretForGenJwt();
@@ -58,26 +60,6 @@ public class JwtConfig {
         this.issuer = issuer;
         this.audience = audience;
         this.accessTokenExp = accessTokenExp;
-        this.refreshExp = refreshExp;
-    }
-
-    public Key getJwtKey() {
-        return jwtKey;
-    }
-
-    public String getIssuer() {
-        return issuer;
-    }
-
-    public Set<String> getAudience() {
-        return audience;
-    }
-
-    public Integer getAccessTokenExp() {
-        return accessTokenExp;
-    }
-
-    public Integer getRefreshExpiration() {
-        return refreshExp;
+        this.refreshExpiration = refreshExp;
     }
 }
