@@ -52,13 +52,14 @@ public class TicketManageService {
     private final TicketAccessValidationService ticketAccessValidationService;
     private final EmailTemplates emailTemplates;
     private final NotificationPublisher notificationPublisher;
+    private final TicketMapper ticketMapper;
 
     private final TicketRepository ticketRepository;
 
     public TicketManageService(TicketDomainService ticketDomainService, CurrentUserProvider currentUserProvider,
             PortalDomainService portalDomainService, PaginationAdapter paginationAdapter, EmailDeliveryService emailDeliveryService,
             TicketAccessValidationService ticketAccessValidationService, TicketRepository ticketRepository, EmailTemplates emailTemplates,
-            NotificationPublisher notificationPublisher) {
+            NotificationPublisher notificationPublisher, TicketMapper ticketMapper) {
         this.ticketDomainService = ticketDomainService;
         this.currentUserProvider = currentUserProvider;
         this.portalDomainService = portalDomainService;
@@ -68,6 +69,7 @@ public class TicketManageService {
         this.ticketRepository = ticketRepository;
         this.emailTemplates = emailTemplates;
         this.notificationPublisher = notificationPublisher;
+        this.ticketMapper = ticketMapper;
     }
 
     public TicketResponseOld getTicketById(Long ticketId) throws TicketException {
@@ -75,7 +77,7 @@ public class TicketManageService {
 
         TicketModel ticket = ticketDomainService.findTicketById(ticketId);
 
-        return TicketMapper.toResponse(ticket);
+        return ticketMapper.toResponse(ticket);
     }
 
     public CreateTicketResponse createTicket(CreateTicketRequest request, Long portalId)
@@ -87,7 +89,7 @@ public class TicketManageService {
 
         PortalModel portal = portalDomainService.getPortalById(portalId);
 
-        TicketModel ticket = TicketMapper.fromRequest(request, user, portal);
+        TicketModel ticket = ticketMapper.fromRequest(request, user, portal);
         TicketModel saved = ticketDomainService.saveTicket(ticket);
         logger.info("Создана заявка {} в портале {}", saved.getId(), portalId);
 
@@ -107,7 +109,7 @@ public class TicketManageService {
 
         List<TicketModel> tickets = ticketDomainService.getTicketsByPortalId(portalId);
 
-        return tickets.stream().map(TicketMapper::toResponse).toList();
+        return tickets.stream().map(ticketMapper::toResponse).toList();
     }
 
     public PageResponse<TicketResponseOld> getPageTickets(Long portalId, int page, int size, String sortBy, String order)
@@ -118,7 +120,7 @@ public class TicketManageService {
         PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order, SORTABLE_TICKET_FIELDS);
         Page<TicketModel> ticketPage = ticketDomainService.getTicketsPageByPortalId(portalId, pageRequest);
 
-        Page<TicketResponseOld> mappedPage = ticketPage.map(TicketMapper::toResponse);
+        Page<TicketResponseOld> mappedPage = ticketPage.map(ticketMapper::toResponse);
         return paginationAdapter.mapToResponse(mappedPage, sortBy, order);
     }
 
@@ -130,7 +132,7 @@ public class TicketManageService {
 
         Page<TicketModel> ticketPage = ticketDomainService.getTicketsPageByUserId(user.getId(), pageRequest);
 
-        Page<TicketResponseOld> mappedPage = ticketPage.map(TicketMapper::toResponse);
+        Page<TicketResponseOld> mappedPage = ticketPage.map(ticketMapper::toResponse);
         return paginationAdapter.mapToResponse(mappedPage, sortBy, order);
     }
 
@@ -141,7 +143,7 @@ public class TicketManageService {
         PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order, SORTABLE_TICKET_FIELDS);
         Page<TicketModel> ticketPage = ticketDomainService.getTicketsByIds(ids, pageRequest);
 
-        Page<TicketResponseOld> mappedPage = ticketPage.map(TicketMapper::toResponse);
+        Page<TicketResponseOld> mappedPage = ticketPage.map(ticketMapper::toResponse);
         return paginationAdapter.mapToResponse(mappedPage, sortBy, order);
     }
 

@@ -5,6 +5,7 @@ import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mapstruct.factory.Mappers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -56,7 +57,8 @@ class UserManageServiceTest {
     private GetTokenService getTokenService;
     @Mock
     private SaveTokenService saveTokenService;
-    @Mock
+
+    private final UserMapper userMapper = Mappers.getMapper(UserMapper.class);
 
     private UserManageService service;
 
@@ -65,7 +67,7 @@ class UserManageServiceTest {
     @BeforeEach
     void setUp() {
         service = new UserManageService(currentUserProvider, userDomainService, emailDeliveryService, passwordEncoder, getTokenService,
-                saveTokenService, emailTemplates);
+                saveTokenService, emailTemplates, userMapper);
     }
 
     // ────────────────────────────────────────────────────────────────
@@ -81,7 +83,7 @@ class UserManageServiceTest {
 
         assertThat(response.getFirstName()).isEqualTo("firstName");
         assertThat(response.getEmail()).isEqualTo("email@example.com");
-        assertThat(response).usingRecursiveComparison().isEqualTo(UserMapper.toResponse(user));
+        assertThat(response).usingRecursiveComparison().isEqualTo(userMapper.toResponse(user));
 
         verifyNoInteractions(emailDeliveryService, passwordEncoder, getTokenService, saveTokenService);
     }

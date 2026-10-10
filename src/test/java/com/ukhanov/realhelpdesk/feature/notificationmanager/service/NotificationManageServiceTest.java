@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mapstruct.factory.Mappers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -21,7 +22,6 @@ import org.springframework.web.context.request.async.DeferredResult;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
 import com.ukhanov.realhelpdesk.core.pagination.exception.PaginationException;
-import com.ukhanov.realhelpdesk.core.pagination.mapper.PageResponseMapper;
 import com.ukhanov.realhelpdesk.core.pagination.service.PaginationAdapter;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.domain.notification.model.NotificationModel;
@@ -33,6 +33,7 @@ import com.ukhanov.realhelpdesk.feature.notificationmanager.dto.NotificationPref
 import com.ukhanov.realhelpdesk.feature.notificationmanager.dto.NotificationResponse;
 import com.ukhanov.realhelpdesk.feature.notificationmanager.dto.UnreadCountResponse;
 import com.ukhanov.realhelpdesk.feature.notificationmanager.exception.NotificationException;
+import com.ukhanov.realhelpdesk.feature.notificationmanager.mapper.NotificationMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -69,8 +70,8 @@ class NotificationManageServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new NotificationManageService(notificationRepository, preferencesRepository, currentUserProvider,
-                new PaginationAdapter(new PageResponseMapper()), waitRegistry);
+        service = new NotificationManageService(notificationRepository, preferencesRepository, currentUserProvider, new PaginationAdapter(),
+                waitRegistry, Mappers.getMapper(NotificationMapper.class));
         when(currentUserProvider.getCurrentUserId()).thenReturn(USER_ID);
     }
 

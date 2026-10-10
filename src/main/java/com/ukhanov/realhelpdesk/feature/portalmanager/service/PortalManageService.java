@@ -72,11 +72,13 @@ public class PortalManageService {
     private final EmailTemplates emailTemplates;
     private final NotificationPublisher notificationPublisher;
     private final PortalHistoryService portalHistoryService;
+    private final PortalMapper portalMapper;
 
     public PortalManageService(CurrentUserProvider currentUserProvider, PortalDomainService portalDomainService,
             PaginationAdapter paginationAdapter, PortalUtilsService portalUtilsService, AccessValidationService accessValidationService,
             LimitService limitService, UserDomainService userDomainService, EmailDeliveryService emailDeliveryService,
-            EmailTemplates emailTemplates, NotificationPublisher notificationPublisher, PortalHistoryService portalHistoryService) {
+            EmailTemplates emailTemplates, NotificationPublisher notificationPublisher, PortalHistoryService portalHistoryService,
+            PortalMapper portalMapper) {
         this.currentUserProvider = currentUserProvider;
         this.portalDomainService = portalDomainService;
         this.paginationAdapter = paginationAdapter;
@@ -88,6 +90,7 @@ public class PortalManageService {
         this.emailTemplates = emailTemplates;
         this.notificationPublisher = notificationPublisher;
         this.portalHistoryService = portalHistoryService;
+        this.portalMapper = portalMapper;
     }
 
     public CreatePortalResponse createPortal(CreatePortalRequest request)
@@ -95,7 +98,7 @@ public class PortalManageService {
         Objects.requireNonNull(request, "Запрос на создание портала не должен быть null");
 
         UserModel userModel = currentUserProvider.getCurrentUserModel();
-        PortalModel portal = PortalMapper.toEntity(request, userModel);
+        PortalModel portal = portalMapper.toEntity(request, userModel);
 
         if (!userModel.isEmailVerified()) {
             throw new UserManageException("Подтвердите ваш адрес электронной почты, далее вы сможете создать портал");
@@ -128,7 +131,7 @@ public class PortalManageService {
     public List<PortalResponse> getAllPortals() {
 
         UserModel userModel = currentUserProvider.getCurrentUserModel();
-        return portalDomainService.getPortalsByOwnerId(userModel.getId()).stream().map(PortalMapper::toResponse).toList();
+        return portalDomainService.getPortalsByOwnerId(userModel.getId()).stream().map(portalMapper::toResponse).toList();
     }
 
     public List<Long> getAllPortalIds() {
@@ -142,7 +145,7 @@ public class PortalManageService {
         PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order, SORTABLE_PORTAL_FIELDS);
 
         Page<PortalModel> portalPage = portalDomainService.getPortalsPageByOwnerId(userModel.getId(), pageRequest);
-        Page<PortalResponse> mappedPage = portalPage.map(PortalMapper::toResponse);
+        Page<PortalResponse> mappedPage = portalPage.map(portalMapper::toResponse);
 
         return paginationAdapter.mapToResponse(mappedPage, sortBy, order);
     }
@@ -152,7 +155,7 @@ public class PortalManageService {
         PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order, SORTABLE_PORTAL_FIELDS);
 
         Page<PortalModel> portalPage = portalDomainService.getPortalPageAccessByUser(userModel.getId(), pageRequest);
-        Page<PortalResponse> mappedPage = portalPage.map(PortalMapper::toResponse);
+        Page<PortalResponse> mappedPage = portalPage.map(portalMapper::toResponse);
 
         return paginationAdapter.mapToResponse(mappedPage, sortBy, order);
     }

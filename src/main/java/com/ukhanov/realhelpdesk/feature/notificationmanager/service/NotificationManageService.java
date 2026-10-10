@@ -44,15 +44,17 @@ public class NotificationManageService {
     private final CurrentUserProvider currentUserProvider;
     private final PaginationAdapter paginationAdapter;
     private final NotificationWaitRegistry waitRegistry;
+    private final NotificationMapper notificationMapper;
 
     public NotificationManageService(NotificationRepository notificationRepository,
             UserNotificationPreferencesRepository preferencesRepository, CurrentUserProvider currentUserProvider,
-            PaginationAdapter paginationAdapter, NotificationWaitRegistry waitRegistry) {
+            PaginationAdapter paginationAdapter, NotificationWaitRegistry waitRegistry, NotificationMapper notificationMapper) {
         this.notificationRepository = notificationRepository;
         this.preferencesRepository = preferencesRepository;
         this.currentUserProvider = currentUserProvider;
         this.paginationAdapter = paginationAdapter;
         this.waitRegistry = waitRegistry;
+        this.notificationMapper = notificationMapper;
     }
 
     public PageResponse<NotificationResponse> getNotifications(int page, int size, String sortBy, String order, boolean unreadOnly) {
@@ -63,7 +65,7 @@ public class NotificationManageService {
                 ? notificationRepository.findByRecipientIdAndReadFalse(userId, pageRequest)
                 : notificationRepository.findByRecipientId(userId, pageRequest);
 
-        return paginationAdapter.mapToResponse(notifications.map(NotificationMapper::toResponse), sortBy, order);
+        return paginationAdapter.mapToResponse(notifications.map(notificationMapper::toResponse), sortBy, order);
     }
 
     public UnreadCountResponse getUnreadCount() {
@@ -178,7 +180,7 @@ public class NotificationManageService {
     private PageResponse<NotificationResponse> fetchAfter(Long userId, long afterId, int size) {
         List<NotificationModel> rows = notificationRepository.findByRecipientIdAndIdGreaterThanOrderByIdAsc(userId, afterId,
                 PageRequest.of(0, size));
-        List<NotificationResponse> content = rows.stream().map(NotificationMapper::toResponse).toList();
+        List<NotificationResponse> content = rows.stream().map(notificationMapper::toResponse).toList();
 
         return new PageResponse.Builder<NotificationResponse>().content(content).page(0).size(size).totalElements(content.size())
                 .totalPages(content.isEmpty() ? 0 : 1).last(true).build();

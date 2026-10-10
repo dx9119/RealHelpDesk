@@ -13,19 +13,11 @@ import org.springframework.stereotype.Service;
 
 import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
 import com.ukhanov.realhelpdesk.core.pagination.exception.PaginationException;
-import com.ukhanov.realhelpdesk.core.pagination.mapper.PageResponseMapper;
 
 @Service
 public class PaginationAdapter {
 
     private static final Logger logger = LoggerFactory.getLogger(PaginationAdapter.class);
-
-    private final PageResponseMapper pageResponseMapper;
-
-    public PaginationAdapter(PageResponseMapper pageResponseMapper) {
-
-        this.pageResponseMapper = pageResponseMapper;
-    }
 
     public <T> PageResponse<T> mapToResponse(Page<T> page, String sortBy, String order) {
         return mapToResponse(page);
@@ -33,7 +25,15 @@ public class PaginationAdapter {
 
     public <T> PageResponse<T> mapToResponse(Page<T> page) {
         Objects.requireNonNull(page, "Защита от null: Page необходим для маппинга");
-        return pageResponseMapper.map(page);
+
+        PageResponse<T> response = new PageResponse<>();
+        response.setContent(page.getContent());
+        response.setPage(page.getNumber());
+        response.setSize(page.getSize());
+        response.setTotalElements(page.getTotalElements());
+        response.setTotalPages(page.getTotalPages());
+        response.setLast(page.isLast());
+        return response;
     }
 
     public PageRequest buildPageRequest(int page, int size, String sortBy, String order, Set<String> allowedSortFields) {

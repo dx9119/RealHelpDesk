@@ -1,47 +1,41 @@
 package com.ukhanov.realhelpdesk.feature.ticketmanager.mapper;
 
-import java.util.Objects;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.Named;
+import org.mapstruct.ReportingPolicy;
 
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketAccessStatus;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
-import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketRequest;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponseOld;
 
-public final class TicketMapper {
+/** Маппинг заявок: автор и портал приходят отдельными параметрами, статус и приоритет получают значения по умолчанию. */
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
+public interface TicketMapper {
 
-    private TicketMapper() {
-    }
+    /** Копируются заголовок, текст, автор и портал; статус всегда новый, приоритет и доступ — с дефолтами запроса. */
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "title", source = "request.title")
+    @Mapping(target = "body", source = "request.body")
+    @Mapping(target = "author", source = "author")
+    @Mapping(target = "portal", source = "portal")
+    @Mapping(target = "ticketStatus", constant = "OPEN")
+    @Mapping(target = "ticketPriority", source = "request.ticketPriority", defaultValue = "NONE")
+    @Mapping(target = "accessStatus", source = "request.ticketAccessStatus", defaultValue = "CREATOR_AND_PORTAL_USERS")
+    TicketModel fromRequest(CreateTicketRequest request, UserModel author, PortalModel portal);
 
-    public static TicketModel fromRequest(CreateTicketRequest request, UserModel author, PortalModel portal) {
-        TicketModel ticket = new TicketModel();
-        ticket.setTitle(request.getTitle());
-        ticket.setBody(request.getBody());
-        ticket.setAuthor(author);
-        ticket.setPortal(portal);
-        ticket.setTicketPriority(request.getTicketPriority() != null ? request.getTicketPriority() : TicketPriority.NONE);
-        ticket.setTicketStatus(TicketStatus.OPEN);
-        ticket.setAccessStatus(
-                request.getTicketAccessStatus() != null ? request.getTicketAccessStatus() : TicketAccessStatus.CREATOR_AND_PORTAL_USERS);
-        return ticket;
-    }
+    @Mapping(target = "authorFullName", source = "author", qualifiedByName = "authorFullName")
+    @Mapping(target = "portalName", source = "portal.name")
+    @Mapping(target = "portalId", source = "portal.id")
+    @Mapping(target = "ticketAccessStatus", source = "accessStatus")
+    TicketResponseOld toResponse(TicketModel model);
 
-    public static TicketResponseOld toResponse(TicketModel model) {
-        Objects.requireNonNull(model, "TicketModel не должен быть null");
-
-        String authorName = model.getAuthor() != null
-                ? model.getAuthor().getLastName() + " " + model.getAuthor().getFirstName()
-                : "Неизвестный автор";
-
-        String portalName = model.getPortal() != null ? model.getPortal().getName() : null;
-
-        return new TicketResponseOld.Builder().id(model.getId()).title(model.getTitle()).body(model.getBody())
-                .createdAt(model.getCreatedAt()).ticketPriority(model.getTicketPriority()).ticketStatus(model.getTicketStatus())
-                .authorFullName(authorName).portalName(portalName).portalId(model.getPortal().getId())
-                .ticketAccessStatus(model.getAccessStatus()).build();
+    @Named("authorFullName")
+    default String authorFullName(UserModel author) {
+        return author != null ? author.getLastName() + " " + author.getFirstName() : "Неизвестный автор";
     }
 
 }

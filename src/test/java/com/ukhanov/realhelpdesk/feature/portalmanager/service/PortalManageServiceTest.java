@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mapstruct.factory.Mappers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -31,6 +32,7 @@ import com.ukhanov.realhelpdesk.feature.portalmanager.dto.CreatePortalRequest;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.CreatePortalResponse;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.DeleteResult;
 import com.ukhanov.realhelpdesk.feature.portalmanager.dto.UpdatePortalInfoRequest;
+import com.ukhanov.realhelpdesk.feature.portalmanager.mapper.PortalMapper;
 import com.ukhanov.realhelpdesk.feature.usermanager.exception.UserManageException;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -91,7 +93,7 @@ class PortalManageServiceTest {
     void setUp() {
         service = new PortalManageService(currentUserProvider, portalDomainService, paginationAdapter, portalUtilsService,
                 accessValidationService, limitService, userDomainService, emailDeliveryService, emailTemplates, notificationPublisher,
-                portalHistoryService);
+                portalHistoryService, Mappers.getMapper(PortalMapper.class));
 
         UserModel owner = new UserModel();
         owner.setId(OWNER_ID);

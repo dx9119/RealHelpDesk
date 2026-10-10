@@ -17,7 +17,7 @@ class PaginationAdapterTest {
 
     private static final Set<String> ALLOWED_FIELDS = Set.of("createdAt", "title", "ticketStatus");
 
-    private final PaginationAdapter adapter = new PaginationAdapter(null);
+    private final PaginationAdapter adapter = new PaginationAdapter();
 
     @Test
     void allowedField_appliedToSorting() {
