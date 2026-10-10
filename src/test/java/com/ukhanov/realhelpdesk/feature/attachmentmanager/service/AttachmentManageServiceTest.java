@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mapstruct.factory.Mappers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
@@ -82,12 +83,21 @@ class AttachmentManageServiceTest {
     private ArgumentCaptor<CreateMessageRequest> requestCaptor;
 
     private AttachmentManageService service;
-    private final AttachmentMapper attachmentMapper = new AttachmentMapper(new StaticProperties());
+    private final AttachmentMapper attachmentMapper = Mappers.getMapper(AttachmentMapper.class);
+    private final StaticProperties staticProperties = new StaticProperties();
 
     @BeforeEach
     void setUp() {
         service = new AttachmentManageService(mockStorageService, mockAttachmentDomainService, mockMessageDomainService,
-                mockMessageManageService, mockTicketDomainService, mockCurrentUserProvider, attachmentMapper);
+                mockMessageManageService, mockTicketDomainService, mockCurrentUserProvider, attachmentMapper, staticProperties);
+    }
+
+    @Test
+    @DisplayName("Конструктор без настройки статики — ошибка, а не NPE в момент сборки URL")
+    void constructor_rejectsNullStaticProperties() {
+        assertThatThrownBy(() -> new AttachmentManageService(mockStorageService, mockAttachmentDomainService, mockMessageDomainService,
+                mockMessageManageService, mockTicketDomainService, mockCurrentUserProvider, attachmentMapper, null))
+                .isInstanceOf(NullPointerException.class).hasMessageContaining("staticProperties");
     }
 
     // ────────────────────────────────────────────────

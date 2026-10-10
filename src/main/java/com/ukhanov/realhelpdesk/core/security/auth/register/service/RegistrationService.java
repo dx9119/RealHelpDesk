@@ -34,15 +34,18 @@ public class RegistrationService {
     private final EmailDeliveryService emailDeliveryService;
     private final CaptchaService captchaService;
     private final EmailTemplates emailTemplates;
+    private final AuthMapper authMapper;
 
     public RegistrationService(PasswordEncoder passwordEncoder, UserDomainService userDomainService, GetTokenService getTokenService,
-            EmailDeliveryService emailDeliveryService, CaptchaService captchaService, EmailTemplates emailTemplates) {
+            EmailDeliveryService emailDeliveryService, CaptchaService captchaService, EmailTemplates emailTemplates,
+            AuthMapper authMapper) {
         this.passwordEncoder = passwordEncoder;
         this.userDomainService = userDomainService;
         this.getTokenService = getTokenService;
         this.emailDeliveryService = emailDeliveryService;
         this.captchaService = captchaService;
         this.emailTemplates = emailTemplates;
+        this.authMapper = authMapper;
     }
 
     public UserModel addUser(RegisterRequest registerRequest)
@@ -61,7 +64,7 @@ public class RegistrationService {
         }
 
         // создаем пользователя
-        UserModel newUser = AuthMapper.toEntity(registerRequest, passwordEncoder.encode(registerRequest.getPassword()));
+        UserModel newUser = authMapper.toEntity(registerRequest, passwordEncoder.encode(registerRequest.getPassword()));
 
         // Сохраняем пользователя
         newUser = userDomainService.saveUser(newUser);

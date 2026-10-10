@@ -1,47 +1,26 @@
 package com.ukhanov.realhelpdesk.feature.usermanager.mapper;
 
-import java.util.Objects;
-
-import org.springframework.stereotype.Component;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.ReportingPolicy;
 
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.feature.usermanager.dto.UserInfoRequest;
 import com.ukhanov.realhelpdesk.feature.usermanager.dto.UserInfoResponse;
 
-@Component
-public class UserMapper {
+/** Маппинг профиля пользователя: в ответ уходят только публичные поля, служебные (пароль, токены) не вытекают. */
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
+public interface UserMapper {
 
-    public static UserInfoResponse toResponse(UserModel userModel) {
-        Objects.requireNonNull(userModel, "userModel не должен быть пустым");
+    UserInfoResponse toResponse(UserModel userModel);
 
-        UserInfoResponse response = new UserInfoResponse();
-
-        response.setId(userModel.getId());
-        response.setExternalId(userModel.getExternalId());
-        response.setFirstName(userModel.getFirstName());
-        response.setLastName(userModel.getLastName());
-        response.setMiddleName(userModel.getMiddleName());
-        response.setAdditionalInfo(userModel.getAdditionalInfo());
-        response.setEmail(userModel.getEmail());
-        response.setEmailVerified(userModel.isEmailVerified());
-        response.setUserRole(userModel.getUserRole());
-        response.setUserStatus(userModel.getUserStatus());
-        response.setUserPlatformSource(userModel.getUserPlatformSource());
-        response.setCreatedAt(userModel.getCreatedAt());
-        return response;
-    }
-
-    public static UserModel toModel(UserInfoRequest request) {
-        Objects.requireNonNull(request, "request не должен быть пустым");
-
-        UserModel userModel = new UserModel();
-
-        userModel.setFirstName(request.getFirstName());
-        userModel.setLastName(request.getLastName());
-        userModel.setMiddleName(request.getMiddleName());
-        userModel.setAdditionalInfo(request.getAdditionalInfo());
-
-        return userModel;
-    }
+    /** Обновление профиля трогает только ФИО и доп. инфо: почта, пароль и статусы меняются отдельными потоками. */
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "firstName", source = "request.firstName")
+    @Mapping(target = "lastName", source = "request.lastName")
+    @Mapping(target = "middleName", source = "request.middleName")
+    @Mapping(target = "additionalInfo", source = "request.additionalInfo")
+    UserModel toModel(UserInfoRequest request);
 
 }

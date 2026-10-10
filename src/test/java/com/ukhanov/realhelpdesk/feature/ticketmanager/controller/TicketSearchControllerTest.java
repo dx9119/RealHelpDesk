@@ -21,7 +21,6 @@ import org.springframework.validation.beanvalidation.MethodValidationPostProcess
 
 import com.ukhanov.realhelpdesk.core.exception.GlobalExceptionHandler;
 import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
-import com.ukhanov.realhelpdesk.core.pagination.mapper.PageResponseMapper;
 import com.ukhanov.realhelpdesk.core.pagination.service.PaginationAdapter;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketPriority;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
@@ -58,7 +57,7 @@ class TicketSearchControllerTest {
     @BeforeEach
     void setUp() {
         TicketSearchController controller = new TicketSearchController(mockTicketSearchService, mockTicketManageService,
-                new PaginationAdapter(new PageResponseMapper()));
+                new PaginationAdapter());
         mockMvc = MockMvcBuilders.standaloneSetup(validatedController(controller))
                 .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver()).setControllerAdvice(new GlobalExceptionHandler())
                 .build();

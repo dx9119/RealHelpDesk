@@ -1,8 +1,10 @@
 package com.ukhanov.realhelpdesk.feature.messagemanager.mapper;
 
-import java.util.Objects;
-
-import org.springframework.stereotype.Component;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.Named;
+import org.mapstruct.ReportingPolicy;
 
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.message.model.MessageModel;
@@ -10,32 +12,24 @@ import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 import com.ukhanov.realhelpdesk.feature.messagemanager.dto.CreateMessageRequest;
 import com.ukhanov.realhelpdesk.feature.messagemanager.dto.MessageResponse;
 
-@Component
-public class MessageMapper {
+/** Маппинг сообщений заявки; автор и заявка приходят отдельными параметрами — связь проставляет сервис. */
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
+public interface MessageMapper {
 
-    public MessageModel toEntity(CreateMessageRequest request, UserModel author, TicketModel ticket) {
-        Objects.requireNonNull(request, "Запрос на создание сообщения не должен быть null");
-        Objects.requireNonNull(author, "Автор сообщения не должен быть null");
-        Objects.requireNonNull(ticket, "Заявка не должна быть null");
+    /** Копируются только текст и связи: id, version и createdAt в новой entity проставит JPA, а не запрос. */
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "messageText", source = "request.messageText")
+    @Mapping(target = "author", source = "author")
+    @Mapping(target = "ticket", source = "ticket")
+    MessageModel toEntity(CreateMessageRequest request, UserModel author, TicketModel ticket);
 
-        MessageModel message = new MessageModel();
-        message.setMessageText(request.getMessageText());
-        message.setAuthor(author);
-        message.setTicket(ticket);
-        return message;
-    }
+    @Mapping(target = "ticketId", source = "ticket.id")
+    @Mapping(target = "authorFullName", source = "author", qualifiedByName = "authorFullName")
+    MessageResponse toResponse(MessageModel model);
 
-    public MessageResponse toResponse(MessageModel model) {
-        Objects.requireNonNull(model, "Модель сообщения не должна быть null");
-
-        MessageResponse response = new MessageResponse();
-        response.setId(model.getId());
-        response.setMessageText(model.getMessageText());
-        response.setCreatedAt(model.getCreatedAt());
-        response.setTicketId(model.getTicket() != null ? model.getTicket().getId() : null);
-        response.setAuthorFullName(
-                model.getAuthor() != null ? model.getAuthor().getLastName() + " " + model.getAuthor().getFirstName() : "Неизвестный автор");
-        return response;
+    @Named("authorFullName")
+    default String authorFullName(UserModel author) {
+        return author != null ? author.getLastName() + " " + author.getFirstName() : "Неизвестный автор";
     }
 
 }

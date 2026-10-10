@@ -29,6 +29,7 @@
         <spotless-maven-plugin.version>2.44.5</spotless-maven-plugin.version>
         <greenmail.version>2.1.0</greenmail.version>
         <minio.version>8.5.17</minio.version>
+        <mapstruct.version>1.6.3</mapstruct.version>
     </properties>
 
     <dependencies>
@@ -126,6 +127,15 @@
             <version>${hibernate.validator.version}</version>
         </dependency>
 
+        <!-- MapStruct: контракты маппинга entity/DTO — интерфейсы @Mapper,
+             реализации (XxxMapperImpl) генерируются на этапе компиляции.
+             Сам процессор подключён в maven-compiler-plugin ниже. -->
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+            <version>${mapstruct.version}</version>
+        </dependency>
+
         <!-- TEST DEPENDENCIES -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -186,6 +196,15 @@
                 <configuration>
                     <source>${java.version}</source>
                     <target>${java.version}</target>
+                    <!-- Аннотационные процессоры только здесь: mapstruct-processor
+                         генерирует XxxMapperImpl из интерфейсов @Mapper. -->
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.mapstruct</groupId>
+                            <artifactId>mapstruct-processor</artifactId>
+                            <version>${mapstruct.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
                 </configuration>
             </plugin>
 

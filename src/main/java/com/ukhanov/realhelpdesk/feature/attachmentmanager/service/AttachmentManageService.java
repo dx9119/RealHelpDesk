@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.ukhanov.realhelpdesk.core.config.StaticProperties;
 import com.ukhanov.realhelpdesk.core.exception.ApiException;
 import com.ukhanov.realhelpdesk.core.http.RangeHeader;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
@@ -73,10 +74,11 @@ public class AttachmentManageService {
     private final TicketDomainService ticketDomainService;
     private final CurrentUserProvider currentUserProvider;
     private final AttachmentMapper attachmentMapper;
+    private final StaticProperties staticProperties;
 
     public AttachmentManageService(MinioStorageService storageService, AttachmentDomainService attachmentDomainService,
             MessageDomainService messageDomainService, MessageManageService messageManageService, TicketDomainService ticketDomainService,
-            CurrentUserProvider currentUserProvider, AttachmentMapper attachmentMapper) {
+            CurrentUserProvider currentUserProvider, AttachmentMapper attachmentMapper, StaticProperties staticProperties) {
         this.storageService = Objects.requireNonNull(storageService, "storageService must not be null");
         this.attachmentDomainService = Objects.requireNonNull(attachmentDomainService, "attachmentDomainService must not be null");
         this.messageDomainService = Objects.requireNonNull(messageDomainService, "messageDomainService must not be null");
@@ -84,6 +86,7 @@ public class AttachmentManageService {
         this.ticketDomainService = Objects.requireNonNull(ticketDomainService, "ticketDomainService must not be null");
         this.currentUserProvider = Objects.requireNonNull(currentUserProvider, "currentUserProvider must not be null");
         this.attachmentMapper = Objects.requireNonNull(attachmentMapper, "attachmentMapper must not be null");
+        this.staticProperties = Objects.requireNonNull(staticProperties, "staticProperties must not be null");
     }
 
     public AttachmentResponse uploadAttachment(MultipartFile file, String messageText, Long portalId, Long ticketId)
@@ -119,7 +122,7 @@ public class AttachmentManageService {
                     currentUserProvider.getCurrentUserModel(), fileName, storageKey, contentType, sizeBytes));
 
             logger.info("Файл «{}» ({} байт) прикреплён к заявке {} сообщением {}", fileName, sizeBytes, ticketId, message.getId());
-            return attachmentMapper.toResponse(attachment, portalId, ticketId);
+            return attachmentMapper.toResponse(attachment, portalId, ticketId, staticProperties);
         } catch (ApiException | MessagingException | UnsupportedEncodingException | RuntimeException e) {
             storageService.delete(storageKey);
             throw e;
@@ -133,7 +136,7 @@ public class AttachmentManageService {
         requireTicketInPortal(ticketId, portalId);
 
         return attachmentDomainService.getAttachmentsForTicket(ticketId, portalId).stream()
-                .map(attachment -> attachmentMapper.toResponse(attachment, portalId, ticketId)).toList();
+                .map(attachment -> attachmentMapper.toResponse(attachment, portalId, ticketId, staticProperties)).toList();
     }
 
     /**

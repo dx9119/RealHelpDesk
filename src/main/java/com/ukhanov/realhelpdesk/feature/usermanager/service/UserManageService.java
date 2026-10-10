@@ -42,10 +42,11 @@ public class UserManageService {
     private final GetTokenService getTokenService;
     private final SaveTokenService saveTokenService;
     private final EmailTemplates emailTemplates;
+    private final UserMapper userMapper;
 
     public UserManageService(CurrentUserProvider currentUserProvider, UserDomainService userDomainService,
             EmailDeliveryService emailDeliveryService, PasswordEncoder passwordEncoder, GetTokenService getTokenService,
-            SaveTokenService saveTokenService, EmailTemplates emailTemplates) {
+            SaveTokenService saveTokenService, EmailTemplates emailTemplates, UserMapper userMapper) {
         this.currentUserProvider = currentUserProvider;
         this.userDomainService = userDomainService;
         this.emailDeliveryService = emailDeliveryService;
@@ -53,11 +54,12 @@ public class UserManageService {
         this.getTokenService = getTokenService;
         this.saveTokenService = saveTokenService;
         this.emailTemplates = emailTemplates;
+        this.userMapper = userMapper;
     }
 
     public UserInfoResponse getUserInfo() {
         UserModel user = currentUserProvider.getCurrentUserModel();
-        return UserMapper.toResponse(user);
+        return userMapper.toResponse(user);
     }
 
     @Transactional
@@ -74,7 +76,7 @@ public class UserManageService {
         UserModel updatedUser = userDomainService.saveUser(currentUser);
         logger.info("Профиль пользователя {} обновлён", updatedUser.getId());
 
-        return UserMapper.toResponse(updatedUser);
+        return userMapper.toResponse(updatedUser);
     }
 
     public void sendResetLink(RecoveryRequest request) throws MessagingException, UnsupportedEncodingException {
