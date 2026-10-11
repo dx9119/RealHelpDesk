@@ -2,9 +2,12 @@ package com.ukhanov.realhelpdesk.core.mail.service;
 
 import java.io.UnsupportedEncodingException;
 import java.time.Duration;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
@@ -44,8 +47,15 @@ public class EmailDeliveryService {
 
     public void sendEmail(String recipient, String subject, String text, NotificationEvent sourceEvent)
             throws MessagingException, EmailAccessDeniedException, UnsupportedEncodingException {
+        sendEmail(recipient, subject, text, sourceEvent, null);
+    }
 
-        logger.debug("Отправка письма, event={}, recipient={}", sourceEvent, recipient);
+    /**
+     * То же, но с получателем-пользователем: в prod-логе видно, кому ушло письмо, при этом сам адрес остаётся только в DEBUG (PII в prod не
+     * тащим — audit/toLoggingUpdate.md, B13).
+     */
+    public void sendEmail(String recipient, String subject, String text, NotificationEvent sourceEvent, Long userId)
+            throws MessagingException, EmailAccessDeniedException, UnsupportedEncodingException {
 
         if (sourceEvent == NotificationEvent.RECOVERY_PASSWORD) {
             emailLimiter(recipient);
@@ -55,6 +65,15 @@ public class EmailDeliveryService {
             logger.debug("Письмо не отправлено: адрес в стоп-листе, event={}", sourceEvent);
             return;
         }
+
+        emailLogService.add(deliver(recipient, subject, text, sourceEvent, userId));
+    }
+
+    /** SMTP + INFO-лог отправки; журнал пишет вызывающий — одиночной записью или пачкой после рассылки. */
+    private EmailLog deliver(String recipient, String subject, String text, NotificationEvent sourceEvent, Long userId)
+            throws MessagingException, UnsupportedEncodingException {
+
+        logger.debug("Отправка письма, event={}, recipient={}", sourceEvent, recipient);
 
         MimeMessage mimeMessage = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
@@ -69,11 +88,14 @@ public class EmailDeliveryService {
         mimeMessage.setHeader("Content-Transfer-Encoding", "7bit");
 
         mailSender.send(mimeMessage);
-        logger.info("Письмо отправлено, event={}", sourceEvent);
+        if (userId != null) {
+            logger.info("Письмо отправлено, event={}, userId={}", sourceEvent, userId);
+        } else {
+            logger.info("Письмо отправлено, event={}", sourceEvent);
+        }
 
         // журнал — только фактически отправленные письма: он же считает квоту для emailLimiter
-        emailLogService.add(new EmailLog(subject, emailProperties.getFrom(), recipient, sourceEvent));
-
+        return new EmailLog(subject, emailProperties.getFrom(), recipient, sourceEvent);
     }
 
     public void emailLimiter(String recipient) {
@@ -82,6 +104,10 @@ public class EmailDeliveryService {
                 Duration.ofSeconds(limit.windowSeconds()));
 
         // записи в журнале предшествующих отправок уже учтены, поэтому лимит — «не больше requests в окно»
+        // цифры нужны, чтобы объяснить 429 «исчерпан лимит восстановления» (audit/toLoggingUpdate.md, B7)
+        logger.debug("Писем по событию {} за окно {} сек: {} (лимит {})", NotificationEvent.RECOVERY_PASSWORD, limit.windowSeconds(), count,
+                limit.requests());
+
         if (count >= limit.requests()) {
             throw new EmailAccessDeniedException(
                     "Исчерпан лимит на количество запросов восстановления, окно лимита " + limit.windowSeconds() + " сек",
@@ -100,9 +126,15 @@ public class EmailDeliveryService {
         sendEmail(userEmail, subject, text, sourceEvent);
     }
 
+    /** Письмо конкретному пользователю: userId попадает в prod-лог, адрес остаётся в DEBUG. */
+    public void sendUserNotification(String userEmail, String subject, String text, NotificationEvent sourceEvent, Long userId)
+            throws MessagingException, EmailAccessDeniedException, UnsupportedEncodingException {
+        sendEmail(userEmail, subject, text, sourceEvent, userId);
+    }
+
     public void initNotifyPortalUsers(PortalModel portal, String subject, String message, NotificationEvent sourceEvent)
             throws MessagingException, UnsupportedEncodingException {
-        Set<Long> portalUsers = new HashSet<>(Arrays.asList(portal.getOwner().getId()));
+        Set<Long> portalUsers = new HashSet<>(Set.of(portal.getOwner().getId()));
         // Проверяем, что есть внешние пользователи
         if (portal.getAllowedUserIds() != null) {
             portalUsers.addAll(portal.getAllowedUserIds());
@@ -115,11 +147,38 @@ public class EmailDeliveryService {
     public void sendPortalUsersNotification(Set<Long> userIds, String subject, String text, NotificationEvent sourceEvent)
             throws MessagingException, EmailAccessDeniedException, UnsupportedEncodingException {
 
-        for (Long userId : userIds) {
-            UserModel user = userDomainService.getUserById(userId);
-            sendEmail(user.getEmail(), subject, text, sourceEvent);
+        if (userIds == null || userIds.isEmpty()) {
+            return;
         }
 
+        // Пользователи и стоп-листы грузятся батчами (один запрос каждый) вместо N+1 по рассылке
+        Map<Long, UserModel> usersById = userDomainService.getUsersByIds(userIds);
+        List<UserModel> recipients = new ArrayList<>();
+        for (Long userId : userIds) {
+            UserModel user = usersById.get(userId);
+            if (user == null) {
+                // Удалённый участник не должен обрывать рассылку остальным (audit/toLoggingUpdate.md, B5)
+                logger.warn("Письмо не отправлено: получатель {} не найден в БД", userId);
+                continue;
+            }
+            recipients.add(user);
+        }
+
+        Set<String> emails = recipients.stream().map(UserModel::getEmail).collect(Collectors.toSet());
+        Map<String, NotificationEvent> muteEvents = emailPolicyService.muteEventsByEmails(emails);
+
+        List<EmailLog> logs = new ArrayList<>();
+        for (UserModel user : recipients) {
+            if (emailPolicyService.isMuted(muteEvents.get(user.getEmail()), sourceEvent)) {
+                // Отписка конкретного получателя — не повод не отправить письмо остальным
+                logger.debug("Письмо получателю {} не отправлено: адрес в стоп-листе, event={}", user.getId(), sourceEvent);
+                continue;
+            }
+            logs.add(deliver(user.getEmail(), subject, text, sourceEvent, user.getId()));
+        }
+
+        // журнал рассылки — одной пачкой
+        emailLogService.addAll(logs);
     }
 
     public void confirmEmail(Long token) throws EmailAccessDeniedException {
@@ -129,14 +188,19 @@ public class EmailDeliveryService {
         }
         user.setEmailVerified(true);
         userDomainService.saveUser(user);
+        // успех подтверждения раньше не оставлял следа: был виден только неверный код (WARN в advice)
+        logger.info("Email подтверждён, userId={}", user.getId());
     }
 
     public void sendConfirmCode() throws MessagingException, UnsupportedEncodingException {
         UserModel user = currentUserProvider.getCurrentUserModel();
 
         sendUserNotification(user.getEmail(), emailTemplates.registrationCodeSubject(),
-                emailTemplates.registrationCodeBody(user.getVerifyEmailToken().toString()), NotificationEvent.NEW_SYSTEM_MESSAGE);
-
+                emailTemplates.registrationCodeBody(user.getVerifyEmailToken().toString()), NotificationEvent.NEW_SYSTEM_MESSAGE,
+                user.getId());
+        // Код подтверждения уходит как NEW_SYSTEM_MESSAGE, поэтому отличить его от системного письма
+        // по строке «Письмо отправлено, event=…» нельзя — добавляем отдельную запись (B4)
+        logger.info("Отправлен код подтверждения email, userId={}", user.getId());
     }
 
 }

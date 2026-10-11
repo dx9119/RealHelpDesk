@@ -1,7 +1,5 @@
 package com.ukhanov.realhelpdesk.core.security.auth.tokens.service;
 
-import java.util.List;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -53,24 +51,19 @@ class GetTokenServiceTest {
         RefreshTokenModel newToken = new RefreshTokenModel();
         newToken.setRawToken(NEW_REFRESH);
         when(genTokenService.generateRefreshJwtToken(any(SecurityUser.class))).thenReturn(newToken);
-
-        when(jwtRefreshTokenRepository.findAllByUserEmailAndStatus(EMAIL, TokenStatus.ACTIVE)).thenReturn(List.of());
     }
 
     @Test
-    @DisplayName("Предыдущие активные refresh-токены отзываются — старый токен перестаёт быть валидным")
+    @DisplayName("Предыдущие активные refresh-токены отзываются bulk-UPDATE — старый токен перестаёт быть валидным")
     void previousActiveTokens_areRevokedOnIssuance() {
-        RefreshTokenModel previousSession = activeToken();
-        RefreshTokenModel staleToken = activeToken();
-        when(jwtRefreshTokenRepository.findAllByUserEmailAndStatus(EMAIL, TokenStatus.ACTIVE))
-                .thenReturn(List.of(previousSession, staleToken));
+        when(jwtRefreshTokenRepository.updateStatusByEmailAndStatus(EMAIL, TokenStatus.ACTIVE, TokenStatus.REVOKED)).thenReturn(2);
 
         TokensResponse response = service.getNewTokens(user);
 
-        assertThat(previousSession.getStatus()).isEqualTo(TokenStatus.REVOKED);
-        assertThat(staleToken.getStatus()).isEqualTo(TokenStatus.REVOKED);
         assertThat(response.refreshToken()).isEqualTo(NEW_REFRESH);
-        verify(saveTokenService, times(3)).saveRefreshToken(any(RefreshTokenModel.class));
+        // прежние токены отзываются одним UPDATE, без поштучного сохранения сущностей
+        verify(jwtRefreshTokenRepository).updateStatusByEmailAndStatus(EMAIL, TokenStatus.ACTIVE, TokenStatus.REVOKED);
+        verify(saveTokenService, times(1)).saveRefreshToken(any(RefreshTokenModel.class));
     }
 
     @Test
@@ -78,15 +71,20 @@ class GetTokenServiceTest {
     void noActiveTokens_nothingRevoked() {
         service.getNewTokens(user);
 
-        verify(jwtRefreshTokenRepository).findAllByUserEmailAndStatus(EMAIL, TokenStatus.ACTIVE);
+        verify(jwtRefreshTokenRepository).updateStatusByEmailAndStatus(EMAIL, TokenStatus.ACTIVE, TokenStatus.REVOKED);
         verify(saveTokenService, times(1)).saveRefreshToken(any(RefreshTokenModel.class));
         verify(saveTokenService, never()).saveRefreshToken(argThat(token -> token.getStatus() == TokenStatus.REVOKED));
     }
 
-    private RefreshTokenModel activeToken() {
-        RefreshTokenModel token = new RefreshTokenModel();
-        token.setStatus(TokenStatus.ACTIVE);
-        token.setRawToken("old-refresh-token");
-        return token;
+    @Test
+    @DisplayName("Смена пароля: bulk-отзыв активных токенов со статусом PASSWD_CHANGE")
+    void revokeActiveRefreshTokens_passwdChange_usesBulkUpdate() {
+        when(jwtRefreshTokenRepository.updateStatusByEmailAndStatus(EMAIL, TokenStatus.ACTIVE, TokenStatus.PASSWD_CHANGE)).thenReturn(3);
+
+        int revoked = service.revokeActiveRefreshTokens(user, TokenStatus.PASSWD_CHANGE);
+
+        assertThat(revoked).isEqualTo(3);
+        verify(jwtRefreshTokenRepository).updateStatusByEmailAndStatus(EMAIL, TokenStatus.ACTIVE, TokenStatus.PASSWD_CHANGE);
+        verify(saveTokenService, never()).saveRefreshToken(any(RefreshTokenModel.class));
     }
 }

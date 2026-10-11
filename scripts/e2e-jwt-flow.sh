@@ -36,13 +36,13 @@ check() { # check <ожидаемый код> <фактический код> <�
 }
 step() { echo; echo "── $1"; }
 cookie() { awk -v n="$1" '$6==n {print $7}' "$JAR" | tail -1; }
-status() { curl -sk -o /dev/null -w '%{http_code}' "$@"; }
+status() { curl -sk -H 'X-Requested-With: XMLHttpRequest' -o /dev/null -w '%{http_code}' "$@"; }
 header_cookie_value() { # значение cookie из последнего ответа (Set-Cookie)
   tr -d '\r' < "$HDR" | grep -i "^set-cookie: $1=" | tail -1 | sed -E "s/^[Ss]et-[Cc]ookie: $1=([^;]+).*/\1/"
 }
 
 step "Регистрация ($EMAIL)"
-curl -sk -D "$HDR" -o /dev/null -c "$JAR" -X POST "$BASE/api/v1/auth/register" \
+curl -sk -H 'X-Requested-With: XMLHttpRequest' -D "$HDR" -o /dev/null -c "$JAR" -X POST "$BASE/api/v1/auth/register" \
   -H 'Content-Type: application/json' \
   -d "{\"firstName\":\"E2E\",\"lastName\":\"Flow\",\"email\":\"$EMAIL\",\"password\":\"$PASS1\"}"
 check 201 "$(head -1 "$HDR" | awk '{print $2}')" "POST /auth/register"
@@ -76,7 +76,7 @@ check 401 "$(status -X POST -H "Cookie: refreshToken=$OLD_REFRESH" "$BASE/api/v1
 
 step "Повторный вход"
 rm -f "$JAR"
-curl -sk -D "$HDR" -o /dev/null -c "$JAR" -X POST "$BASE/api/v1/auth/login" \
+curl -sk -H 'X-Requested-With: XMLHttpRequest' -D "$HDR" -o /dev/null -c "$JAR" -X POST "$BASE/api/v1/auth/login" \
   -H 'Content-Type: application/json' -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS1\"}"
 check 200 "$(head -1 "$HDR" | awk '{print $2}')" "POST /auth/login"
 AT2=$(cookie accessToken)
@@ -92,7 +92,7 @@ if [ "$REQ_STATUS" = "429" ]; then
   echo; echo "Итого: OK $PASS, FAIL $((FAIL+1))"
   exit 1
 fi
-check 202 "$REQ_STATUS" "POST /users/password-resets"
+check 204 "$REQ_STATUS" "POST /users/password-resets"
 sleep 2
 MSG=$(curl -s "http://localhost:3000/api/Messages" \
   | python3 -c "import sys,json; r=json.load(sys.stdin).get('results',[]); print(r[0]['id'] if r else '')")
@@ -110,7 +110,7 @@ check 401 "$(status -X POST -H "Cookie: refreshToken=$RT2" "$BASE/api/v1/auth/to
 
 step "Вход с новым паролем"
 rm -f "$JAR"
-curl -sk -D "$HDR" -o /dev/null -c "$JAR" -X POST "$BASE/api/v1/auth/login" \
+curl -sk -H 'X-Requested-With: XMLHttpRequest' -D "$HDR" -o /dev/null -c "$JAR" -X POST "$BASE/api/v1/auth/login" \
   -H 'Content-Type: application/json' -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS2\"}"
 check 200 "$(head -1 "$HDR" | awk '{print $2}')" "POST /auth/login с новым паролем"
 check 200 "$(status -b "$JAR" "$BASE/api/v1/users/profile")" "GET /users/profile после смены пароля"

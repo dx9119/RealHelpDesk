@@ -82,6 +82,20 @@ class EmailDeliveryServiceTest {
                 emailLogService, rateLimitProperties, emailTemplates);
 
         when(mailSender.createMimeMessage()).thenAnswer(invocation -> new JavaMailSenderImpl().createMimeMessage());
+        // рассылка грузит получателей батчем: возвращаем только запрошенных из stubbedUsers
+        when(userDomainService.getUsersByIds(any())).thenAnswer(invocation -> {
+            java.util.Collection<Long> requested = invocation.getArgument(0);
+            Map<Long, UserModel> result = new java.util.HashMap<>();
+            if (requested != null) {
+                for (Long requestedId : requested) {
+                    UserModel stubbed = stubbedUsers.get(requestedId);
+                    if (stubbed != null) {
+                        result.put(requestedId, stubbed);
+                    }
+                }
+            }
+            return result;
+        });
     }
 
     // ────────────────────────────────────────────────
@@ -305,11 +319,13 @@ class EmailDeliveryServiceTest {
         }
     }
 
+    private final Map<Long, UserModel> stubbedUsers = new java.util.HashMap<>();
+
     private void stubUser(Long id, String email) {
         UserModel user = new UserModel();
         user.setId(id);
         user.setEmail(email);
-        when(userDomainService.getUserById(id)).thenReturn(user);
+        stubbedUsers.put(id, user);
     }
 
     private UserModel currentUserWithToken(Long token) {

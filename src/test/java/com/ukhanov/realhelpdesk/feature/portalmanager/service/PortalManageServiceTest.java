@@ -11,6 +11,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
@@ -85,6 +87,9 @@ class PortalManageServiceTest {
     @Mock
     private PortalHistoryService portalHistoryService;
 
+    @Mock
+    private TransactionTemplate transactionTemplate;
+
     private PortalManageService service;
 
     private final EmailTemplates emailTemplates = EmailTemplatesFixture.emailTemplates();
@@ -93,7 +98,13 @@ class PortalManageServiceTest {
     void setUp() {
         service = new PortalManageService(currentUserProvider, portalDomainService, paginationAdapter, portalUtilsService,
                 accessValidationService, limitService, userDomainService, emailDeliveryService, emailTemplates, notificationPublisher,
-                portalHistoryService, Mappers.getMapper(PortalMapper.class));
+                portalHistoryService, Mappers.getMapper(PortalMapper.class), transactionTemplate);
+
+        // без реального PlatformTransactionManager: execute() выполняет колбэк с null-статусом
+        lenient().when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
+            TransactionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInTransaction(null);
+        });
 
         UserModel owner = new UserModel();
         owner.setId(OWNER_ID);
@@ -228,7 +239,7 @@ class PortalManageServiceTest {
         when(portalDomainService.getPortalById(PORTAL_ID)).thenReturn(portal);
         when(portalDomainService.savePortal(any())).thenReturn(portal);
 
-        service.updatePortalInfo(PORTAL_ID, new UpdatePortalInfoRequest("Новый", "Новое"));
+        service.updatePortalInfo(PORTAL_ID, new UpdatePortalInfoRequest("Новый", "Новое"), null);
 
         verify(portalHistoryService).record(eq(PORTAL_ID), eq(PortalHistoryEvent.NAME_CHANGED), eq(OWNER_ID), isNull(), isNull(),
                 eq("name"), eq("Портал"), eq("Новый"));
@@ -244,7 +255,7 @@ class PortalManageServiceTest {
         when(portalDomainService.getPortalById(PORTAL_ID)).thenReturn(portal);
         when(portalDomainService.savePortal(any())).thenReturn(portal);
 
-        service.updatePortalInfo(PORTAL_ID, new UpdatePortalInfoRequest("Портал", "Старое"));
+        service.updatePortalInfo(PORTAL_ID, new UpdatePortalInfoRequest("Портал", "Старое"), null);
 
         verify(portalHistoryService, never()).record(any(), any(), any(), any(), any(), any(), any(), any());
     }

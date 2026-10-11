@@ -11,7 +11,9 @@ import com.ukhanov.realhelpdesk.domain.message.model.MessageModel;
 @Repository
 public interface MessageRepository extends JpaRepository<MessageModel, Long> {
 
-    // Найти все обсуждения по ID заявки
+    // Найти все обсуждения по ID заявки.
+    // Порядок обязателен: без ORDER BY лента чата приходит в произвольном порядке,
+    // который зависит от плана запроса (у вложений и оповещений сортировка уже была).
     @EntityGraph(attributePaths = {"ticket", "author"})
-    List<MessageModel> findByTicketId(Long ticketId);
+    List<MessageModel> findByTicketIdOrderByIdAsc(Long ticketId);
 }

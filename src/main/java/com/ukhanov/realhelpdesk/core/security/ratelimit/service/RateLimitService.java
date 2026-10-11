@@ -7,6 +7,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.springframework.stereotype.Service;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 public class RateLimitService {
 
@@ -31,12 +34,15 @@ public class RateLimitService {
                         : existing);
 
         int count = current.count().incrementAndGet();
-        if (count <= maxRequests) {
-            return new Decision(true, 0);
+        boolean allowed = count <= maxRequests;
+        long retryAfterSeconds = 0;
+        if (!allowed) {
+            long retryAfterMillis = Math.max(0, current.expiresAt() - now);
+            retryAfterSeconds = Math.max(1, (retryAfterMillis + 999) / 1000);
         }
 
-        long retryAfterMillis = Math.max(0, current.expiresAt() - now);
-        return new Decision(false, Math.max(1, (retryAfterMillis + 999) / 1000));
+        logger.debug("Лимит {}: запросов={}, макс={}, allowed={}, retryAfter={}с", key, count, maxRequests, allowed, retryAfterSeconds);
+        return new Decision(allowed, retryAfterSeconds);
     }
 
     public void reset() {
@@ -44,9 +50,11 @@ public class RateLimitService {
     }
 
     private void sweepExpired(long now) {
-        if (windows.size() <= SWEEP_THRESHOLD) {
+        int size = windows.size();
+        if (size <= SWEEP_THRESHOLD) {
             return;
         }
+        logger.warn("Окон рейт-лимита больше порога: {}", size);
         windows.entrySet().removeIf(entry -> entry.getValue().expiresAt() <= now);
     }
 }

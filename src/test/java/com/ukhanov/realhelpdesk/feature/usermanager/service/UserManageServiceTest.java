@@ -15,10 +15,8 @@ import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
 import com.ukhanov.realhelpdesk.core.mail.support.EmailTemplatesFixture;
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.RefreshTokenModel;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenStatus;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.GetTokenService;
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.SaveTokenService;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserPlatformSource;
@@ -29,6 +27,7 @@ import com.ukhanov.realhelpdesk.feature.usermanager.dto.NewPasswdRequest;
 import com.ukhanov.realhelpdesk.feature.usermanager.dto.RecoveryRequest;
 import com.ukhanov.realhelpdesk.feature.usermanager.dto.UserInfoRequest;
 import com.ukhanov.realhelpdesk.feature.usermanager.dto.UserInfoResponse;
+import com.ukhanov.realhelpdesk.feature.usermanager.exception.UserManageException;
 import com.ukhanov.realhelpdesk.feature.usermanager.mapper.UserMapper;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -37,7 +36,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.argThat;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -55,8 +53,6 @@ class UserManageServiceTest {
     private PasswordEncoder passwordEncoder;
     @Mock
     private GetTokenService getTokenService;
-    @Mock
-    private SaveTokenService saveTokenService;
 
     private final UserMapper userMapper = Mappers.getMapper(UserMapper.class);
 
@@ -67,7 +63,7 @@ class UserManageServiceTest {
     @BeforeEach
     void setUp() {
         service = new UserManageService(currentUserProvider, userDomainService, emailDeliveryService, passwordEncoder, getTokenService,
-                saveTokenService, emailTemplates, userMapper);
+                emailTemplates, userMapper);
     }
 
     // ────────────────────────────────────────────────────────────────
@@ -85,7 +81,7 @@ class UserManageServiceTest {
         assertThat(response.email()).isEqualTo("email@example.com");
         assertThat(response).usingRecursiveComparison().isEqualTo(userMapper.toResponse(user));
 
-        verifyNoInteractions(emailDeliveryService, passwordEncoder, getTokenService, saveTokenService);
+        verifyNoInteractions(emailDeliveryService, passwordEncoder, getTokenService);
     }
 
     // ────────────────────────────────────────────────────────────────
@@ -93,7 +89,7 @@ class UserManageServiceTest {
     // ────────────────────────────────────────────────────────────────
 
     @Test
-    void updateUserInfo_success_updatesFieldsAndReturnsUpdatedUser() {
+    void updateUserInfo_success_updatesFieldsAndReturnsUpdatedUser() throws UserManageException {
         UserModel existing = createDefaultUser();
         when(currentUserProvider.getCurrentUserModel()).thenReturn(existing);
 
@@ -104,7 +100,7 @@ class UserManageServiceTest {
 
         UserInfoRequest request = new UserInfoRequest("NewFirst", "NewLast", "NewMiddle", "NewInfo");
 
-        UserInfoResponse response = service.updateUserInfo(request);
+        UserInfoResponse response = service.updateUserInfo(request, null);
 
         assertThat(response.firstName()).isEqualTo("NewFirst");
         assertThat(response.lastName()).isEqualTo("NewLast");
@@ -115,7 +111,7 @@ class UserManageServiceTest {
 
     @Test
     void updateUserInfo_requestNull_throwsNpe() {
-        assertThatThrownBy(() -> service.updateUserInfo(null)).isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> service.updateUserInfo(null, null)).isInstanceOf(NullPointerException.class);
     }
 
     // ────────────────────────────────────────────────────────────────
@@ -150,7 +146,7 @@ class UserManageServiceTest {
 
         ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
         verify(emailDeliveryService).sendEmail(eq("email@example.com"), eq(emailTemplates.passwordResetSubject()), bodyCaptor.capture(),
-                eq(NotificationEvent.RECOVERY_PASSWORD));
+                eq(NotificationEvent.RECOVERY_PASSWORD), eq(user.getId()));
         verifyNoMoreInteractions(emailDeliveryService);
 
         assertThat(bodyCaptor.getValue()).contains("/pass-reset?code=" + user.getRecoveryPasswdToken())
@@ -170,12 +166,8 @@ class UserManageServiceTest {
 
         when(userDomainService.getUserByRecoveryPasswdToken(code)).thenReturn(user);
 
-        // Старые активные refresh-токены (их должно быть несколько — например, с разных устройств)
-        RefreshTokenModel oldToken1 = new RefreshTokenModel();
-        oldToken1.setStatus(TokenStatus.ACTIVE);
-        RefreshTokenModel oldToken2 = new RefreshTokenModel();
-        oldToken2.setStatus(TokenStatus.ACTIVE);
-        when(getTokenService.getActiveRefreshTokens(user)).thenReturn(java.util.List.of(oldToken1, oldToken2));
+        // Старые активные refresh-токены (с разных устройств) отзываются одним bulk-UPDATE
+        when(getTokenService.revokeActiveRefreshTokens(user, TokenStatus.PASSWD_CHANGE)).thenReturn(2);
 
         when(passwordEncoder.encode("newStrongPass123")).thenReturn("encodedNewPass");
 
@@ -193,10 +185,7 @@ class UserManageServiceTest {
         assertThat(savedUser.getTokenVersion()).isEqualTo(tokenVersionBefore + 1); // access-токены отозваны
 
         // Отзываются ВСЕ активные refresh-токены, а не только последний
-        ArgumentCaptor<RefreshTokenModel> tokenCaptor = ArgumentCaptor.forClass(RefreshTokenModel.class);
-        verify(saveTokenService, times(2)).saveRefreshToken(tokenCaptor.capture());
-        org.assertj.core.api.Assertions.assertThat(tokenCaptor.getAllValues()).hasSize(2)
-                .allMatch(token -> token.getStatus() == TokenStatus.PASSWD_CHANGE);
+        verify(getTokenService).revokeActiveRefreshTokens(user, TokenStatus.PASSWD_CHANGE);
     }
 
     @Test
@@ -206,7 +195,7 @@ class UserManageServiceTest {
 
         assertThatThrownBy(() -> service.setNewPasswd(wrongCode, new NewPasswdRequest("pass"))).isInstanceOf(EntityNotFoundException.class);
 
-        verifyNoInteractions(saveTokenService, passwordEncoder);
+        verifyNoInteractions(passwordEncoder);
     }
 
     @Test

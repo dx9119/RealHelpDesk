@@ -11,7 +11,7 @@ REST API для системы управления заявками. Польз
 - Заявки: создание, статусы, приоритеты, удаление, поиск по заявкам.
 - Формирование сообщений, прикрепление к заявке файловых вложений (MinIO, отдача с поддержкой HTTP `Range` для не стабильных сетей).
 - Передача права владения порталом с подтверждением и полной историей состояний портала.
-- Оповещения: email и in-app (HTTP long polling), настройки триггеров и повторов оповещений.
+- Оповещения: email и in-app (SSE-канал, long polling — фолбэк), настройки триггеров и повторов оповещений.
 - Ограничения: квоты пользователя, рейт-лимиты, капча.
 
 ## Технологии
@@ -65,7 +65,7 @@ API — `https://localhost:8443`. Вспомогательные сервисы:
 
 | Файл | Что там |
 |---|---|
-| `scripts/docker/stack.env` | Все несекретные значения: рейт-лимиты, клиентский IP, капча, сроки JWT, почта, MinIO, порты, домены. Сервисы compose получают его через `env_file`; правится без пересборки образа |
+| `scripts/docker/stack.env` | Все несекретные значения с безопасными дефолтами рабочего контура: рейт-лимиты, клиентский IP, капча, сроки JWT, почта, MinIO, порты, домены. Приложение получает его через `env_file`; правится без пересборки образа. Локальные отличия — `stack.local.env` (подключается override-файлом compose после базового), продовые — `stack.prod.env` (файл-шаблон для деплоя) |
 | `infrastructure/.env` | Секреты: `JWT_SECRET`, `DB_PASSWORD`, `KEY_STORE_PASS`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `SHARDINGSPHERE_*`. Шаблон — `infrastructure/.env.example`, в git не попадает |
 | `services.app.environment` в `infrastructure/docker-compose.yaml` | Передача секретов из `.env` в контейнер (`${VAR:?}` — пустой или отсутствующий секрет валит запуск) |
 
@@ -86,21 +86,27 @@ API — `https://localhost:8443`. Вспомогательные сервисы:
 
 ### Профили
 
-Профиль задаётся `SPRING_PROFILES_ACTIVE` в `scripts/docker/stack.env` и
-меняет только уровни логирования:
+Профиль задаётся `SPRING_PROFILES_ACTIVE`: дефолт в `stack.env` — `prod`
+(рабочий контур), локальная разработка включает `debug` в `stack.local.env`.
+Профили меняют уровни логирования; `prod` дополнительно закрепляет инварианты
+(SQL-трассировка выключена, миграции включены, тексты исключений скрыты),
+а `ProdPreflightValidator` останавливает старт рабочего контура с
+отладочной конфигурацией (выключенная капча, localhost в CORS,
+самоподписанный keystore):
 
 | Профиль | Файл | Что включает |
 |---|---|---|
-| `debug` (по умолчанию) | `application-debug.properties` | Локальная отладка: DEBUG по приложению, SQL-логи Hibernate без значений параметров |
-| `prod` | `application-prod.properties` | Рабочий контур: INFO/WARN, пошаговая трассировка и SQL выключены |
+| `debug` | `application-debug.properties` | Локальная отладка: DEBUG по приложению, SQL-логи Hibernate без значений параметров |
+| `prod` (по умолчанию) | `application-prod.properties` | Рабочий контур: INFO/WARN, пошаговая трассировка и SQL выключены, инварианты рабочего контура |
 
-### Профиль compose `sharding`
+### Шардинг PostgreSQL
 
-Шардирование PostgreSQL через ShardingSphere-Proxy (`127.0.0.1:3307`) по
-умолчанию не поднимается. Включение: `make up-sharding` либо
-`COMPOSE_PROFILES=sharding` в `infrastructure/.env`. Пароли прокси —
-`SHARDINGSPHERE_*` в `infrastructure/.env`, шаблоны —
-`infrastructure/shardingsphere/conf/`.
+Шардирование через ShardingSphere-Proxy (`127.0.0.1:3307`) по умолчанию не
+поднимается: сервисы лежат в отдельном `infrastructure/docker-compose.sharding.yaml`.
+Включение: `make up-sharding` (явный набор compose-файлов, override
+подключается тоже явно). Пароли прокси — `SHARDINGSPHERE_*`
+в `infrastructure/.env`, шаблоны — `infrastructure/shardingsphere/conf/`.
+Миграции на шарды с хоста: `make migrate-shard`.
 
 ### Миграции
 
@@ -128,9 +134,26 @@ JWT передаётся в http-only cookie (`accessToken`), refresh-токен
 Настройки cookie: `jwt.cookie.same-site` (`JWT_COOKIE_SAMESITE`) и
 `jwt.cookie.domain` (`JWT_COOKIE_DOMAIN`). Детали аудита — [`docs/jwt-audit.md`](docs/jwt-audit.md).
 
+### Защита от CSRF
+
+Cookie уходят в том числе кросс-сайтово (`SameSite=None` по умолчанию), поэтому
+изменяющие запросы обязаны нести заголовок `X-Requested-With` (любое непустое
+значение) — иначе `403` в формате problem+json. Проверку делает `CsrfProtectionFilter`;
+браузер не добавит кастомный заголовок без preflight, а preflight чужого origin
+отклоняет CORS (allow-list `CORS_ALLOWED_ORIGINS`). Для односайтового фронта
+дополнительно достаточно `JWT_COOKIE_SAMESITE=Lax`.
+
 ## API
 
-Описание всех эндпоинтов — [`docs/api.md`](docs/api.md).
+Описание всех эндпоинтов — [`docs/api.md`](docs/api.md). Машинная спека собирается из
+контроллеров: `GET /v3/api-docs`, UI — `https://localhost:8443/swagger-ui.html`
+(`make openapi` кладёт спеку в `openapi.json`, `make openapi-types` генерирует
+TypeScript-типы для фронта).
+
+Соглашения контракта: единый стиль пагинации `page/size/sortBy/order` (`page` с нуля,
+`size` ≤ 100), коллекции без пагинации в обёртке `{ items, total }`, `ETag`/`If-Match`
+(`412` на устаревшую версию) и `PATCH` для частичных обновлений, оповещения по SSE
+(`GET /notifications/stream`).
 
 ## Рейт-лимиты
 
@@ -170,6 +193,8 @@ e2e — только на поднятом dev-стеке (`make dev-run` или
 | `make verify` | То же + интеграционные `*IT` (failsafe, GreenMail) |
 | `make format` | Форматирование (`spotless:apply`) |
 | `make check` | Проверки стиля (`spotless:check`, `checkstyle`) |
+| `make openapi` | Снять OpenAPI-спеку с запущенного стека в `openapi.json` |
+| `make openapi-types` | Сгенерировать TypeScript-типы (`npx openapi-typescript`) |
 | `make dev-run` | Dev-среда: сборка и запуск стека в foreground (логи всех сервисов) |
 | `make dev-test` | Dev-среда: `mvn verify` + все e2e-сценарии (нужен поднятый стек) |
 

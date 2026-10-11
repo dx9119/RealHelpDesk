@@ -65,7 +65,8 @@ public class RegistrationService {
                 NotificationEvent.NEW_SYSTEM_MESSAGE);
 
         emailDeliveryService.sendUserNotification(newUser.getEmail(), emailTemplates.registrationLinkSubject(),
-                emailTemplates.registrationLinkBody(newUser.getVerifyEmailToken().toString()), NotificationEvent.NEW_SYSTEM_MESSAGE);
+                emailTemplates.registrationLinkBody(newUser.getVerifyEmailToken().toString()), NotificationEvent.NEW_SYSTEM_MESSAGE,
+                newUser.getId());
 
         return newUser;
     }

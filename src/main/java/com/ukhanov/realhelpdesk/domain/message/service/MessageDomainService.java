@@ -39,7 +39,13 @@ public class MessageDomainService {
     public List<MessageModel> getMessagesByTicketId(Long ticketId) {
         Objects.requireNonNull(ticketId, "Идентификатор заявки не должен быть null");
 
-        return messageRepository.findByTicketId(ticketId);
+        List<MessageModel> messages = messageRepository.findByTicketIdOrderByIdAsc(ticketId);
+        Long firstId = messages.isEmpty() ? null : messages.get(0).getId();
+        Long lastId = messages.isEmpty() ? null : messages.get(messages.size() - 1).getId();
+
+        logger.debug("Сообщения заявки {}: найдено={}, первый={}, последний={}", ticketId, messages.size(), firstId, lastId);
+
+        return messages;
     }
 
 }

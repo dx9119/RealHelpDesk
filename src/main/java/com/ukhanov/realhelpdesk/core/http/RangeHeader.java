@@ -1,5 +1,9 @@
 package com.ukhanov.realhelpdesk.core.http;
 
+import com.ukhanov.realhelpdesk.core.log.LogSanitizer;
+
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * Разбор заголовка Range (RFC 9110, единица «bytes») для отдачи файла фрагментами.
  *
@@ -9,6 +13,7 @@ package com.ukhanov.realhelpdesk.core.http;
  * измерения и синтаксические ошибки игнорируются: по RFC сервер вправе ответить полным файлом (200), что здесь и происходит.
  * </p>
  */
+@Slf4j
 public final class RangeHeader {
 
     /** Как ответить на запрос с заголовком Range. */
@@ -109,6 +114,7 @@ public final class RangeHeader {
         try {
             return Long.parseLong(digits);
         } catch (NumberFormatException e) {
+            logger.debug("Некорректный Range, отдан полный файл: {}", LogSanitizer.value(digits));
             return -1;
         }
     }

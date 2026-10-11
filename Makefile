@@ -2,16 +2,27 @@
 # Запуск: make help
 
 MVN ?= mvn
-COMPOSE ?= docker compose -f infrastructure/docker-compose.yaml
 IMAGE ?= realhelpdesk:latest
 APP_JAR ?= target/realhelpdesk-0.0.1-SNAPSHOT.jar
 E2E_DIR ?= scripts
+
+# Ревизия git для LABEL образа (org.opencontainers.image.revision)
+GIT_SHA ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
+
+# Наборы compose-файлов: база всегда, дальше — только своя (infraReview.md, п. 8).
+# Явные -f отключают автоподхват docker-compose.override.yaml — рабочий стек
+# из override никогда не собирается.
+COMPOSE_DEV ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml
+COMPOSE_PROD ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.prod.yaml
+COMPOSE_SHARDING ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml -f infrastructure/docker-compose.sharding.yaml
 
 .DEFAULT_GOAL := help
 
 .PHONY: help build clean compile package test verify format check run \
         dev-run dev-test \
-        env docker-build up up-sharding down down-volumes logs ps restart shell check-image \
+        env docker-build up up-prod up-sharding down down-sharding down-volumes logs ps restart shell check-image \
+        migrate migrate-shard-0 migrate-shard-1 migrate-shard \
+        openapi openapi-types \
         e2e-portal-access e2e-ratelimit e2e-jwt e2e-notifications e2e-portal-transfer e2e-all
 
 help: ## Показать список команд
@@ -47,7 +58,7 @@ run: ## Запустить приложение локально (spring-boot:ru
 	$(MVN) spring-boot:run
 
 dev-run: env ## Dev-среда: compose up в foreground (логи всех сервисов, Ctrl+C — стоп)
-	$(COMPOSE) up --build
+	$(COMPOSE_DEV) up --build
 
 dev-test: ## Dev-среда: mvn verify + e2e-сценарии (нужен поднятый стек: dev-run/up)
 	$(MVN) verify
@@ -58,35 +69,76 @@ dev-test: ## Dev-среда: mvn verify + e2e-сценарии (нужен по�
 env: ## Создать infrastructure/.env из infrastructure/.env.example, если его нет
 	@test -f infrastructure/.env || (cp infrastructure/.env.example infrastructure/.env && echo "Создан infrastructure/.env — заполните секреты")
 
-docker-build: ## Собрать docker-образ приложения
-	$(COMPOSE) build
+docker-build: ## Собрать docker-образ приложения (с меткой GIT_SHA)
+	$(COMPOSE_DEV) build --build-arg GIT_SHA=$(GIT_SHA)
 
-up: env ## Поднять весь стек (сборка образа, в фоне)
-	$(COMPOSE) up --build -d
+up: env ## Поднять локальный стек (сборка образа, в фоне)
+	$(COMPOSE_DEV) up --build -d
 
-up-sharding: env ## Поднять стек с профилем sharding
-	$(COMPOSE) --profile sharding up --build -d
+up-prod: env ## Поднять рабочий стек (без override; заполните stack.prod.env)
+	$(COMPOSE_PROD) up --build -d
 
-down: ## Остановить стек
-	$(COMPOSE) down
+up-sharding: env ## Поднять локальный стек + шардирование (proxy + 2 шарда)
+	$(COMPOSE_SHARDING) up --build -d
+
+down: ## Остановить локальный стек
+	$(COMPOSE_DEV) down
+
+down-sharding: ## Остановить стек с шардированием (тома целы)
+	$(COMPOSE_SHARDING) down
 
 down-volumes: ## Остановить стек и удалить тома (данные БД/MinIO)
-	$(COMPOSE) down -v
+	$(COMPOSE_DEV) down -v
 
 logs: ## Логи приложения (follow)
-	$(COMPOSE) logs -f app
+	$(COMPOSE_DEV) logs -f app
 
 ps: ## Статус контейнеров
-	$(COMPOSE) ps
+	$(COMPOSE_DEV) ps
 
 restart: ## Перезапустить только приложение
-	$(COMPOSE) restart app
+	$(COMPOSE_DEV) restart app
 
 shell: ## Shell внутри контейнера app
-	$(COMPOSE) exec app sh
+	$(COMPOSE_DEV) exec app sh
 
 check-image: docker-build ## Проверки образа: секреты, ФС, jar
 	./scripts/docker/check-image.sh $(IMAGE)
+
+## --- Миграции схемы (Liquibase с хоста; порты БД проброшены на 127.0.0.1) ---
+# Миграции также применяет само приложение при старте (DB_MIGRATIONS_ENABLED).
+# Цели ниже — для чистого/ручного прогона без контейнера приложения.
+
+migrate: env ## Миграции Liquibase на основную БД (localhost:5432)
+	@set -a && . infrastructure/.env && set +a && \
+	$(MVN) -q liquibase:update \
+	  -Dliquibase.url=jdbc:postgresql://127.0.0.1:5432/desk \
+	  -Dliquibase.username=user \
+	  -Dliquibase.password="$$DB_PASSWORD"
+
+migrate-shard-0: env ## Миграции Liquibase на первый шард (localhost:5433)
+	@set -a && . infrastructure/.env && set +a && \
+	$(MVN) -q liquibase:update \
+	  -Dliquibase.url=jdbc:postgresql://127.0.0.1:5433/desk \
+	  -Dliquibase.username=user \
+	  -Dliquibase.password="$$DB_PASSWORD"
+
+migrate-shard-1: env ## Миграции Liquibase на второй шард (localhost:5434)
+	@set -a && . infrastructure/.env && set +a && \
+	$(MVN) -q liquibase:update \
+	  -Dliquibase.url=jdbc:postgresql://127.0.0.1:5434/desk \
+	  -Dliquibase.username=user \
+	  -Dliquibase.password="$$DB_PASSWORD"
+
+migrate-shard: migrate-shard-0 migrate-shard-1 ## Миграции Liquibase на оба шарда
+
+## --- OpenAPI (нужен поднятый стек: make up) ---
+
+openapi: ## Забрать OpenAPI-спеку с запущенного стека в openapi.json
+	curl -sk https://localhost:8443/v3/api-docs -o openapi.json && echo "openapi.json обновлён"
+
+openapi-types: openapi ## Сгенерировать TypeScript-типы из спеки (нужен npx)
+	npx --yes openapi-typescript openapi.json -o web/src/api/schema.d.ts
 
 ## --- E2E (нужен поднятый стек: make up) ---
 

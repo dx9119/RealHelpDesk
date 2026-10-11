@@ -61,7 +61,7 @@ public class MessageManageService {
 
         // Отправляем письмо с оповещением о новом сообщении в тикете
         emailDeliveryService.sendUserNotification(ticket.getAuthor().getEmail(), emailTemplates.ticketReplySubject(ticket.getId()),
-                emailTemplates.ticketReplyBody(ticket.getId(), portalId), NotificationEvent.NEW_MESSAGE);
+                emailTemplates.ticketReplyBody(ticket.getId(), portalId), NotificationEvent.NEW_MESSAGE, ticket.getAuthor().getId());
 
         logger.info("Сообщение сохранено для заявки с ID: {}", ticketId);
         return new CreateMessageResponse(message.getId());
@@ -74,6 +74,22 @@ public class MessageManageService {
         logger.debug("Найдено {} сообщений для заявки с ID: {}", messages.size(), ticketId);
 
         return messages.stream().map(messageMapper::toResponse).toList();
+    }
+
+    /**
+     * Одно сообщение заявки: нужно, чтобы Location после создания указывал на существующий маршрут. Сообщение другой заявки не отдаём —
+     * иначе id из чужой ленты обходил бы проверку доступа к заявке.
+     */
+    public MessageResponse getMessage(Long ticketId, Long messageId) throws MessageException {
+        Objects.requireNonNull(ticketId, "ID заявки не должен быть null");
+        Objects.requireNonNull(messageId, "ID сообщения не должен быть null");
+
+        MessageModel message = messageDomainService.getMessageById(messageId);
+        if (message.getTicket() == null || !ticketId.equals(message.getTicket().getId())) {
+            throw MessageException.notFound("Сообщение не найдено в этой заявке");
+        }
+
+        return messageMapper.toResponse(message);
     }
 
 }

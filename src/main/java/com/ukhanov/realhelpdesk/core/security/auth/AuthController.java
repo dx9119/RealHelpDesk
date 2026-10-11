@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.ukhanov.realhelpdesk.core.config.JwtProperties;
 import com.ukhanov.realhelpdesk.core.mail.exception.EmailAccessDeniedException;
+import com.ukhanov.realhelpdesk.core.security.auth.dto.SessionResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.login.dto.LoginRequest;
 import com.ukhanov.realhelpdesk.core.security.auth.login.service.LoginService;
 import com.ukhanov.realhelpdesk.core.security.auth.logout.exception.LogoutException;
@@ -30,13 +31,13 @@ import com.ukhanov.realhelpdesk.core.security.auth.refresh.service.RefreshServic
 import com.ukhanov.realhelpdesk.core.security.auth.register.dto.RegisterRequest;
 import com.ukhanov.realhelpdesk.core.security.auth.register.exception.RegistrationException;
 import com.ukhanov.realhelpdesk.core.security.auth.register.service.RegistrationService;
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.AuthorizationResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenStatusResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokensResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.GetTokenService;
 import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaException;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.annotation.RateLimit;
+import com.ukhanov.realhelpdesk.feature.usermanager.service.UserManageService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -60,6 +61,7 @@ public class AuthController {
     private final GetTokenService getTokenService;
     private final RefreshService refreshService;
     private final JwtProperties jwtProperties;
+    private final UserManageService userManageService;
 
     @PostMapping("/register")
     @RateLimit(key = "auth-register")
@@ -101,10 +103,11 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    // Проверка наличия авторизации на клиенте (фильтр не даст дойти до этого метода, если есть проблемы с авторизацией/токеном)
+    // Проверка наличия авторизации на клиенте (фильтр не даст дойти до этого метода, если есть проблемы с авторизацией/токеном).
+    // Вместо строки «Активен» отдаём признак и профиль пользователя: клиенту больше не нужен отдельный GET /users/profile.
     @GetMapping("/session")
-    public ResponseEntity<AuthorizationResponse> sessionStatus(HttpServletRequest request) throws TokenException {
-        AuthorizationResponse response = new AuthorizationResponse("Активен");
+    public ResponseEntity<SessionResponse> sessionStatus(HttpServletRequest request) throws TokenException {
+        SessionResponse response = new SessionResponse(true, userManageService.getUserInfo());
         return ResponseEntity.ok(response);
     }
 

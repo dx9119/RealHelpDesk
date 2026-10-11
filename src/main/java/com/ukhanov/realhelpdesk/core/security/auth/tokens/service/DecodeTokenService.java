@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import com.ukhanov.realhelpdesk.core.config.JwtConfig;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenBearer;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.utils.JwtClaims;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
@@ -42,6 +43,8 @@ public class DecodeTokenService {
         if (claims.getSubject() == null) {
             throw new JwtException("Отсутствует claim 'subject' в токене");
         }
+
+        logger.debug("Разобран {} токен, userId={}, jti={}", claims.get(JwtClaims.TYPE), claims.getSubject(), claims.getId());
 
         return claims;
     }

@@ -19,11 +19,15 @@ set -u
 BASE=${BASE:-https://localhost:8443}
 SMTP=${SMTP:-http://localhost:3000}
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+# Windows Git Bash: inline-аргумент с не-ASCII портится (argv уходит в ANSI-кодировке), тело запроса
+# перестаёт быть UTF-8 и сервер отвечает 400. Поэтому тела с кириллицей пишем в файл целиком.
+BODY_FILE="$TMP/request-body.json"
+body() { printf '%s' "$1" > "$BODY_FILE"; printf '@%s' "$BODY_FILE"; }
 PASS=0; FAIL=0
 check() { if [ "$1" = "$2" ]; then PASS=$((PASS+1)); echo "  OK   $3 -> $2"; else FAIL=$((FAIL+1)); echo "  FAIL $3 (факт: $2, ожидалось: $1)"; fi; }
 check_contains() { if printf '%s' "$2" | grep -q "$1"; then PASS=$((PASS+1)); echo "  OK   $3 содержит '$1'"; else FAIL=$((FAIL+1)); echo "  FAIL $3 (нет '$1' в: $(printf '%s' "$2" | head -c 300))"; fi; }
 step() { echo; echo "── $1"; }
-status() { curl -sk -o /dev/null -w '%{http_code}' "$@"; }
+status() { curl -sk -H 'X-Requested-With: XMLHttpRequest' -o /dev/null -w '%{http_code}' "$@"; }
 json() { python3 -c "import sys,json;d=json.load(sys.stdin);print(d$1)" 2>/dev/null || echo ""; }
 
 STAMP=$RANDOM$RANDOM
@@ -34,7 +38,7 @@ PASSWORD="Passw0rd!123"
 
 # ── helpers ─────────────────────────────────────────
 register() { # email last first jar
-  curl -sk -o /dev/null -w '%{http_code}' -c "$4" -X POST "$BASE/api/v1/auth/register" -H 'Content-Type: application/json' \
+  curl -sk -H 'X-Requested-With: XMLHttpRequest' -o /dev/null -w '%{http_code}' -c "$4" -X POST "$BASE/api/v1/auth/register" -H 'Content-Type: application/json' \
     -d "{\"firstName\":\"$3\",\"lastName\":\"$2\",\"email\":\"$1\",\"password\":\"$PASSWORD\"}"
 }
 confirm_email() { # email jar -> код из письма (ретраи, письмо приходит не мгновенно)
@@ -51,10 +55,10 @@ for m in r:
     [ -n "$msg" ] && break
   done
   code=$(curl -s "$SMTP/api/Messages/$msg/PlainText" | grep -oE -- '-?[0-9]{16,}' | head -1)
-  curl -sk -o /dev/null -w '%{http_code}' -b "$jar" -X POST "$BASE/api/v1/email/confirmations/$code"
+  curl -sk -H 'X-Requested-With: XMLHttpRequest' -o /dev/null -w '%{http_code}' -b "$jar" -X POST "$BASE/api/v1/email/confirmations/$code"
 }
 login() { # email jar
-  curl -sk -o /dev/null -c "$2" -X POST "$BASE/api/v1/auth/login" -H 'Content-Type: application/json' \
+  curl -sk -H 'X-Requested-With: XMLHttpRequest' -o /dev/null -c "$2" -X POST "$BASE/api/v1/auth/login" -H 'Content-Type: application/json' \
     -d "{\"email\":\"$1\",\"password\":\"$PASSWORD\"}"
 }
 last_mail_subject() { # email [subject] -> тема письма (или пусто); фильтр по теме не зависит от порядка
@@ -68,7 +72,7 @@ for m in r:
 " "${2:-}" "$1"
 }
 notif_events() { # jar -> события из GET /notifications
-  curl -sk -b "$1" "$BASE/api/v1/notifications?size=50" | python3 -c "
+  curl -sk -H 'X-Requested-With: XMLHttpRequest' -b "$1" "$BASE/api/v1/notifications?size=50" | python3 -c "
 import sys,json
 d=json.load(sys.stdin)
 for it in d.get('content',[]):
@@ -76,7 +80,7 @@ for it in d.get('content',[]):
 "
 }
 create_portal() { # jar name -> id
-  curl -sk -b "$1" -X POST "$BASE/api/v1/portals" -H 'Content-Type: application/json' \
+  curl -sk -H 'X-Requested-With: XMLHttpRequest' -b "$1" -X POST "$BASE/api/v1/portals" -H 'Content-Type: application/json' \
     -d "{\"name\":\"$2\",\"description\":\"e2e transfer\"}" | json "['id']"
 }
 
@@ -99,7 +103,7 @@ echo "  portalId=$PORTAL"
 if [ -n "$PORTAL" ]; then PASS=$((PASS+1)); echo "  OK   portal создан"; else FAIL=$((FAIL+1)); echo "  FAIL portal не создан"; fi
 
 HDR="$TMP/h1"
-curl -sk -D "$HDR" -o "$TMP/init.json" -b "$TMP/owner.jar" -X POST "$BASE/api/v1/portals/$PORTAL/owner-transfer" \
+curl -sk -H 'X-Requested-With: XMLHttpRequest' -D "$HDR" -o "$TMP/init.json" -b "$TMP/owner.jar" -X POST "$BASE/api/v1/portals/$PORTAL/owner-transfer" \
   -H 'Content-Type: application/json' \
   -d "{\"email\":\"$PROPOSED_EMAIL\",\"password\":\"$PASSWORD\",\"reason\":\"Ухожу в отпуск\",\"keepOldOwnerAsMember\":true}"
 check 201 "$(head -1 "$HDR" | awk '{print $2}')" "POST owner-transfer"
@@ -111,19 +115,19 @@ check 200 "$(status -b "$TMP/proposed.jar" "$BASE/api/v1/portals/$PORTAL/owner-t
 check 404 "$(status -b "$TMP/stranger.jar" "$BASE/api/v1/portals/$PORTAL/owner-transfer")" "GET transfer постороннему → 404"
 
 check_contains "PORTAL_TRANSFER_REQUESTED" "$(notif_events "$TMP/proposed.jar")" "in-app предлагаемому"
-check_contains "Вам передают" "$(curl -sk -b "$TMP/proposed.jar" "$BASE/api/v1/notifications?size=50" | python3 -c 'import sys,json;print(" ".join(i.get("title","") for i in json.load(sys.stdin).get("content",[])))')" "заголовок in-app"
+check_contains "Вам передают" "$(curl -sk -H 'X-Requested-With: XMLHttpRequest' -b "$TMP/proposed.jar" "$BASE/api/v1/notifications?size=50" | python3 -c 'import sys,json;print(" ".join(i.get("title","") for i in json.load(sys.stdin).get("content",[])))')" "заголовок in-app"
 
 check "Вам передают портал #$PORTAL" "$(last_mail_subject "$PROPOSED_EMAIL" "Вам передают портал #$PORTAL")" "email предлагаемому"
 check "Передача портала #$PORTAL" "$(last_mail_subject "$OWNER_EMAIL" "Передача портала #$PORTAL")" "email участнику (владельцу)"
 
 step "Ошибки при инициировании"
 HDR="$TMP/h2"
-curl -sk -D "$HDR" -o /dev/null -b "$TMP/owner.jar" -X POST "$BASE/api/v1/portals/$PORTAL/owner-transfer" \
+curl -sk -H 'X-Requested-With: XMLHttpRequest' -D "$HDR" -o /dev/null -b "$TMP/owner.jar" -X POST "$BASE/api/v1/portals/$PORTAL/owner-transfer" \
   -H 'Content-Type: application/json' \
   -d "{\"email\":\"$PROPOSED_EMAIL\",\"password\":\"$PASSWORD\",\"reason\":\"x\",\"keepOldOwnerAsMember\":true}"
 check 409 "$(head -1 "$HDR" | awk '{print $2}')" "второй активный запрос → 409"
 HDR="$TMP/h3"
-curl -sk -D "$HDR" -o /dev/null -b "$TMP/owner.jar" -X POST "$BASE/api/v1/portals/$PORTAL/owner-transfer" \
+curl -sk -H 'X-Requested-With: XMLHttpRequest' -D "$HDR" -o /dev/null -b "$TMP/owner.jar" -X POST "$BASE/api/v1/portals/$PORTAL/owner-transfer" \
   -H 'Content-Type: application/json' \
   -d "{\"email\":\"$PROPOSED_EMAIL\",\"password\":\"wrong-pass-1\",\"reason\":\"x\",\"keepOldOwnerAsMember\":true}"
 check 401 "$(head -1 "$HDR" | awk '{print $2}')" "чужой пароль владельца → 401"
@@ -132,24 +136,24 @@ step "Ошибки при подтверждении"
 check 404 "$(status -b "$TMP/owner.jar" -X POST "$BASE/api/v1/portals/$PORTAL/owner-transfer/confirm" \
   -H 'Content-Type: application/json' -d "{\"password\":\"$PASSWORD\",\"reason\":\"ок\"}")" "confirm не предлагаемым → 404"
 check 401 "$(status -b "$TMP/proposed.jar" -X POST "$BASE/api/v1/portals/$PORTAL/owner-transfer/confirm" \
-  -H 'Content-Type: application/json' -d '{"password":"wrong-pass-1","reason":"ок"}')" "confirm неверным паролем → 401"
+  -H 'Content-Type: application/json' --data-binary "$(body '{"password":"wrong-pass-1","reason":"ок"}')")" "confirm неверным паролем → 401"
 check 404 "$(status -b "$TMP/stranger.jar" -X POST "$BASE/api/v1/portals/$PORTAL/owner-transfer/confirm" \
   -H 'Content-Type: application/json' -d "{\"password\":\"$PASSWORD\",\"reason\":\"ок\"}")" "confirm посторонним → 404"
 
 step "Подтверждение предлагаемым владельцем"
 HDR="$TMP/h4"
-curl -sk -D "$HDR" -o "$TMP/conf.json" -b "$TMP/proposed.jar" -X POST "$BASE/api/v1/portals/$PORTAL/owner-transfer/confirm" \
+curl -sk -H 'X-Requested-With: XMLHttpRequest' -D "$HDR" -o "$TMP/conf.json" -b "$TMP/proposed.jar" -X POST "$BASE/api/v1/portals/$PORTAL/owner-transfer/confirm" \
   -H 'Content-Type: application/json' \
   -d "{\"password\":\"$PASSWORD\",\"reason\":\"Принимаю, спасибо\"}"
 check 200 "$(head -1 "$HDR" | awk '{print $2}')" "POST confirm"
 check "ACCEPTED" "$(json "['status']" < "$TMP/conf.json")" "статус ACCEPTED"
 
-check_contains "$PORTAL" "$(curl -sk -b "$TMP/proposed.jar" "$BASE/api/v1/portals?size=100")" "портал в списке новых владельцев"
+check_contains "$PORTAL" "$(curl -sk -H 'X-Requested-With: XMLHttpRequest' -b "$TMP/proposed.jar" "$BASE/api/v1/portals?size=100")" "портал в списке новых владельцев"
 check "Портал #$PORTAL сменил владельца" "$(last_mail_subject "$OWNER_EMAIL" "Портал #$PORTAL сменил владельца")" "email старому владельцу"
-check_contains "$PORTAL" "$(curl -sk -b "$TMP/owner.jar" "$BASE/api/v1/portals/shared?size=100")" "старый владелец остался участником (keepOld=true)"
+check_contains "$PORTAL" "$(curl -sk -H 'X-Requested-With: XMLHttpRequest' -b "$TMP/owner.jar" "$BASE/api/v1/portals/accessible?size=100")" "старый владелец остался участником (keepOld=true)"
 
 step "История портала"
-HIST=$(curl -sk -b "$TMP/proposed.jar" "$BASE/api/v1/portals/$PORTAL/history?size=50")
+HIST=$(curl -sk -H 'X-Requested-With: XMLHttpRequest' -b "$TMP/proposed.jar" "$BASE/api/v1/portals/$PORTAL/history?size=50")
 check_contains "TRANSFER_REQUESTED" "$HIST" "история: TRANSFER_REQUESTED"
 check_contains "TRANSFER_ACCEPTED" "$HIST" "история: TRANSFER_ACCEPTED"
 check_contains "Принимаю, спасибо" "$HIST" "история: причина нового владельца"
@@ -160,37 +164,37 @@ check 403 "$(status -b "$TMP/stranger.jar" "$BASE/api/v1/portals/$PORTAL/history
 step "Сценарий 2: initiate → reject"
 PORTAL2=$(create_portal "$TMP/owner.jar" "Transfer Portal 2")
 echo "  portalId=$PORTAL2"
-curl -sk -o /dev/null -b "$TMP/owner.jar" -X POST "$BASE/api/v1/portals/$PORTAL2/owner-transfer" \
+curl -sk -H 'X-Requested-With: XMLHttpRequest' -o /dev/null -b "$TMP/owner.jar" -X POST "$BASE/api/v1/portals/$PORTAL2/owner-transfer" \
   -H 'Content-Type: application/json' \
   -d "{\"email\":\"$PROPOSED_EMAIL\",\"password\":\"$PASSWORD\",\"reason\":\"Передаю проект\",\"keepOldOwnerAsMember\":false}"
 HDR="$TMP/h5"
-curl -sk -D "$HDR" -o "$TMP/rej.json" -b "$TMP/proposed.jar" -X POST "$BASE/api/v1/portals/$PORTAL2/owner-transfer/reject" \
-  -H 'Content-Type: application/json' -d '{"reason":"Сейчас не могу взять"}'
+curl -sk -H 'X-Requested-With: XMLHttpRequest' -D "$HDR" -o "$TMP/rej.json" -b "$TMP/proposed.jar" -X POST "$BASE/api/v1/portals/$PORTAL2/owner-transfer/reject" \
+  -H 'Content-Type: application/json' --data-binary "$(body '{"reason":"Сейчас не могу взять"}')"
 check 200 "$(head -1 "$HDR" | awk '{print $2}')" "POST reject"
 check "REJECTED" "$(json "['status']" < "$TMP/rej.json")" "статус REJECTED"
 check "Запрос на передачу портала #$PORTAL2 отклонён" "$(last_mail_subject "$OWNER_EMAIL" "Запрос на передачу портала #$PORTAL2 отклонён")" "email инициатору об отклонении"
-check_contains "TRANSFER_REJECTED" "$(curl -sk -b "$TMP/owner.jar" "$BASE/api/v1/portals/$PORTAL2/history?size=50")" "история: TRANSFER_REJECTED"
+check_contains "TRANSFER_REJECTED" "$(curl -sk -H 'X-Requested-With: XMLHttpRequest' -b "$TMP/owner.jar" "$BASE/api/v1/portals/$PORTAL2/history?size=50")" "история: TRANSFER_REJECTED"
 check 404 "$(status -b "$TMP/proposed.jar" "$BASE/api/v1/portals/$PORTAL2/owner-transfer")" "после решения GET → 404"
 
 # ── сценарий 3: отзыв владельцем ────────────────────
 step "Сценарий 3: initiate → cancel"
 PORTAL3=$(create_portal "$TMP/owner.jar" "Transfer Portal 3")
 echo "  portalId=$PORTAL3"
-curl -sk -o /dev/null -b "$TMP/owner.jar" -X POST "$BASE/api/v1/portals/$PORTAL3/owner-transfer" \
+curl -sk -H 'X-Requested-With: XMLHttpRequest' -o /dev/null -b "$TMP/owner.jar" -X POST "$BASE/api/v1/portals/$PORTAL3/owner-transfer" \
   -H 'Content-Type: application/json' \
   -d "{\"email\":\"$PROPOSED_EMAIL\",\"password\":\"$PASSWORD\",\"reason\":\"Временное предложение\",\"keepOldOwnerAsMember\":true}"
 HDR="$TMP/h6"
-curl -sk -D "$HDR" -o "$TMP/can.json" -b "$TMP/owner.jar" -X POST "$BASE/api/v1/portals/$PORTAL3/owner-transfer/cancel"
+curl -sk -H 'X-Requested-With: XMLHttpRequest' -D "$HDR" -o "$TMP/can.json" -b "$TMP/owner.jar" -X POST "$BASE/api/v1/portals/$PORTAL3/owner-transfer/cancel"
 check 200 "$(head -1 "$HDR" | awk '{print $2}')" "POST cancel"
 check "CANCELLED" "$(json "['status']" < "$TMP/can.json")" "статус CANCELLED"
 check "Передача портала #$PORTAL3 отменена" "$(last_mail_subject "$PROPOSED_EMAIL" "Передача портала #$PORTAL3 отменена")" "email предлагаемому об отзыве"
-check_contains "TRANSFER_CANCELLED" "$(curl -sk -b "$TMP/owner.jar" "$BASE/api/v1/portals/$PORTAL3/history?size=50")" "история: TRANSFER_CANCELLED (владелец)"
+check_contains "TRANSFER_CANCELLED" "$(curl -sk -H 'X-Requested-With: XMLHttpRequest' -b "$TMP/owner.jar" "$BASE/api/v1/portals/$PORTAL3/history?size=50")" "история: TRANSFER_CANCELLED (владелец)"
 check 403 "$(status -b "$TMP/proposed.jar" "$BASE/api/v1/portals/$PORTAL3/history")" "история не-участнику → 403"
 check 404 "$(status -b "$TMP/owner.jar" -X POST "$BASE/api/v1/portals/$PORTAL3/owner-transfer/cancel")" "повторный cancel → 404"
 
 # ── журнал писем: события передачи ──────────────────
 step "Журнал email_log: события PORTAL_TRANSFER_*"
-EVENTS=$(docker compose -f infrastructure/docker-compose.yaml exec -T postgres psql -U user -d desk -tAc \
+EVENTS=$(docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml exec -T postgres psql -U user -d desk -tAc \
   "SELECT DISTINCT notification_event FROM email_log WHERE notification_event LIKE 'PORTAL_TRANSFER%' ORDER BY 1")
 echo "  events=$EVENTS"
 check_contains "PORTAL_TRANSFER_REQUESTED" "$EVENTS" "email_log: REQUESTED"

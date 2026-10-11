@@ -21,6 +21,10 @@ set -u
 
 BASE=${BASE:-https://localhost:8443/api/v1}
 TMP=$(mktemp -d)
+# Windows Git Bash: inline-аргумент с не-ASCII портится (argv уходит в ANSI-кодировке), тело запроса
+# перестаёт быть UTF-8 и сервер отвечает 400. Поэтому тела с кириллицей пишем в файл целиком.
+BODY_FILE="$TMP/request-body.json"
+body() { printf '%s' "$1" > "$BODY_FILE"; printf '@%s' "$BODY_FILE"; }
 trap 'rm -rf "$TMP"' EXIT
 JAR_A="$TMP/owner.jar"
 JAR_B="$TMP/guest.jar"
@@ -40,12 +44,12 @@ check() {
     FAIL=1
   fi
 }
-code() { curl -sk -o "$BODY" -w "%{http_code}" "$@"; }
+code() { curl -sk -H 'X-Requested-With: XMLHttpRequest' -o "$BODY" -w "%{http_code}" "$@"; }
 # непрочитанные из GET /notifications/unread-count
-unread() { curl -sk -b "$1" "$BASE/notifications/unread-count" | grep -o '"count":[0-9]*' | cut -d: -f2; }
+unread() { curl -sk -H 'X-Requested-With: XMLHttpRequest' -b "$1" "$BASE/notifications/unread-count" | grep -o '"count":[0-9]*' | cut -d: -f2; }
 # максимальный id уведомлений пользователя (курсор для /wait)
 last_id() {
-  curl -sk -b "$1" "$BASE/notifications?size=50" | grep -o '"id":[0-9]*' | cut -d: -f2 | sort -n | tail -1
+  curl -sk -H 'X-Requested-With: XMLHttpRequest' -b "$1" "$BASE/notifications?size=50" | grep -o '"id":[0-9]*' | cut -d: -f2 | sort -n | tail -1
 }
 # цикл long polling до появления оповещения новее afterId: $1 jar, $2 afterId,
 # $3 итераций по 30 сек (5 × 30 = 150 сек > интервал 1 мин + обход 1 мин).
@@ -53,7 +57,7 @@ last_id() {
 wait_new() {
   local jar=$1 after=$2 tries=${3:-5} i=0 code
   while [ "$i" -lt "$tries" ]; do
-    code=$(curl -sk -b "$jar" -o "$TMP/waitloop.json" -w "%{http_code}" \
+    code=$(curl -sk -H 'X-Requested-With: XMLHttpRequest' -b "$jar" -o "$TMP/waitloop.json" -w "%{http_code}" \
       "$BASE/notifications/wait?timeoutSec=30&afterId=${after:-0}")
     if [ "$code" != "200" ]; then
       echo 0
@@ -87,11 +91,11 @@ $PSQL "update users set is_email_verified=true;" >/dev/null
 
 step "A создаёт портал и выдаёт B доступ"
 check "$(code -b "$JAR_A" -X POST "$BASE/portals" -H 'Content-Type: application/json' \
-  -d '{"name":"notify-portal-'$RUN'","description":"оповещения"}')" "201" "портал создан"
+  --data-binary "$(body "{\"name\":\"notify-portal-$RUN\",\"description\":\"оповещения\"}")")" "201" "портал создан"
 PORTAL=$($PSQL "select p.id from portals p join users u on u.id=p.owner_id where u.email='$OWNER_EMAIL';")
 GUEST_ID=$($PSQL "select id from users where email='$GUEST_EMAIL';")
-check "$(code -b "$JAR_A" -X PUT "$BASE/portals/shared/$PORTAL/users" -H 'Content-Type: application/json' \
-  -d "{\"userIds\":[\"$GUEST_ID\"]}")" "204" "B получил доступ"
+check "$(code -b "$JAR_A" -X PUT "$BASE/portals/$PORTAL/settings/users" -H 'Content-Type: application/json' \
+  -d "{\"userIds\":[\"$GUEST_ID\"]}")" "200" "B получил доступ"
 
 step "Список и счётчик до событий"
 check "$(code -b "$JAR_B" "$BASE/notifications")" "200" "GET /notifications доступен"
@@ -99,12 +103,12 @@ check "$(unread "$JAR_B")" "0" "у B непрочитанных нет"
 check "$(code -b "$JAR_B" "$BASE/notifications/preferences")" "200" "GET /preferences доступен"
 
 step "B ждёт long polling, пока A создаёт заявку"
-curl -sk -b "$JAR_B" -o "$TMP/wait1.json" -w "%{http_code}" \
+curl -sk -H 'X-Requested-With: XMLHttpRequest' -b "$JAR_B" -o "$TMP/wait1.json" -w "%{http_code}" \
   "$BASE/notifications/wait?timeoutSec=15" > "$TMP/wait1.code" &
 WAIT_PID=$!
 sleep 1
 check "$(code -b "$JAR_A" -X POST "$BASE/portals/$PORTAL/tickets" -H 'Content-Type: application/json' \
-  -d '{"title":"Первая заявка","body":"тело заявки"}')" "201" "A создал заявку"
+  --data-binary "$(body '{"title":"Первая заявка","body":"тело заявки"}')")" "201" "A создал заявку"
 wait "$WAIT_PID"
 check "$(cat "$TMP/wait1.code")" "200" "long polling B завершился 200"
 if grep -q '"event":"NEW_TICKET"' "$TMP/wait1.json"; then
@@ -131,7 +135,7 @@ check "$(code -b "$JAR_A" -X PUT "$BASE/notifications/read-all")" "204" "A от�
 step "B отключает NEW_TICKET в настройках"
 check "$(code -b "$JAR_B" -X PUT "$BASE/notifications/preferences" -H 'Content-Type: application/json' \
   -d '{"events":["CHANGE_TICKET"]}')" "200" "настройки сохранены"
-if curl -sk -b "$JAR_B" "$BASE/notifications/preferences" | grep -q '"CHANGE_TICKET"'; then
+if curl -sk -H 'X-Requested-With: XMLHttpRequest' -b "$JAR_B" "$BASE/notifications/preferences" | grep -q '"CHANGE_TICKET"'; then
   echo "  OK   в настройках остался CHANGE_TICKET"
 else
   echo "  FAIL настройки не сохранились"
@@ -140,12 +144,12 @@ fi
 
 step "Отключённое событие не приходит: A создаёт вторую заявку"
 AFTER=$(last_id "$JAR_B")
-curl -sk -b "$JAR_B" -o "$TMP/wait2.json" -w "%{http_code}" \
+curl -sk -H 'X-Requested-With: XMLHttpRequest' -b "$JAR_B" -o "$TMP/wait2.json" -w "%{http_code}" \
   "$BASE/notifications/wait?timeoutSec=2&afterId=${AFTER:-0}" > "$TMP/wait2.code" &
 WAIT_PID=$!
 sleep 1
 check "$(code -b "$JAR_A" -X POST "$BASE/portals/$PORTAL/tickets" -H 'Content-Type: application/json' \
-  -d '{"title":"Вторая заявка","body":"снова тело"}')" "201" "A создал вторую заявку"
+  --data-binary "$(body '{"title":"Вторая заявка","body":"снова тело"}')")" "201" "A создал вторую заявку"
 wait "$WAIT_PID"
 check "$(cat "$TMP/wait2.code")" "200" "long polling B завершился 200 по таймауту"
 if grep -q '"content":\[\]' "$TMP/wait2.json"; then
@@ -158,11 +162,11 @@ check "$(unread "$JAR_B")" "0" "у B по-прежнему 0 непрочита�
 
 step "B создаёт заявку — A (владелец) получает NEW_TICKET"
 check "$(code -b "$JAR_B" -X POST "$BASE/portals/$PORTAL/tickets" -H 'Content-Type: application/json' \
-  -d '{"title":"Заявка от B","body":"от доверенного"}')" "201" "B создал заявку"
+  --data-binary "$(body '{"title":"Заявка от B","body":"от доверенного"}')")" "201" "B создал заявку"
 check "$(unread "$JAR_A")" "1" "у A непрочитанное NEW_TICKET"
 
 step "Повторы: настройки по умолчанию у пользователя без строки"
-PREFS=$(curl -sk -b "$JAR_A" "$BASE/notifications/preferences")
+PREFS=$(curl -sk -H 'X-Requested-With: XMLHttpRequest' -b "$JAR_A" "$BASE/notifications/preferences")
 if echo "$PREFS" | grep -q '"repeatEnabled":true' && echo "$PREFS" | grep -q '"repeatIntervalMinutes":30'; then
   echo "  OK   без строки настроек повтор включён на 30 минут"
 else
@@ -174,7 +178,7 @@ check "$(code -b "$JAR_A" -X PUT "$BASE/notifications/read-all")" "204" "A до�
 step "Повтор: напоминание о непрочитанной NEW_TICKET приходит каждую минуту"
 check "$(code -b "$JAR_B" -X PUT "$BASE/notifications/preferences" -H 'Content-Type: application/json' \
   -d "{\"events\":$ALL_EVENTS,\"repeatEnabled\":true,\"repeatIntervalMinutes\":1}")" "200" "повтор включён: каждую минуту"
-PREFS=$(curl -sk -b "$JAR_B" "$BASE/notifications/preferences")
+PREFS=$(curl -sk -H 'X-Requested-With: XMLHttpRequest' -b "$JAR_B" "$BASE/notifications/preferences")
 if echo "$PREFS" | grep -q '"repeatEnabled":true' && echo "$PREFS" | grep -q '"repeatIntervalMinutes":1'; then
   echo "  OK   настройки повтора сохранились (вкл, 1 мин)"
 else
@@ -183,7 +187,7 @@ else
 fi
 check "$(unread "$JAR_B")" "0" "у B нет непрочитанных перед повтором"
 check "$(code -b "$JAR_A" -X POST "$BASE/portals/$PORTAL/tickets" -H 'Content-Type: application/json' \
-  -d '{"title":"Заявка для повтора","body":"напоминание"}')" "201" "A создал заявку для повтора"
+  --data-binary "$(body '{"title":"Заявка для повтора","body":"напоминание"}')")" "201" "A создал заявку для повтора"
 check "$(unread "$JAR_B")" "1" "B получил исходное оповещение"
 AFTER=$(last_id "$JAR_B")
 check "$(wait_new "$JAR_B" "$AFTER" 5)" "1" "напоминание пришло по long polling"
@@ -195,7 +199,7 @@ check "$(unread "$JAR_B")" "0" "прочтение одной строки по�
 step "Повтор выключен — напоминания нет"
 check "$(code -b "$JAR_B" -X PUT "$BASE/notifications/preferences" -H 'Content-Type: application/json' \
   -d "{\"events\":$ALL_EVENTS,\"repeatEnabled\":false,\"repeatIntervalMinutes\":1}")" "200" "повтор выключен"
-PREFS=$(curl -sk -b "$JAR_B" "$BASE/notifications/preferences")
+PREFS=$(curl -sk -H 'X-Requested-With: XMLHttpRequest' -b "$JAR_B" "$BASE/notifications/preferences")
 if echo "$PREFS" | grep -q '"repeatEnabled":false'; then
   echo "  OK   выключение сохранилось"
 else
@@ -203,7 +207,7 @@ else
   FAIL=1
 fi
 check "$(code -b "$JAR_A" -X POST "$BASE/portals/$PORTAL/tickets" -H 'Content-Type: application/json' \
-  -d '{"title":"Заявка без повтора","body":"проверка"}')" "201" "A создал заявку"
+  --data-binary "$(body '{"title":"Заявка без повтора","body":"проверка"}')")" "201" "A создал заявку"
 check "$(unread "$JAR_B")" "1" "B получил исходное оповещение"
 AFTER=$(last_id "$JAR_B")
 check "$(wait_new "$JAR_B" "$AFTER" 5)" "0" "напоминание не пришло за 2.5 минуты (повтор выключен)"

@@ -18,7 +18,7 @@ import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketRequest;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketResponse;
-import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponseOld;
+import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponse;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.service.TicketManageService;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -129,7 +129,7 @@ class TicketControllerTest {
     @DisplayName("GET /portals/{id}/tickets без фильтра → страница из getPageTickets")
     void getPagedTickets_withoutFilter() throws Exception {
         when(mockTicketManageService.getPageTickets(eq(PORTAL_ID), eq(0), eq(10), eq("createdAt"), eq("desc")))
-                .thenReturn(new PageResponse.Builder<TicketResponseOld>().content(List.of()).page(0).size(10).totalElements(0).totalPages(0)
+                .thenReturn(new PageResponse.Builder<TicketResponse>().content(List.of()).page(0).size(10).totalElements(0).totalPages(0)
                         .last(true).build());
 
         mockMvc.perform(get("/api/v1/portals/{portalId}/tickets", PORTAL_ID)).andExpect(status().isOk())
@@ -141,7 +141,7 @@ class TicketControllerTest {
     void getPagedTickets_withStatusFilter() throws Exception {
         when(mockTicketManageService.getIdTicketWithStatus(PORTAL_ID, TicketStatus.OPEN)).thenReturn(Set.of(1L, 2L));
         when(mockTicketManageService.getPageTicketsByIds(eq(Set.of(1L, 2L)), eq(0), eq(10), eq("createdAt"), eq("desc")))
-                .thenReturn(new PageResponse.Builder<TicketResponseOld>().content(List.of()).page(0).size(10).totalElements(0).totalPages(0)
+                .thenReturn(new PageResponse.Builder<TicketResponse>().content(List.of()).page(0).size(10).totalElements(0).totalPages(0)
                         .last(true).build());
 
         mockMvc.perform(get("/api/v1/portals/{portalId}/tickets", PORTAL_ID).param("status", "OPEN")).andExpect(status().isOk());
@@ -155,6 +155,6 @@ class TicketControllerTest {
         when(mockTicketManageService.getIdTicketNoAnswer(PORTAL_ID)).thenReturn(Set.of(9L));
 
         mockMvc.perform(get("/api/v1/portals/{portalId}/tickets/ids", PORTAL_ID).param("noAnswer", "true")).andExpect(status().isOk())
-                .andExpect(jsonPath("$[0]").value(9));
+                .andExpect(jsonPath("$.items[0]").value(9)).andExpect(jsonPath("$.total").value(1));
     }
 }

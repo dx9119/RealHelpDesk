@@ -103,7 +103,7 @@ import static ...;               // static — всегда в конце
 
 ## Логирование и комментарии
 
-- SLF4J: `private static final Logger logger = LoggerFactory.getLogger(X.class);`
+- SLF4J: только `@Slf4j` — Lombok разворачивает аннотацию в `private static final Logger logger = LoggerFactory.getLogger(X.class)`, имя поля фиксирует `lombok.config` (`lombok.log.fieldName=logger`). Ручное `private static final Logger logger = ...` не используется: объявленное поле конфликтует с Lombok и оставляет аннотацию без эффекта.
 - Уровни привязаны к профилям `debug` и `prod` (`application-debug.properties`, `application-prod.properties`):
   - `ERROR` — неожиданный сбой, со стеком. Без токенов, паролей, кодов восстановления и `toString()` сущностей.
   - `WARN` — отказ во входе, лимит запросов, отклонённый токен, доступ запрещён (403), конфликт версий, проглоченная ошибка.
@@ -111,6 +111,11 @@ import static ...;               // static — всегда в конце
   - `DEBUG` — трассировка шагов и успешные HTTP-запросы. Видно только в `debug`.
 - Логировать путь через `LogSanitizer.uri(...)`: код восстановления пароля и токен подтверждения email идут в пути запроса.
 - Не дублировать «метод вызван» в сервисе: строку запроса пишет `LoggingFilter`. Query-string не логировать.
+- MDC (ключи `requestId` / `clientIp` / `uriRequest`):
+  - ключи брать только из констант `LoggingFilter.REQUEST_ID` / `CLIENT_IP` / `URI_REQUEST`, не строками — иначе код и паттерн в `logback-spring.xml` разъедутся;
+  - новый MDC-ключ = правка **двух** паттернов в `logback-spring.xml` (prod и debug) плюс константа в `LoggingFilter`;
+  - логи в фоновых задачах и в колбэках `DeferredResult`/`SseEmitter` обязаны либо восстановить контекст запроса-инициатора (снимок `MDC.getCopyOfContextMap()` до подмены, в `finally` — прежний контекст потока), либо явно задать технический `requestId`; поток, возвращаемый в пул, не должен уносить чужой MDC;
+  - любая строка уровня `WARN` и выше, видимая в `prod`, обязана нести `requestId` — иначе инцидент не связать с запросом.
 - Сообщения логов, тексты ошибок, `@DisplayName` — **по-русски**; имена кода, URL, ключи JSON — **по-английски**.
 - Javadoc в `src/main` не обязателел; `//`-комментарии — только для «почему», не «что». `TODO`/`FIXME` не использовать (найти задачу).
 

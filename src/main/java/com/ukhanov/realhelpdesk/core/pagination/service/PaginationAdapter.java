@@ -34,6 +34,8 @@ public class PaginationAdapter {
         Objects.requireNonNull(order, "Параметр order не должен быть null");
         Objects.requireNonNull(allowedSortFields, "allowedSortFields не должен быть null");
 
+        logger.debug("Пагинация: page={}, size={}, sort={}", page, size, sortBy);
+
         if (!allowedSortFields.contains(sortBy)) {
             throw new PaginationException("Недопустимое поле сортировки \"" + sortBy + "\". Допустимые поля: "
                     + String.join(", ", new TreeSet<>(allowedSortFields)));

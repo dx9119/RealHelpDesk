@@ -11,5 +11,5 @@ import java.time.Instant;
  * </p>
  */
 public record AttachmentResponse(Long id, Long messageId, Long ticketId, String fileName, String contentType, Long sizeBytes,
-        String uploadedByFullName, Instant createdAt, String downloadUrl) {
+        Long uploadedById, String uploadedByFullName, Instant createdAt, String downloadUrl) {
 }

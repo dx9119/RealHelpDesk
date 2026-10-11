@@ -127,8 +127,9 @@ class AttachmentControllerTest {
     void getAttachments_returnsList() throws Exception {
         when(mockAttachmentManageService.getAttachments(PORTAL_ID, TICKET_ID)).thenReturn(List.of(attachmentResponse()));
 
-        mockMvc.perform(get(UPLOAD_PATH, PORTAL_ID, TICKET_ID)).andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(15))
-                .andExpect(jsonPath("$[0].fileName").value("report.pdf")).andExpect(jsonPath("$[0].messageId").value(900));
+        mockMvc.perform(get(UPLOAD_PATH, PORTAL_ID, TICKET_ID)).andExpect(status().isOk()).andExpect(jsonPath("$.items[0].id").value(15))
+                .andExpect(jsonPath("$.items[0].fileName").value("report.pdf")).andExpect(jsonPath("$.items[0].messageId").value(900))
+                .andExpect(jsonPath("$.items[0].uploadedById").value(42)).andExpect(jsonPath("$.total").value(1));
     }
 
     // ────────────────────────────────────────────────
@@ -257,6 +258,6 @@ class AttachmentControllerTest {
 
     private AttachmentResponse attachmentResponse(String downloadUrl) {
         return new AttachmentResponse(ATTACHMENT_ID, 900L, TICKET_ID, "report.pdf", MediaType.APPLICATION_PDF_VALUE,
-                (long) FILE_CONTENT.length, "Иванов Иван", Instant.now(), downloadUrl);
+                (long) FILE_CONTENT.length, 42L, "Иванов Иван", Instant.now(), downloadUrl);
     }
 }

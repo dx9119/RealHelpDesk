@@ -1,10 +1,12 @@
 package com.ukhanov.realhelpdesk.feature.notificationmanager.service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 
 import lombok.extern.slf4j.Slf4j;
@@ -51,9 +53,16 @@ public class NotificationWaitRegistry {
             return;
         }
         for (Runnable onWake : userWaiters) {
+            // Снимок контекста будящего потока: колбэк чистит MDC в finally, поэтому после его сбоя
+            // строка WARN ушла бы с пустыми колонками. Восстанавливаем контекст инициатора пробуждения
+            // (поток запроса-публикации или технический id планировщика) — см. audit/toLoggingUpdate.md, §5 п. 5
+            Map<String, String> wakeContext = MDC.getCopyOfContextMap();
             try {
                 onWake.run();
             } catch (Exception e) {
+                if (wakeContext != null) {
+                    MDC.setContextMap(wakeContext);
+                }
                 logger.warn("Ошибка пробуждения ожидающего запроса оповещений пользователя {}", userId, e);
             }
         }

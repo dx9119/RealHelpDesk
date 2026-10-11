@@ -21,6 +21,8 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Version;
 
+import org.hibernate.annotations.BatchSize;
+
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 
@@ -47,7 +49,11 @@ public class PortalModel {
     @JoinColumn(name = "owner_id", nullable = false)
     private UserModel owner;
 
+    // Остаётся EAGER (15 точек чтения, часть вне транзакции — LAZY дал бы
+    // LazyInitializationException), но с батчем: выборка списка порталов грузит
+    // составы одним запросом на батч, а не по запросу на портал
     @ElementCollection(fetch = FetchType.EAGER)
+    @BatchSize(size = 50)
     @CollectionTable(name = "portal_access", joinColumns = @JoinColumn(name = "portal_id"))
     @Column(name = "allowed_user_id")
     private Set<Long> allowedUserIds;

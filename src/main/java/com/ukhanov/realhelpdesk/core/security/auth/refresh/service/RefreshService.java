@@ -41,6 +41,8 @@ public class RefreshService {
         }
         try {
             validTokenService.lowLevelVerifyToken(refreshToken, JwtClaims.TYPE_REFRESH);
+            // Событие «access-токен обновлён» с userId пишет GetTokenService.getNewAccessToken:
+            // повторять здесь строку без идентификатора смысла нет
             TokenBearer newAccessToken = getTokenService.getNewAccessToken(refreshToken);
             return newAccessToken.getToken();
         } catch (TokenException | JwtException e) {

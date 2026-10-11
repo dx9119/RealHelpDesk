@@ -1,7 +1,6 @@
 package com.ukhanov.realhelpdesk.core.filter;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import jakarta.servlet.FilterChain;
@@ -10,6 +9,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,6 +18,7 @@ import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.ukhanov.realhelpdesk.core.config.WhiteUrlConfig;
+import com.ukhanov.realhelpdesk.core.exception.ProblemResponseWriter;
 import com.ukhanov.realhelpdesk.core.log.LogSanitizer;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenBearerResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
@@ -43,6 +44,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private final DecodeTokenService decodeTokenService;
     private final AccessTokenAuthService accessTokenAuthService;
     private final AntPathMatcher antPathMatcher;
+    private final ProblemResponseWriter problemResponseWriter;
     // Результат long polling приходит через ASYNC-dispatch того же запроса: без повторной
     // аутентификации security-цепочка не найдёт контекст и закроет готовый ответ 403.
     @Override
@@ -73,7 +75,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         TokenBearerResponse token = resolveToken(request);
         if (token == null) {
             logger.debug("Нет access-токена: {}", LogSanitizer.uri(path));
-            unauthorized(response, path, "Требуется аутентификация", "X-Auth-Token-Missing");
+            unauthorized(request, response, "Требуется аутентификация", "X-Auth-Token-Missing");
             return;
         }
 
@@ -96,29 +98,27 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         } catch (ExpiredJwtException e) {
             logger.debug("Access-токен истёк: {}", LogSanitizer.uri(path));
-            unauthorized(response, path, "Срок действия токена истек", "X-Access-Token-Expired");
+            unauthorized(request, response, "Срок действия токена истек", "X-Access-Token-Expired");
 
         } catch (MalformedJwtException e) {
             logger.warn("Некорректный access-токен: {}", LogSanitizer.uri(path));
-            unauthorized(response, path, "Некорректный формат токена", "X-Malformed-Token");
+            unauthorized(request, response, "Некорректный формат токена", "X-Malformed-Token");
 
         } catch (JwtException e) {
             logger.warn("Ошибка проверки access-токена: {}", LogSanitizer.uri(path));
-            unauthorized(response, path, "Некорректный или недействительный токен", "X-Invalid-Token");
+            unauthorized(request, response, "Некорректный или недействительный токен", "X-Invalid-Token");
 
         } catch (TokenException e) {
             logger.warn("Access-токен отклонён: {} ({})", LogSanitizer.uri(path), e.getClass().getSimpleName());
-            unauthorized(response, path, e.getMessage(), "X-Verify-Token-Failed");
+            unauthorized(request, response, e.getMessage(), "X-Verify-Token-Failed");
         }
     }
 
-    private void unauthorized(HttpServletResponse response, String path, String detail, String markerHeader) throws IOException {
-        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-        response.setHeader(markerHeader, "true");
-        response.setContentType("application/problem+json");
-        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-        response.getWriter().write("{\"type\":\"about:blank\",\"title\":\"Unauthorized\",\"status\":401,\"detail\":\"" + detail
-                + "\",\"instance\":\"" + path + "\"}");
+    private void unauthorized(HttpServletRequest request, HttpServletResponse response, String detail, String markerHeader)
+            throws IOException {
+        // Единый формат problem+json (ProblemResponses + ObjectMapper): раньше JSON собирался
+        // строковой конкатенацией, поэтому detail с кавычкой ломал ответ, а timestamp отсутствовал.
+        problemResponseWriter.write(response, request, HttpStatus.UNAUTHORIZED, detail, markerHeader);
     }
 
     // Извлекаем токен из куки
