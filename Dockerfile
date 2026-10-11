@@ -10,7 +10,11 @@ WORKDIR /app
 COPY pom.xml .
 COPY src ./src
 COPY config ./config
-RUN --mount=type=cache,target=/root/.m2 mvn -q package -DskipTests
+# lombok.config обязателен на фазе компиляции: он задаёт lombok.log.fieldName=logger,
+# без него @Slf4j генерирует поле «log», а код проекта обращается к «logger» —
+# сборка образа падает на компиляции (JwtAuthFilter, GlobalExceptionHandler и др.).
+COPY lombok.config .
+RUN --mount=type=cache,target=/root/.m2 mvn -B -q package -DskipTests
 
 # Переименовываем jar (в target лежит ещё *.jar.original)
 RUN cp $(ls target/*.jar | grep -v '\.original$' | head -n 1) app.jar
@@ -27,11 +31,17 @@ RUN java -Djarmode=tools -jar app.jar extract --layers --destination /app/extrac
 # ---------- STAGE 2: Runtime ----------
 FROM eclipse-temurin:21-jre
 
+# Ревизия git для метки образа: передаётся при сборке (--build-arg GIT_SHA=$(git rev-parse HEAD))
+ARG GIT_SHA=unknown
+LABEL org.opencontainers.image.revision=$GIT_SHA \
+      org.opencontainers.image.source="https://github.com/dx9119/RealHelpDesk"
+
 WORKDIR /app
 
-# Создаём группу и пользователя
-RUN groupadd -r spring-group && \
-    useradd -r -g spring-group \
+# Создаём группу и пользователя с фиксированными uid/gid: tmpfs и монтируемые
+# тома (ssl, gc) настраиваются под эти идентификаты без chown на каждом старте.
+RUN groupadd -r -g 10001 spring-group && \
+    useradd -r -u 10001 -g spring-group \
             -d /app \
             -s /sbin/nologin \
             -c "Spring Boot application user" \
@@ -74,10 +84,12 @@ ENV JAVA_XMX="345M"
 # Доля heap от лимита памяти контейнера — используется, только если JAVA_XMX пуст.
 # Имеет смысл только с mem_limit в infrastructure/docker-compose.yaml.
 ENV JAVA_RAM_PERCENTAGE="75"
-# Логирование GC и safepoint-пауз с ротацией файлов
-ENV JAVA_GC_LOG_OPTS="-Xlog:gc*,safepoint:/tmp/gc.log::filecount=10,filesize=100M"
-# Автоматический запуск Java Flight Recorder (профилирование в проде)
-ENV JAVA_JFR_OPTS="-XX:StartFlightRecording=disk=true,dumponexit=true,filename=/tmp/,maxsize=10g,maxage=24h"
+# Логирование GC и safepoint-пауз: всегда в stderr — попадает в `docker logs`
+# без файлов на диске и без ротации (infraReview.md, п. 7)
+ENV JAVA_GC_LOG_OPTS="-Xlog:gc*,safepoint:stderr"
+# Java Flight Recorder по умолчанию выключен (sec.md §7.8); включается ненулевым
+# значением JAVA_JFR_OPTS в stack.env/окружении при необходимости
+ENV JAVA_JFR_OPTS=""
 # Ошибка JVM в файл + heap dump при OOM + немедленный выход (важно для контейнеров)
 ENV JAVA_ERROR_FILE_OPTS="-XX:ErrorFile=/tmp/java_error.log"
 ENV JAVA_HEAP_DUMP_OPTS="-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp"

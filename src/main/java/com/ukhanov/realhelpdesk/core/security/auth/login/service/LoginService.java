@@ -30,25 +30,31 @@ public class LoginService {
     // Аутентификация/Аутентификация происходит в фильтре JwtAuthFilter
     public TokensResponse processLogin(LoginRequest loginRequest) throws TokenException {
         if (!userDomainService.isUserExistsByEmail(loginRequest.email())) {
-            logger.warn("Отказ во входе: пользователь не найден, email={}", loginRequest.email());
+            // Адрес в лог не пишем: это PII и данные, которые присылает клиент (в том числе злоумышленник).
+            logger.warn("Отказ во входе: пользователь не найден");
             throw new UsernameNotFoundException("Ошибка авторизации: неверный логин, пароль или отсутствующий пользователь");
         }
 
         SecurityUser user = customUserDetailsService.loadUserByUsername(loginRequest.email());
+        Long userId = user.getOriginalUser().getId();
 
         if (user.getOriginalUser().getUserStatus() != UserStatus.ACTIVE) {
-            logger.warn("Отказ во входе: учётная запись не активна, email={}", loginRequest.email());
+            logger.warn("Отказ во входе: учётная запись не активна, userId={}", userId);
             throw new BadCredentialsException("Ошибка авторизации: неверный логин, пароль или отсутствующий пользователь");
         }
 
         if (!isPasswordValid(loginRequest.password(), user.getPassword())) {
-            logger.warn("Отказ во входе: неверный пароль, email={}", loginRequest.email());
+            logger.warn("Отказ во входе: неверный пароль, userId={}", userId);
             throw new BadCredentialsException("Ошибка авторизации: неверный логин, пароль или отсутствующий пользователь");
 
         }
 
-        // Ротация: при каждом входе выдаём свежий refresh-токен (в БД хранится только его хеш)
-        return getTokenService.getNewTokens(user.getOriginalUser());
+        // Ротация: при каждом входе выдаём свежий refresh-токен (в БД хранится только его хеш).
+        // Успешный вход логируем всегда: раньше строка появлялась только при отзыве старых refresh
+        // (audit/toLoggingUpdate.md, B1), и первый вход после регистрации не оставлял следа.
+        TokensResponse tokens = getTokenService.getNewTokens(user.getOriginalUser());
+        logger.info("Вход выполнен, userId={}", userId);
+        return tokens;
     }
 
     public boolean isPasswordValid(String password, String encodedPassword) {

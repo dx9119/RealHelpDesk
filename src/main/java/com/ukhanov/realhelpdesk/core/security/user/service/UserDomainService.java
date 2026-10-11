@@ -1,6 +1,9 @@
 package com.ukhanov.realhelpdesk.core.security.user.service;
 
+import java.util.Collection;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import jakarta.transaction.Transactional;
 
@@ -12,7 +15,9 @@ import com.ukhanov.realhelpdesk.core.security.user.repository.UserDetailsProject
 import com.ukhanov.realhelpdesk.core.security.user.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class UserDomainService {
@@ -23,12 +28,17 @@ public class UserDomainService {
         Objects.requireNonNull(identifier, "Идентификатор не может быть null");
 
         if (isEmail) {
-            return userRepository.findByEmail(identifier)
-                    .orElseThrow(() -> new UsernameNotFoundException("Не найден пользователь с email: " + identifier));
+            return userRepository.findByEmail(identifier).orElseThrow(() -> {
+                // адрес и код восстановления в лог не пишем — только сам факт поиска (audit B12)
+                logger.debug("Пользователь не найден по email");
+                return new UsernameNotFoundException("Не найден пользователь с email: " + identifier);
+            });
         } else {
             Long id = Long.valueOf(identifier);
-            return userRepository.findById(id)
-                    .orElseThrow(() -> new UsernameNotFoundException("Не найден пользователь с ID: " + identifier));
+            return userRepository.findById(id).orElseThrow(() -> {
+                logger.debug("Пользователь не найден по id={}", identifier);
+                return new UsernameNotFoundException("Не найден пользователь с ID: " + identifier);
+            });
         }
 
     }
@@ -57,15 +67,46 @@ public class UserDomainService {
     public UserDetailsProjection getUserDetailsById(Long userId) {
         Objects.requireNonNull(userId, "ID пользователя не может быть null");
 
-        return userRepository.findProjectedById(userId)
-                .orElseThrow(() -> new UsernameNotFoundException("Не найден пользователь с ID: " + userId));
+        return userRepository.findProjectedById(userId).orElseThrow(() -> {
+            logger.debug("Пользователь не найден по id={}", userId);
+            return new UsernameNotFoundException("Не найден пользователь с ID: " + userId);
+        });
+    }
+
+    /**
+     * Батч-загрузка контактов по списку ID (один запрос вместо N): отсутствующие ID просто не попадают в карту — вызывающий подставляет
+     * заглушку.
+     */
+    public Map<Long, UserDetailsProjection> getUserDetailsByIds(Collection<Long> userIds) {
+        Objects.requireNonNull(userIds, "Список ID не может быть null");
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return userRepository.findProjectedByIdIn(userIds).stream()
+                .collect(Collectors.toMap(UserDetailsProjection::getId, user -> user, (first, second) -> first));
+    }
+
+    /** Батч-загрузка пользователей по списку ID: одна выборка вместо N find по одному. */
+    public Map<Long, UserModel> getUsersByIds(Collection<Long> userIds) {
+        Objects.requireNonNull(userIds, "Список ID не может быть null");
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(UserModel::getId, user -> user, (first, second) -> first));
     }
 
     public UserModel getUserByRecoveryPasswdToken(Long code) {
         Objects.requireNonNull(code, "Код обязателен");
 
-        return userRepository.findByRecoveryPasswdToken(code)
-                .orElseThrow(() -> new UsernameNotFoundException("Неизвестный код восстановления" + code));
+        return userRepository.findByRecoveryPasswdToken(code).orElseThrow(() -> {
+            // Код восстановления не логируем и не подставляем в сообщение исключения —
+            // оно уходит в WARN в GlobalExceptionHandler (audit B12)
+            logger.debug("Пользователь не найден по recoveryToken");
+            return new UsernameNotFoundException("Неизвестный код восстановления");
+        });
     }
 
 }

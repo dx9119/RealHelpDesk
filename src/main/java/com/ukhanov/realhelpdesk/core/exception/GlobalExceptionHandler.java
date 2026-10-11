@@ -106,8 +106,6 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ProblemDetail> handleMethodArgumentNotValid(MethodArgumentNotValidException ex, HttpServletRequest request) {
-        logger.warn("Ошибка валидации тела запроса: {}", LogSanitizer.uri(request.getRequestURI()));
-
         Map<String, String> errors = new LinkedHashMap<>();
         ex.getBindingResult().getAllErrors().forEach(error -> {
             if (error instanceof FieldError fieldError) {
@@ -116,6 +114,9 @@ public class GlobalExceptionHandler {
                 errors.put(error.getObjectName(), error.getDefaultMessage());
             }
         });
+        // Имена полей — в WARN, чтобы видно, какое поле отклонено (@NoHtml, @Size и т.п.);
+        // значения не логируем: отклонённая разметка как раз и есть содержимое поля (audit/toLoggingUpdate.md, C6)
+        logger.warn("Ошибка валидации тела запроса {}: поля {}", LogSanitizer.uri(request.getRequestURI()), errors.keySet());
 
         return ProblemResponses.entity(HttpStatus.BAD_REQUEST, "Некорректный запрос", request, errors);
     }

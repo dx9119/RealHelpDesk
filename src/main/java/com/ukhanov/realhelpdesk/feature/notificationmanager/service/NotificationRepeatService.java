@@ -8,12 +8,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.slf4j.MDC;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ukhanov.realhelpdesk.core.filter.LoggingFilter;
 import com.ukhanov.realhelpdesk.domain.notification.model.NotificationModel;
 import com.ukhanov.realhelpdesk.domain.notification.model.UserNotificationPreferencesModel;
 import com.ukhanov.realhelpdesk.domain.notification.repository.NotificationRepository;
@@ -42,6 +44,10 @@ public class NotificationRepeatService {
 
     private static final long SCAN_PERIOD_MS = 60_000L;
 
+    /** Технический идентификатор задачи: у фонового запуска нет запроса, к которому его привязать (§5 п. 6). */
+    private static final String SCHEDULER_REQUEST_ID = "scheduler-repeat-notifications";
+    private static final String SCHEDULER_URI = "scheduled:repeat-notifications";
+
     private final NotificationRepository notificationRepository;
     private final UserNotificationPreferencesRepository preferencesRepository;
     private final NotificationPublisher notificationPublisher;
@@ -49,6 +55,18 @@ public class NotificationRepeatService {
     @Scheduled(fixedDelay = SCAN_PERIOD_MS, initialDelay = SCAN_PERIOD_MS)
     @Transactional
     public void repeatDueNotifications() {
+        // MDC — thread-local и в фоновом потоке пуст: задаём технический контекст, иначе строки
+        // планировщика уходят с пустыми колонками (audit/toLoggingUpdate.md, §5 п. 6).
+        MDC.put(LoggingFilter.REQUEST_ID, SCHEDULER_REQUEST_ID);
+        MDC.put(LoggingFilter.URI_REQUEST, SCHEDULER_URI);
+        try {
+            scanAndRepeat();
+        } finally {
+            MDC.clear();
+        }
+    }
+
+    private void scanAndRepeat() {
         List<NotificationModel> candidates = notificationRepository.findRepeatCandidates(NotificationPublisher.REPEATABLE_EVENTS,
                 PageRequest.of(0, SCAN_BATCH_SIZE, Sort.by(Sort.Direction.ASC, "createdAt")));
         if (candidates.isEmpty()) {
@@ -70,7 +88,8 @@ public class NotificationRepeatService {
 
         if (!woken.isEmpty()) {
             notificationPublisher.wakeAfterCommit(woken);
-            logger.debug("Повторные оповещения созданы для {} получателей", woken.size());
+            // INFO, а не DEBUG: в prod должно быть видно, что механика напоминаний работает (B6)
+            logger.info("Созданы повторные оповещения: получателей={}", woken.size());
         }
     }
 

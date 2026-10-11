@@ -41,12 +41,25 @@ class ApplicationConfigSchemaTest {
     private static final Pattern SCHEMA_VARIABLE = Pattern.compile("\\$\\{([A-Z_][A-Z0-9_]*)}");
 
     /**
-     * Ключи, которым позволено содержать литерал: {@code spring.config.import} подключает application-domains.properties — значение это
-     * адрес файла, а не переменная окружения. {@code spring.jpa.hibernate.ddl-auto} закреплён в коде (validate): режим, изменяющий схему,
-     * нельзя оставить на откуп окружения — им управляют только миграции Liquibase; исключение отдельно охраняется
-     * {@link #ddlAutoIsPinnedToValidateAndNeverDestructive()}.
+     * Ключи, которым позволено содержать литерал (infraReview.md, §7): {@code spring.config.import} подключает
+     * application-domains.properties — значение это адрес файла, а не переменная окружения. {@code spring.jpa.hibernate.ddl-auto} закреплён
+     * в коде (validate): режим, изменяющий схему, нельзя оставить на откуп окружения — им управляют только миграции Liquibase; исключение
+     * отдельно охраняется {@link #ddlAutoIsPinnedToValidateAndNeverDestructive()}. Остальные — константы, одинаковые для всех окружений:
+     * пул Hikari, батчи Hibernate, graceful shutdown и actuator (их меняют правкой файла с ревью, а не подменой env).
      */
-    private static final Set<String> NON_SCHEMA_KEYS = Set.of("spring.config.import", "spring.jpa.hibernate.ddl-auto");
+    private static final Set<String> NON_SCHEMA_KEYS = Set.of("spring.config.import", "spring.jpa.hibernate.ddl-auto",
+            // Пул соединений
+            "spring.datasource.hikari.maximum-pool-size", "spring.datasource.hikari.minimum-idle",
+            "spring.datasource.hikari.connection-timeout", "spring.datasource.hikari.max-lifetime",
+            "spring.datasource.hikari.leak-detection-threshold",
+            // Батчи Hibernate (n1.md)
+            "spring.jpa.properties.hibernate.jdbc.batch_size", "spring.jpa.properties.hibernate.order_inserts",
+            "spring.jpa.properties.hibernate.order_updates", "spring.jpa.properties.hibernate.default_batch_fetch_size",
+            // Корректное завершение (long polling + @Scheduled)
+            "server.shutdown", "spring.lifecycle.timeout-per-shutdown-phase", "spring.task.scheduling.shutdown.await-termination",
+            // Actuator
+            "management.endpoints.web.exposure.include", "management.endpoint.health.probes.enabled",
+            "management.endpoint.health.show-details");
 
     /**
      * Конфигурация среды: файлы схемы и места со значениями. В них не должно появиться деструктивного режима ddl-auto — иначе рестарт

@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
 
-    <!-- prod: request-id; IP клиента в этот паттерн не входит (см. DEBUG_PATTERN и ClientIpResolver) -->
+    <!-- prod: request-id; IP клиента в этот паттерн не входит (см. DEBUG_PATTERN и ClientIpResolver).
+         Значение по умолчанию отделяется от ключа через ":-", поэтому в шаблоне стоит лишний дефис:
+         пустая колонка рисуется двумя дефисами, а не одним (см. docs/code-style.md, §7 аудита логирования). -->
     <property name="PROD_PATTERN"
-              value="%d{yyyy-MM-dd HH:mm:ss.SSS} | %-5level | %X{requestId:--} | %logger{40} | %msg%n"/>
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} | %-5level | %X{requestId:---} | %logger{40} | %msg%n"/>
     <!-- debug: дополнительно IP и путь запроса (без query-string и секретных сегментов) -->
     <property name="DEBUG_PATTERN"
-              value="%d{yyyy-MM-dd HH:mm:ss.SSS} | %-5level | %X{requestId:--} | %X{clientIp:--} | %X{uriRequest:--} | %logger{40} | %msg%n"/>
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} | %-5level | %X{requestId:---} | %X{clientIp:---} | %X{uriRequest:---} | %logger{40} | %msg%n"/>
 
     <springProfile name="debug">
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">

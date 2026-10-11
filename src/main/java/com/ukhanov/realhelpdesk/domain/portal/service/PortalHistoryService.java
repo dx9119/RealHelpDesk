@@ -42,9 +42,9 @@ public class PortalHistoryService {
         logger.debug("История портала {}: {} (актор {})", portalId, event, actorId);
     }
 
-    /** Записи истории портала, новые сверху. */
+    /** Записи истории портала; порядок задаёт Pageable (по умолчанию клиент просит createdAt desc). */
     public Page<PortalHistoryModel> getPage(Long portalId, Pageable pageable) {
-        return portalHistoryRepository.findByPortalIdOrderByCreatedAtDesc(portalId, pageable);
+        return portalHistoryRepository.findByPortalId(portalId, pageable);
     }
 
     /** Значение поля портала для истории: null не должен ронять запись. */

@@ -18,6 +18,8 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 
+import org.hibernate.annotations.BatchSize;
+
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.RefreshTokenModel;
 
 import lombok.AccessLevel;
@@ -72,8 +74,10 @@ public class UserModel {
     @Column(nullable = false)
     private int tokenVersion = 0;
 
-    // Связь с JWT Refresh-токенами
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    // Связь с JWT Refresh-токенами: LAZY + батч, чтобы загрузка пользователя не
+    // тянула токены (N+1 на каждый findById / findByEmail) и не разрасталась в e-мейл-фолдауте
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @BatchSize(size = 50)
     private Set<RefreshTokenModel> jwtTokenRefresh = new HashSet<>();
 
     // createdAt выставляет только @PrePersist: сеттера снаружи нет (см. CreatedAtPrePersistTest)

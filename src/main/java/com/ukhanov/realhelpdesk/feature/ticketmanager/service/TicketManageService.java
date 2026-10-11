@@ -32,7 +32,7 @@ import com.ukhanov.realhelpdesk.feature.notificationmanager.service.Notification
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketRequest;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketResponse;
-import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponseOld;
+import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponse;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.mapper.TicketMapper;
 
@@ -57,7 +57,7 @@ public class TicketManageService {
     private final NotificationPublisher notificationPublisher;
     private final TicketMapper ticketMapper;
 
-    public TicketResponseOld getTicketById(Long ticketId) throws TicketException {
+    public TicketResponse getTicketById(Long ticketId) throws TicketException {
         Objects.requireNonNull(ticketId, "ticketId не должен быть null");
 
         TicketModel ticket = ticketDomainService.findTicketById(ticketId);
@@ -89,7 +89,7 @@ public class TicketManageService {
 
     }
 
-    public List<TicketResponseOld> getAllTickets(Long portalId) {
+    public List<TicketResponse> getAllTickets(Long portalId) {
         Objects.requireNonNull(portalId, "portalId не должен быть null");
 
         List<TicketModel> tickets = ticketDomainService.getTicketsByPortalId(portalId);
@@ -97,7 +97,7 @@ public class TicketManageService {
         return tickets.stream().map(ticketMapper::toResponse).toList();
     }
 
-    public PageResponse<TicketResponseOld> getPageTickets(Long portalId, int page, int size, String sortBy, String order)
+    public PageResponse<TicketResponse> getPageTickets(Long portalId, int page, int size, String sortBy, String order)
             throws TicketException, PortalException {
 
         Objects.requireNonNull(portalId, "portalId не должен быть null");
@@ -105,30 +105,18 @@ public class TicketManageService {
         PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order, SORTABLE_TICKET_FIELDS);
         Page<TicketModel> ticketPage = ticketDomainService.getTicketsPageByPortalId(portalId, pageRequest);
 
-        Page<TicketResponseOld> mappedPage = ticketPage.map(ticketMapper::toResponse);
+        Page<TicketResponse> mappedPage = ticketPage.map(ticketMapper::toResponse);
         return paginationAdapter.mapToResponse(mappedPage, sortBy, order);
     }
 
-    public PageResponse<TicketResponseOld> getPageTicketsByAutor(int page, int size, String sortBy, String order)
-            throws TicketException, PortalException {
-
-        PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order, SORTABLE_TICKET_FIELDS);
-        UserModel user = currentUserProvider.getCurrentUserModel();
-
-        Page<TicketModel> ticketPage = ticketDomainService.getTicketsPageByUserId(user.getId(), pageRequest);
-
-        Page<TicketResponseOld> mappedPage = ticketPage.map(ticketMapper::toResponse);
-        return paginationAdapter.mapToResponse(mappedPage, sortBy, order);
-    }
-
-    public PageResponse<TicketResponseOld> getPageTicketsByIds(Set<Long> ids, int page, int size, String sortBy, String order)
+    public PageResponse<TicketResponse> getPageTicketsByIds(Set<Long> ids, int page, int size, String sortBy, String order)
             throws TicketException, PortalException {
         Objects.requireNonNull(ids, "ids не должен быть null");
 
         PageRequest pageRequest = paginationAdapter.buildPageRequest(page, size, sortBy, order, SORTABLE_TICKET_FIELDS);
         Page<TicketModel> ticketPage = ticketDomainService.getTicketsByIds(ids, pageRequest);
 
-        Page<TicketResponseOld> mappedPage = ticketPage.map(ticketMapper::toResponse);
+        Page<TicketResponse> mappedPage = ticketPage.map(ticketMapper::toResponse);
         return paginationAdapter.mapToResponse(mappedPage, sortBy, order);
     }
 

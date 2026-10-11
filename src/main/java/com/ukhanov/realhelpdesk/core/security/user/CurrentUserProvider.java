@@ -1,11 +1,11 @@
 package com.ukhanov.realhelpdesk.core.security.user;
 
-import java.util.Objects;
-
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
+import com.ukhanov.realhelpdesk.core.exception.ApiRuntimeException;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
 
@@ -22,14 +22,20 @@ public class CurrentUserProvider {
     // Получить ID текущего пользователя
     public Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        Objects.requireNonNull(authentication, "Пользователь не авторизован");
+        if (authentication == null) {
+            // Отсутствие аутентификации — штатная ситуация для защиты, а не сбой: отдаём 401
+            // (advice логирует WARN), а не NPE → ERROR со стеком (audit/toLoggingUpdate.md, C3)
+            throw new ApiRuntimeException("Пользователь не авторизован", HttpStatus.UNAUTHORIZED);
+        }
 
         String rawId = authentication.getName();
 
         try {
-            return Long.valueOf(rawId);
+            Long userId = Long.valueOf(rawId);
+            logger.debug("Текущий пользователь: id={}", userId);
+            return userId;
         } catch (IllegalArgumentException e) {
-            throw new IllegalStateException("Недопустимый идентификатор пользователя");
+            throw new ApiRuntimeException("Недопустимый идентификатор пользователя", HttpStatus.UNAUTHORIZED);
         }
     }
 

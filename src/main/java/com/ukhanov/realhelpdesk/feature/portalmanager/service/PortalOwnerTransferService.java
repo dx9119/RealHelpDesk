@@ -317,7 +317,7 @@ public class PortalOwnerTransferService {
             }
             emailDeliveryService.sendUserNotification(proposed.getEmail(), emailTemplates.portalTransferProposedSubject(portal.getId()),
                     emailTemplates.portalTransferProposedBody(portal.getId(), initiatorName, transfer.getReasonInitiator()),
-                    NotificationEvent.PORTAL_TRANSFER_REQUESTED);
+                    NotificationEvent.PORTAL_TRANSFER_REQUESTED, proposed.getId());
         });
     }
 
@@ -352,7 +352,7 @@ public class PortalOwnerTransferService {
                     () -> emailDeliveryService.sendUserNotification(initiator.getEmail(),
                             emailTemplates.portalTransferRejectedSubject(portal.getId()),
                             emailTemplates.portalTransferRejectedBody(portal.getId(), proposedName, transfer.getReasonProposed()),
-                            NotificationEvent.PORTAL_TRANSFER_REJECTED));
+                            NotificationEvent.PORTAL_TRANSFER_REJECTED, initiator.getId()));
         }
     }
 
@@ -369,7 +369,7 @@ public class PortalOwnerTransferService {
                     () -> emailDeliveryService.sendUserNotification(proposed.getEmail(),
                             emailTemplates.portalTransferCancelledSubject(portal.getId()),
                             emailTemplates.portalTransferCancelledBody(portal.getId(), initiatorName),
-                            NotificationEvent.PORTAL_TRANSFER_CANCELLED));
+                            NotificationEvent.PORTAL_TRANSFER_CANCELLED, proposed.getId()));
         }
     }
 
@@ -379,10 +379,9 @@ public class PortalOwnerTransferService {
         notificationPublisher.publishToUsers(Set.of(initiator.getId()), NotificationEvent.PORTAL_TRANSFER_EXPIRED, null, null,
                 portal.getId(), title);
 
-        quietly("истечение срока передачи портала " + portal.getId(),
-                () -> emailDeliveryService.sendUserNotification(initiator.getEmail(),
-                        emailTemplates.portalTransferExpiredSubject(portal.getId()),
-                        emailTemplates.portalTransferExpiredBody(portal.getId()), NotificationEvent.PORTAL_TRANSFER_EXPIRED));
+        quietly("истечение срока передачи портала " + portal.getId(), () -> emailDeliveryService.sendUserNotification(initiator.getEmail(),
+                emailTemplates.portalTransferExpiredSubject(portal.getId()), emailTemplates.portalTransferExpiredBody(portal.getId()),
+                NotificationEvent.PORTAL_TRANSFER_EXPIRED, initiator.getId()));
     }
 
     private Set<Long> portalUserIds(PortalModel portal) {
@@ -412,6 +411,7 @@ public class PortalOwnerTransferService {
         try {
             return userDomainService.getUserById(userId);
         } catch (UsernameNotFoundException e) {
+            logger.debug("Участник передачи {} удалён, имя не подставлено", userId);
             return null;
         }
     }
@@ -419,7 +419,10 @@ public class PortalOwnerTransferService {
     private PortalModel safePortal(Long portalId) {
         try {
             return portalDomainService.getPortalById(portalId);
-        } catch (Exception e) {
+        } catch (PortalException e) {
+            // Портала нет — для ответа о передаче это ожидаемо. Всё остальное (например, сбой БД)
+            // должно падать громко, а не превращаться в portal=null (audit/toLoggingUpdate.md, A6).
+            logger.warn("Портал {} не найден при сборке ответа о передаче: {}", portalId, e.getMessage());
             return null;
         }
     }

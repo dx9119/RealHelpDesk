@@ -96,7 +96,7 @@ class MessageDomainServiceTest {
 
         List<MessageModel> expected = List.of(m1, m2);
 
-        when(mockMessageRepository.findByTicketId(TICKET_ID)).thenReturn(expected);
+        when(mockMessageRepository.findByTicketIdOrderByIdAsc(TICKET_ID)).thenReturn(expected);
 
         // when
         List<MessageModel> result = service.getMessagesByTicketId(TICKET_ID);
@@ -107,20 +107,20 @@ class MessageDomainServiceTest {
         assertThat(result.get(0).getMessageText()).contains("оплатой");
         assertThat(result.get(1).getTicket()).isSameAs(ticket);
 
-        verify(mockMessageRepository).findByTicketId(TICKET_ID);
+        verify(mockMessageRepository).findByTicketIdOrderByIdAsc(TICKET_ID);
         verifyNoMoreInteractions(mockMessageRepository);
     }
 
     @Test
     @DisplayName("getMessagesByTicketId → пустой список когда сообщений нет")
     void getMessagesByTicketId_noMessages_returnsEmpty() {
-        when(mockMessageRepository.findByTicketId(TICKET_ID)).thenReturn(Collections.emptyList());
+        when(mockMessageRepository.findByTicketIdOrderByIdAsc(TICKET_ID)).thenReturn(Collections.emptyList());
 
         List<MessageModel> result = service.getMessagesByTicketId(TICKET_ID);
 
         assertThat(result).isEmpty();
 
-        verify(mockMessageRepository).findByTicketId(TICKET_ID);
+        verify(mockMessageRepository).findByTicketIdOrderByIdAsc(TICKET_ID);
     }
 
     @Test

@@ -7,7 +7,9 @@ import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import com.ukhanov.realhelpdesk.domain.portal.repository.PortalRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class LimitService {
@@ -16,6 +18,7 @@ public class LimitService {
     public boolean hasUserReachedPortalLimit(UserModel user) {
         Integer userPortalLimit = user.getPortalCuntLimit();
         Integer currentUserPortalCount = portalRepository.countPortalByOwnerId(user.getId());
+        logger.debug("Лимит: текущее={}, лимит={}, userId={}", currentUserPortalCount, userPortalLimit, user.getId());
         return currentUserPortalCount >= userPortalLimit;
     }
 

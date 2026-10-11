@@ -83,7 +83,7 @@ class RegistrationServiceTest {
 
         ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
         verify(emailDeliveryService).sendUserNotification(eq(EMAIL), eq(emailTemplates.registrationLinkSubject()), bodyCaptor.capture(),
-                eq(NotificationEvent.NEW_SYSTEM_MESSAGE));
+                eq(NotificationEvent.NEW_SYSTEM_MESSAGE), eq(user.getId()));
 
         assertThat(user.getVerifyEmailToken()).isNotNull();
         assertThat(bodyCaptor.getValue()).contains(user.getVerifyEmailToken().toString())

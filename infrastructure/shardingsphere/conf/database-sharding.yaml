@@ -29,6 +29,10 @@
 # (jdbc:postgresql://shardingsphere:3307/desk), имя совпадает с POSTGRES_DB шардов.
 databaseName: __SHARD_DB__
 
+# sslmode=disable в URL шардов допустим только потому, что шарды доступны
+# исключительно по внутренней сети compose (docker-compose.sharding.yaml):
+# на хост пробрасывается только порт прокси (127.0.0.1:3307), сами postgres
+# наружу не торчат. При выносе шарда за пределы сети — TLS обязателен.
 dataSources:
   ds_0:
     url: jdbc:postgresql://postgres_shard_0:5432/__SHARD_DB__?sslmode=disable

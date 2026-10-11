@@ -6,6 +6,7 @@ import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -35,6 +36,12 @@ public interface TicketRepository extends JpaRepository<TicketModel, Long>, JpaS
 
     @EntityGraph(attributePaths = {"assignedUser", "author", "portal"})
     Optional<TicketModel> findByIdAndTicketLiveStatus(Long id, TicketLiveStatus ticketLiveStatus);
+
+    // Переопределение JpaSpecificationExecutor.findAll: страница тикетов по
+    // фильтрам сразу с assignedUser/author/portal, без N+1 в ответе по каждой строке
+    @Override
+    @EntityGraph(attributePaths = {"assignedUser", "author", "portal"})
+    Page<TicketModel> findAll(Specification<TicketModel> spec, Pageable pageable);
 
     @Query("""
                 SELECT t.id FROM TicketModel t

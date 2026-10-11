@@ -3,7 +3,6 @@ package com.ukhanov.realhelpdesk.feature.ticketmanager.controller;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import jakarta.mail.MessagingException;
 import jakarta.validation.Valid;
@@ -22,13 +21,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ukhanov.realhelpdesk.core.pagination.dto.ItemsResponse;
 import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketRequest;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketResponse;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketPriorityRequest;
-import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponseOld;
+import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponse;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketStatusRequest;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.service.TicketManageService;
@@ -52,7 +52,7 @@ public class TicketController {
 
     @GetMapping("/{portalId}/tickets")
     @PreAuthorize("@accessValidationService.hasPortalAccess(#portalId)")
-    public PageResponse<TicketResponseOld> getPagedTicketsByPortalId(@PathVariable Long portalId,
+    public PageResponse<TicketResponse> getPagedTicketsByPortalId(@PathVariable Long portalId,
             @RequestParam(required = false) TicketStatus status, @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size, @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String order) throws TicketException, PortalException {
@@ -67,21 +67,21 @@ public class TicketController {
 
     @GetMapping("/{portalId}/tickets/ids")
     @PreAuthorize("@accessValidationService.hasPortalAccess(#portalId)")
-    public Set<Long> getTicketIds(@PathVariable Long portalId, @RequestParam(required = false) TicketStatus status,
+    public ItemsResponse<Long> getTicketIds(@PathVariable Long portalId, @RequestParam(required = false) TicketStatus status,
             @RequestParam(defaultValue = "false") boolean noAnswer) {
 
         if (noAnswer) {
-            return ticketManageService.getIdTicketNoAnswer(portalId);
+            return ItemsResponse.of(ticketManageService.getIdTicketNoAnswer(portalId));
         }
         if (status != null) {
-            return ticketManageService.getIdTicketWithStatus(portalId, status);
+            return ItemsResponse.of(ticketManageService.getIdTicketWithStatus(portalId, status));
         }
-        return ticketManageService.getAllTickets(portalId).stream().map(TicketResponseOld::id).collect(Collectors.toSet());
+        return ItemsResponse.of(ticketManageService.getAllTickets(portalId).stream().map(TicketResponse::id).toList());
     }
 
     @PreAuthorize("@ticketAccessValidationService.hasTicketAccess(#portalId, #ticketId)")
     @GetMapping("/{portalId}/tickets/{ticketId}")
-    public TicketResponseOld getTicketById(@PathVariable Long portalId, @PathVariable Long ticketId) throws TicketException {
+    public TicketResponse getTicketById(@PathVariable Long portalId, @PathVariable Long ticketId) throws TicketException {
         return ticketManageService.getTicketById(ticketId);
     }
 

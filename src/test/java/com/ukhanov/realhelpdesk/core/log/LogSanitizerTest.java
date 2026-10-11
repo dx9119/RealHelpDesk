@@ -32,4 +32,26 @@ class LogSanitizerTest {
     void uri_null_returnsEmptyString() {
         assertThat(LogSanitizer.uri(null)).isEmpty();
     }
+
+    @Test
+    @DisplayName("Значение из внешних данных: переводы строк и табы заменяются, лог не ломается")
+    void value_controlCharacters_areReplaced() {
+        assertThat(LogSanitizer.value("image/png\r\nFAKE | ERROR | injected")).isEqualTo("image/png__FAKE | ERROR | injected");
+        assertThat(LogSanitizer.value("a\tb")).isEqualTo("a_b");
+    }
+
+    @Test
+    @DisplayName("Значение из внешних данных: длинное значение обрезается")
+    void value_longValue_isTruncated() {
+        String value = LogSanitizer.value("x".repeat(500));
+
+        assertThat(value).hasSize(121).endsWith("…");
+    }
+
+    @Test
+    @DisplayName("Значение из внешних данных: обычное значение и null не меняются")
+    void value_regularValueAndNull() {
+        assertThat(LogSanitizer.value("application/pdf")).isEqualTo("application/pdf");
+        assertThat(LogSanitizer.value(null)).isEmpty();
+    }
 }

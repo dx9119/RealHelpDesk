@@ -176,7 +176,7 @@ class PortalOwnerTransferServiceTest {
                 eq(NotificationEvent.PORTAL_TRANSFER_REQUESTED));
         verify(emailDeliveryService).sendUserNotification(eq(PROPOSED_EMAIL), eq(emailTemplates.portalTransferProposedSubject(PORTAL_ID)),
                 eq(emailTemplates.portalTransferProposedBody(PORTAL_ID, OWNER_NAME, "Причина")),
-                eq(NotificationEvent.PORTAL_TRANSFER_REQUESTED));
+                eq(NotificationEvent.PORTAL_TRANSFER_REQUESTED), eq(PROPOSED_ID));
     }
 
     @Test
@@ -381,7 +381,7 @@ class PortalOwnerTransferServiceTest {
                 isNull(), eq(PORTAL_ID), any());
         verify(emailDeliveryService).sendUserNotification(eq(OWNER_EMAIL), eq(emailTemplates.portalTransferRejectedSubject(PORTAL_ID)),
                 eq(emailTemplates.portalTransferRejectedBody(PORTAL_ID, PROPOSED_NAME, "Отклоняю")),
-                eq(NotificationEvent.PORTAL_TRANSFER_REJECTED));
+                eq(NotificationEvent.PORTAL_TRANSFER_REJECTED), eq(OWNER_ID));
     }
 
     @Test
@@ -400,7 +400,8 @@ class PortalOwnerTransferServiceTest {
         verify(notificationPublisher).publishToUsers(eq(Set.of(PROPOSED_ID)), eq(NotificationEvent.PORTAL_TRANSFER_CANCELLED), eq(OWNER_ID),
                 isNull(), eq(PORTAL_ID), any());
         verify(emailDeliveryService).sendUserNotification(eq(PROPOSED_EMAIL), eq(emailTemplates.portalTransferCancelledSubject(PORTAL_ID)),
-                eq(emailTemplates.portalTransferCancelledBody(PORTAL_ID, OWNER_NAME)), eq(NotificationEvent.PORTAL_TRANSFER_CANCELLED));
+                eq(emailTemplates.portalTransferCancelledBody(PORTAL_ID, OWNER_NAME)), eq(NotificationEvent.PORTAL_TRANSFER_CANCELLED),
+                eq(PROPOSED_ID));
     }
 
     @Test

@@ -10,7 +10,7 @@ import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketRequest;
-import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponseOld;
+import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponse;
 
 /** Маппинг заявок: автор и портал приходят отдельными параметрами, статус и приоритет получают значения по умолчанию. */
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
@@ -27,11 +27,12 @@ public interface TicketMapper {
     @Mapping(target = "accessStatus", source = "request.ticketAccessStatus", defaultValue = "CREATOR_AND_PORTAL_USERS")
     TicketModel fromRequest(CreateTicketRequest request, UserModel author, PortalModel portal);
 
+    @Mapping(target = "authorId", source = "author.id")
     @Mapping(target = "authorFullName", source = "author", qualifiedByName = "authorFullName")
     @Mapping(target = "portalName", source = "portal.name")
     @Mapping(target = "portalId", source = "portal.id")
     @Mapping(target = "ticketAccessStatus", source = "accessStatus")
-    TicketResponseOld toResponse(TicketModel model);
+    TicketResponse toResponse(TicketModel model);
 
     @Named("authorFullName")
     default String authorFullName(UserModel author) {

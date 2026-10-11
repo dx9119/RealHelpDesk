@@ -117,7 +117,7 @@ class MessageManageServiceTest {
 
         // Проверяем вызов отправки email
         verify(mockEmailDeliveryService).sendUserNotification(eq(USER_EMAIL), eq(emailTemplates.ticketReplySubject(TICKET_ID)),
-                eq(emailTemplates.ticketReplyBody(TICKET_ID, PORTAL_ID)), eq(NotificationEvent.NEW_MESSAGE));
+                eq(emailTemplates.ticketReplyBody(TICKET_ID, PORTAL_ID)), eq(NotificationEvent.NEW_MESSAGE), eq(USER_ID));
 
         verifyNoMoreInteractions(mockEmailDeliveryService, mockMessageDomainService, mockTicketDomainService);
     }
@@ -158,8 +158,8 @@ class MessageManageServiceTest {
 
         when(mockMessageDomainService.getMessagesByTicketId(TICKET_ID)).thenReturn(List.of(msg1, msg2));
 
-        MessageResponse resp1 = new MessageResponse(1L, "Сообщение 1", null, null, null);
-        MessageResponse resp2 = new MessageResponse(2L, "Сообщение 2", null, null, null);
+        MessageResponse resp1 = new MessageResponse(1L, "Сообщение 1", null, null, null, null);
+        MessageResponse resp2 = new MessageResponse(2L, "Сообщение 2", null, null, null, null);
 
         when(mockMessageMapper.toResponse(msg1)).thenReturn(resp1);
         when(mockMessageMapper.toResponse(msg2)).thenReturn(resp2);

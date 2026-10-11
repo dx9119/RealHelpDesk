@@ -40,7 +40,7 @@ import com.ukhanov.realhelpdesk.feature.notificationmanager.service.Notification
 import com.ukhanov.realhelpdesk.feature.portalmanager.exception.PortalException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketRequest;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.CreateTicketResponse;
-import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponseOld;
+import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponse;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.mapper.TicketMapper;
 
@@ -112,7 +112,7 @@ class TicketManageServiceTest {
         TicketModel ticket = defaultTicket(TICKET_ID);
         when(mockTicketDomainService.findTicketById(TICKET_ID)).thenReturn(ticket);
 
-        TicketResponseOld response = service.getTicketById(TICKET_ID);
+        TicketResponse response = service.getTicketById(TICKET_ID);
 
         assertThat(response).isNotNull();
         verify(mockTicketDomainService).findTicketById(TICKET_ID);
@@ -243,17 +243,17 @@ class TicketManageServiceTest {
         when(mockTicketDomainService.getTicketsPageByPortalId(PORTAL_ID, pageRequest)).thenReturn(ticketPage);
 
         // Создаём маппинг вручную
-        TicketResponseOld dto = new TicketResponseOld(1L, "Test Ticket", null, null, null, null, null, null, null, null);
+        TicketResponse dto = new TicketResponse(1L, "Test Ticket", null, null, null, null, null, null, null, null, null, null);
 
-        Page<TicketResponseOld> mappedPage = ticketPage.map(t -> dto); // имитируем map
+        Page<TicketResponse> mappedPage = ticketPage.map(t -> dto); // имитируем map
 
-        PageResponse<TicketResponseOld> expected = new PageResponse.Builder<TicketResponseOld>().page(0).size(10).totalElements(1L)
-                .totalPages(1).content(List.of(dto)).build();
+        PageResponse<TicketResponse> expected = new PageResponse.Builder<TicketResponse>().page(0).size(10).totalElements(1L).totalPages(1)
+                .content(List.of(dto)).build();
 
         // Стабим mapToResponse с mappedPage (имитируем, что map уже прошёл)
-        when(mockPaginationAdapter.<TicketResponseOld>mapToResponse(any(Page.class), eq("title"), eq("asc"))).thenReturn(expected);
+        when(mockPaginationAdapter.<TicketResponse>mapToResponse(any(Page.class), eq("title"), eq("asc"))).thenReturn(expected);
 
-        PageResponse<TicketResponseOld> result = service.getPageTickets(PORTAL_ID, 0, 10, "title", "asc");
+        PageResponse<TicketResponse> result = service.getPageTickets(PORTAL_ID, 0, 10, "title", "asc");
 
         assertThat(result).isNotNull();
         assertThat(result.totalElements()).isEqualTo(1L);

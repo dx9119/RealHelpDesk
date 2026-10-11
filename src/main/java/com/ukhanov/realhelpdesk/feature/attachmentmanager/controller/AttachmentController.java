@@ -4,7 +4,6 @@ import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Objects;
 
 import jakarta.mail.MessagingException;
@@ -29,6 +28,9 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import com.ukhanov.realhelpdesk.core.config.StaticProperties;
+import com.ukhanov.realhelpdesk.core.http.EntityTag;
+import com.ukhanov.realhelpdesk.core.log.LogSanitizer;
+import com.ukhanov.realhelpdesk.core.pagination.dto.ItemsResponse;
 import com.ukhanov.realhelpdesk.feature.attachmentmanager.dto.AttachmentResponse;
 import com.ukhanov.realhelpdesk.feature.attachmentmanager.dto.FileDownload;
 import com.ukhanov.realhelpdesk.feature.attachmentmanager.dto.UploadAttachmentRequest;
@@ -36,6 +38,8 @@ import com.ukhanov.realhelpdesk.feature.attachmentmanager.exception.AttachmentEx
 import com.ukhanov.realhelpdesk.feature.attachmentmanager.service.AttachmentManageService;
 import com.ukhanov.realhelpdesk.feature.messagemanager.exception.MessageException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Файлы вложений заявок: загрузка (создаёт сообщение с файлом), список метаданных и отдача байтов фрагментами.
@@ -61,6 +65,7 @@ import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
  * {@code private, no-store}; значение для CDN имеет смысл только с доступом, не завязанным на cookie.
  * </p>
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/portals/{portalId}/tickets/{ticketId}/attachments")
 public class AttachmentController {
@@ -87,9 +92,9 @@ public class AttachmentController {
 
     @GetMapping
     @PreAuthorize("@ticketAccessValidationService.hasTicketAccess(#portalId, #ticketId)")
-    public ResponseEntity<List<AttachmentResponse>> getAttachments(@PathVariable Long portalId, @PathVariable Long ticketId)
+    public ResponseEntity<ItemsResponse<AttachmentResponse>> getAttachments(@PathVariable Long portalId, @PathVariable Long ticketId)
             throws AttachmentException, TicketException {
-        return ResponseEntity.ok(attachmentManageService.getAttachments(portalId, ticketId));
+        return ResponseEntity.ok(ItemsResponse.of(attachmentManageService.getAttachments(portalId, ticketId)));
     }
 
     /** Отдаёт файл потоком: без буферизации в памяти приложения и без presigned-URL — доступ всегда через JWT-cookie. */
@@ -98,12 +103,17 @@ public class AttachmentController {
     public ResponseEntity<StreamingResponseBody> downloadAttachment(@PathVariable Long portalId, @PathVariable Long ticketId,
             @PathVariable Long attachmentId, @RequestHeader(value = HttpHeaders.RANGE, required = false) String rangeHeader,
             @RequestHeader(value = HttpHeaders.IF_RANGE, required = false) String ifRange) throws AttachmentException {
-        // Валидаторов (ETag/Last-Modified) не отдаём, поэтому If-Range не может совпасть — по RFC Range в таком случае игнорируется.
+        // ETag вложения: файл неизменяем (загрузка создаёт новую запись), поэтому достаточно id. Его же
+        // использует If-Range: если валидатор не совпал, Range игнорируется и отдаётся файл целиком (RFC 9110).
+        String etag = EntityTag.ofImmutable("attachment", attachmentId);
+        boolean rangeAllowed = EntityTag.matches(ifRange, etag);
+
         FileDownload download = attachmentManageService.downloadAttachment(portalId, ticketId, attachmentId,
-                ifRange != null ? null : rangeHeader);
+                rangeAllowed ? rangeHeader : null);
 
         if (download.isUnsatisfiable()) {
-            return ResponseEntity.status(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE).header(HttpHeaders.ACCEPT_RANGES, BYTES_UNIT)
+            return ResponseEntity.status(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE).eTag(etag)
+                    .header(HttpHeaders.ACCEPT_RANGES, BYTES_UNIT)
                     .header(HttpHeaders.CONTENT_RANGE, download.range().contentRange(download.sizeBytes()))
                     .header(HttpHeaders.CACHE_CONTROL, staticProperties.getCacheControl()).build();
         }
@@ -117,7 +127,7 @@ public class AttachmentController {
         };
 
         ResponseEntity.BodyBuilder response = partial ? ResponseEntity.status(HttpStatus.PARTIAL_CONTENT) : ResponseEntity.ok();
-        response.header(HttpHeaders.ACCEPT_RANGES, BYTES_UNIT)
+        response.eTag(etag).header(HttpHeaders.ACCEPT_RANGES, BYTES_UNIT)
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         ContentDisposition.attachment().filename(download.fileName(), StandardCharsets.UTF_8).build().toString())
                 .header(HttpHeaders.CACHE_CONTROL, staticProperties.getCacheControl()).contentType(mediaType(download.contentType()))
@@ -133,6 +143,8 @@ public class AttachmentController {
         try {
             return MediaType.parseMediaType(contentType);
         } catch (InvalidMediaTypeException e) {
+            // Битые метаданные вложения: файл отдаём, но в логе должно быть видно, почему octet-stream
+            logger.warn("Некорректный content-type вложения «{}», отдаю application/octet-stream", LogSanitizer.value(contentType));
             return MediaType.APPLICATION_OCTET_STREAM;
         }
     }

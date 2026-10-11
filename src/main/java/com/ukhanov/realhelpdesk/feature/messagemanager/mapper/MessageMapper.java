@@ -24,6 +24,7 @@ public interface MessageMapper {
     MessageModel toEntity(CreateMessageRequest request, UserModel author, TicketModel ticket);
 
     @Mapping(target = "ticketId", source = "ticket.id")
+    @Mapping(target = "authorId", source = "author.id")
     @Mapping(target = "authorFullName", source = "author", qualifiedByName = "authorFullName")
     MessageResponse toResponse(MessageModel model);
 

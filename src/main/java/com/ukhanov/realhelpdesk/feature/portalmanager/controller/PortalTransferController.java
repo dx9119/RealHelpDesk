@@ -80,7 +80,8 @@ public class PortalTransferController {
     @PreAuthorize("@accessValidationService.hasPortalManageAccess(#portalId)")
     @GetMapping("/{portalId}/history")
     public PageResponse<PortalHistoryResponse> getHistory(@PathVariable @NotNull Long portalId,
-            @RequestParam(defaultValue = "0") @Min(0) int page, @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size) {
-        return portalManageService.getPortalHistory(portalId, page, size);
+            @RequestParam(defaultValue = "0") @Min(0) int page, @RequestParam(defaultValue = "10") @Min(1) @Max(100) int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy, @RequestParam(defaultValue = "desc") String order) {
+        return portalManageService.getPortalHistory(portalId, page, size, sortBy, order);
     }
 }

@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.RefreshTokenModel;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.repository.JwtRefreshTokenRepository;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.utils.JwtClaims;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +20,10 @@ public class SaveTokenService {
 
     public RefreshTokenModel saveRefreshToken(RefreshTokenModel token) {
         Objects.requireNonNull(token, "RefreshTokenModel не может быть null");
-        return jwtRefreshTokenRepository.save(token);
+        RefreshTokenModel saved = jwtRefreshTokenRepository.save(token);
+        // След сохранения — по id записи: значения токена и его хеша в лог не идут (audit/toLoggingUpdate.md, B8)
+        logger.debug("Сохранён {} токен, userId={}, tokenId={}", JwtClaims.TYPE_REFRESH, saved.getUser().getId(), saved.getUuid());
+        return saved;
     }
 
 }

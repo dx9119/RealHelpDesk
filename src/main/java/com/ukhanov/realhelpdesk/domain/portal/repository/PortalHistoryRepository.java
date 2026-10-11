@@ -10,5 +10,7 @@ import com.ukhanov.realhelpdesk.domain.portal.model.PortalHistoryModel;
 @Repository
 public interface PortalHistoryRepository extends JpaRepository<PortalHistoryModel, Long> {
 
-    Page<PortalHistoryModel> findByPortalIdOrderByCreatedAtDesc(Long portalId, Pageable pageable);
+    // Сортировку задаёт Pageable (единый стиль page/size/sortBy/order), а не имя метода:
+    // жёсткий OrderByCreatedAtDesc не давал клиенту выбрать порядок и расходился с остальными списками.
+    Page<PortalHistoryModel> findByPortalId(Long portalId, Pageable pageable);
 }

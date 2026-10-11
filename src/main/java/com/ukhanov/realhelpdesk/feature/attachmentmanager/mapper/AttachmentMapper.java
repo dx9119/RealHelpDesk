@@ -36,6 +36,7 @@ public interface AttachmentMapper {
     /** portalId и ticketId приходят из пути запроса: они и так проверены доступом, а в entity заявка — ленивая связь. */
     @Mapping(target = "ticketId", source = "ticketId")
     @Mapping(target = "messageId", source = "attachment.message.id")
+    @Mapping(target = "uploadedById", source = "attachment.uploadedBy.id")
     @Mapping(target = "uploadedByFullName", source = "attachment.uploadedBy", qualifiedByName = "authorFullName")
     @Mapping(target = "downloadUrl", expression = "java(downloadUrl(staticProperties, portalId, ticketId, attachment.getId()))")
     AttachmentResponse toResponse(AttachmentModel attachment, Long portalId, Long ticketId, @Context StaticProperties staticProperties);

@@ -1,6 +1,7 @@
 package com.ukhanov.realhelpdesk.core.config;
 
 import java.util.Arrays;
+import java.util.List;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,6 +26,20 @@ import lombok.RequiredArgsConstructor;
 @EnableScheduling
 @Configuration
 public class AppConfig {
+
+    /**
+     * Заголовки ответа, доступные JavaScript кросс-доменного клиента (CORS exposedHeaders). Список закрытый: всё, что не перечислено,
+     * браузер скрывает от fetch.
+     */
+    static final List<String> EXPOSED_HEADERS = List.of(
+            // 201 Created и 206 Partial Content
+            "Location",
+            // Файлы: имя при скачивании и докачка по Range
+            "Content-Disposition", "Content-Range", "Accept-Ranges", "ETag",
+            // 429
+            "Retry-After",
+            // Маркеры причины 401 из JwtAuthFilter: SPA отличает «токен истёк» от «токена нет»
+            "X-Access-Token-Expired", "X-Auth-Token-Missing", "X-Malformed-Token", "X-Invalid-Token", "X-Verify-Token-Failed");
 
     private final CustomUserDetailsService customUserDetailsService;
 
@@ -58,7 +73,17 @@ public class AppConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         // Список origin'ов из конфигурации (см. CorsProperties), в коде домены не держим.
         configuration.setAllowedOrigins(corsProperties.getAllowedOrigins());
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        // Без allowedHeaders любой preflight с Access-Control-Request-Headers (а его шлёт
+        // браузер для Content-Type: application/json) отклоняется 403 Invalid CORS request —
+        // то есть все JSON-мутации с другого origin. "*" вместе с allowCredentials безопасен:
+        // Spring подставляет запрошенные заголовки, а не отдаёт литерал "*".
+        configuration.setAllowedHeaders(List.of("*"));
+        // Заголовки, которые клиент может прочитать из ответа: по умолчанию JS доступны
+        // только safelisted (Cache-Control, Content-Type и т.п.), всё остальное скрыто.
+        // Маркеры 401 нужны SPA для честного refresh, Location — после 201, файловые
+        // заголовки — для докачки, Retry-After — для подсказки «повторите через N сек».
+        configuration.setExposedHeaders(EXPOSED_HEADERS);
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 

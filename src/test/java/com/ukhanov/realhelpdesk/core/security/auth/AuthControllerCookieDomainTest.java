@@ -19,6 +19,7 @@ import com.ukhanov.realhelpdesk.core.security.auth.logout.service.LogoutService;
 import com.ukhanov.realhelpdesk.core.security.auth.refresh.service.RefreshService;
 import com.ukhanov.realhelpdesk.core.security.auth.register.service.RegistrationService;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.GetTokenService;
+import com.ukhanov.realhelpdesk.feature.usermanager.service.UserManageService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -42,6 +43,8 @@ class AuthControllerCookieDomainTest {
     private GetTokenService getTokenService;
     @Mock
     private RefreshService refreshService;
+    @Mock
+    private UserManageService userManageService;
 
     private JwtProperties jwtProperties;
     private MockMvc mockMvc;
@@ -49,9 +52,8 @@ class AuthControllerCookieDomainTest {
     @BeforeEach
     void setUp() {
         jwtProperties = new JwtProperties();
-        mockMvc = MockMvcBuilders.standaloneSetup(
-                new AuthController(registrationService, loginService, logoutService, getTokenService, refreshService, jwtProperties))
-                .build();
+        mockMvc = MockMvcBuilders.standaloneSetup(new AuthController(registrationService, loginService, logoutService, getTokenService,
+                refreshService, jwtProperties, userManageService)).build();
     }
 
     @Test

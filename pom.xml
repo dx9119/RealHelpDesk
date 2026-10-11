@@ -21,7 +21,6 @@
     <properties>
         <java.version>21</java.version>
         <jjwt.version>0.13.0</jjwt.version>
-        <telegrambots.version>6.9.7.1</telegrambots.version>
         <hibernate.validator.version>9.1.4.Final</hibernate.validator.version>
         <maven-surefire-plugin.version>3.5.4</maven-surefire-plugin.version>
         <maven-checkstyle-plugin.version>3.6.0</maven-checkstyle-plugin.version>
@@ -30,6 +29,8 @@
         <greenmail.version>2.1.0</greenmail.version>
         <minio.version>8.5.17</minio.version>
         <mapstruct.version>1.6.3</mapstruct.version>
+        <!-- springdoc 3.x — ветка под Spring Boot 4 / Spring Framework 7 -->
+        <springdoc.version>3.1.1</springdoc.version>
         <!-- lombok-mapstruct-binding: без него Lombok 1.18.16+ «заглушает» MapStruct,
              и генерация XxxMapperImpl перестаёт видеть геттеры/сеттеры DTO. -->
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
@@ -77,17 +78,19 @@
             <artifactId>spring-boot-starter-liquibase</artifactId>
         </dependency>
 
+        <!-- OpenAPI: спека собирается из контроллеров и DTO (springdoc), поэтому контракт не расходится
+             с кодом; UI — /swagger-ui.html, спека — /v3/api-docs. См. Makefile: openapi, openapi-types. -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>${springdoc.version}</version>
+        </dependency>
+
         <!-- MinIO: файлы вложений заявок (метаданные — в БД, сами файлы — в бакете) -->
         <dependency>
             <groupId>io.minio</groupId>
             <artifactId>minio</artifactId>
             <version>${minio.version}</version>
-        </dependency>
-
-        <!-- Logging (уже в starter, но можно явно если нужно) -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-logging</artifactId>
         </dependency>
 
         <!-- Kaptcha -->
@@ -116,11 +119,17 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Telegram Bots -->
+        <!-- Observability: health-пробы (liveness/readiness) для оркестрации и
+             метрики Hikari/HTTP/JVM в Prometheus (infraReview.md, п. 1 и 22).
+             /actuator/health в WHITE_LIST_URLS, /actuator/prometheus остаётся
+             за аутентификацией — для внутреннего скрейпа. -->
         <dependency>
-            <groupId>org.telegram</groupId>
-            <artifactId>telegrambots</artifactId>
-            <version>${telegrambots.version}</version>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
         </dependency>
 
         <!-- Hibernate Validator -->
@@ -239,6 +248,18 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
                     <mainClass>com.ukhanov.realhelpdesk.RealHelpDeskApplication</mainClass>
+                </configuration>
+            </plugin>
+
+            <!-- Liquibase CLI для шардов (infraReview.md, п. 26): init-скрипты Postgres
+                 выполняются только на пустом томе, поэтому шарды нужно мигрировать тем же
+                 changelog, что и основную БД: make migrate-shard. Версию задаёт Boot parent. -->
+            <plugin>
+                <groupId>org.liquibase</groupId>
+                <artifactId>liquibase-maven-plugin</artifactId>
+                <configuration>
+                    <changeLogFile>db/changelog/db.changelog-master.xml</changeLogFile>
+                    <promptOnNonLocalDatabase>false</promptOnNonLocalDatabase>
                 </configuration>
             </plugin>
 

@@ -1,9 +1,13 @@
 package com.ukhanov.realhelpdesk.feature.notificationmanager.controller;
 
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.request.async.DeferredResult;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.annotation.RateLimit;
@@ -42,10 +47,22 @@ public class NotificationController {
         return ResponseEntity.ok(notificationManageService.getNotifications(page, size, sortBy, order, unreadOnly));
     }
 
-    /** Счётчик непрочитанных — для значка уведомлений. */
+    /** Счётчик непрочитанных — для значка уведомлений. no-store: значение меняется от любого события. */
     @GetMapping("/unread-count")
     public ResponseEntity<UnreadCountResponse> getUnreadCount() {
-        return ResponseEntity.ok(notificationManageService.getUnreadCount());
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(notificationManageService.getUnreadCount());
+    }
+
+    /**
+     * SSE-канал: одно долгоживущее соединение вместо висящего long-polling запроса (клиент подписывается через EventSource, события
+     * приходят как {@code event: notification}). Long polling ниже оставлен фолбэком: он держит запрос 25 секунд и делит лимит на IP между
+     * всеми вкладками.
+     */
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter stream(@RequestParam(defaultValue = "0") @Min(0) long afterId,
+            @RequestParam(defaultValue = "10") @Min(1) @Max(50) int size, HttpServletResponse response) {
+        response.setHeader(HttpHeaders.CACHE_CONTROL, CacheControl.noStore().getHeaderValue());
+        return notificationManageService.subscribe(afterId, size);
     }
 
     /**
@@ -56,8 +73,10 @@ public class NotificationController {
     @RateLimit(key = "notifications-wait")
     public DeferredResult<ResponseEntity<PageResponse<NotificationResponse>>> waitForNew(
             @RequestParam(defaultValue = "0") @Min(0) long afterId, @RequestParam(defaultValue = "25") @Min(1) @Max(30) int timeoutSec,
-            @RequestParam(defaultValue = "10") @Min(1) @Max(50) int size) {
+            @RequestParam(defaultValue = "10") @Min(1) @Max(50) int size, HttpServletResponse response) {
 
+        // no-store: ответ long polling не должен осесть в прокси/браузере и вернуться как «свежий»
+        response.setHeader(HttpHeaders.CACHE_CONTROL, CacheControl.noStore().getHeaderValue());
         return notificationManageService.waitForNew(afterId, timeoutSec, size);
     }
 

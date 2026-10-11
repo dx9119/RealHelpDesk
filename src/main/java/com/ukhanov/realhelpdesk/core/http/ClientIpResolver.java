@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import com.ukhanov.realhelpdesk.core.config.ClientIpProperties;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Единственное место, где приложение определяет IP посетителя: логи ({@code LoggingFilter}, MDC {@code clientIp}) и ключ рейт-лимита
@@ -17,6 +18,7 @@ import lombok.RequiredArgsConstructor;
  * {@link ClientIpProperties#getHeaders()}, элемент списка выбирается по {@link ClientIpProperties#getForwardedIndex()}.
  * </p>
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class ClientIpResolver {
@@ -40,10 +42,14 @@ public class ClientIpResolver {
                 }
                 String ip = extract(request.getHeader(header.trim()));
                 if (ip != null) {
+                    // Источник виден в debug: без него не объяснить, почему IP в логе не совпал с ожидаемым
+                    logger.debug("IP клиента: источник={}, trustProxyHeaders=true", header.trim());
                     return ip;
                 }
             }
         }
+        // Заголовкам не доверяем (или ни один не дал адреса) — берём адрес сокета
+        logger.debug("IP клиента: источник=socket, trustProxyHeaders={}", properties.isTrustProxyHeaders());
         return request.getRemoteAddr();
     }
 

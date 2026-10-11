@@ -10,6 +10,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import jakarta.transaction.Transactional;
+
+import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -54,6 +57,7 @@ public class NotificationPublisher {
     private final UserNotificationPreferencesRepository preferencesRepository;
     private final NotificationWaitRegistry waitRegistry;
     /** Получатели как у email: владелец портала + allowedUserIds, без автора действия (actorId). */
+    @Transactional
     public void publishToPortalUsers(PortalModel portal, NotificationEvent event, Long actorId, Long ticketId, String title) {
         Objects.requireNonNull(portal, "portal не должен быть null");
 
@@ -68,6 +72,9 @@ public class NotificationPublisher {
         publishToUsers(recipients, event, actorId, ticketId, portal.getId(), title);
     }
 
+    // @Transactional: публикация возможна и вне транзакции вызывающего (после коммита удаления портала) —
+    // записи оповещений должны открывать собственную, а внутри транзакции заявки — присоединяться к ней
+    @Transactional
     public void publishToUsers(Collection<Long> recipients, NotificationEvent event, Long actorId, Long ticketId, Long portalId,
             String title) {
         if (recipients == null || recipients.isEmpty() || event == null) {
@@ -124,10 +131,26 @@ public class NotificationPublisher {
      */
     public void wakeAfterCommit(Collection<Long> userIds) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            // MDC — thread-local, а afterCommit выполняется на потоке коммита (часто — поток чужого
+            // HTTP-запроса или планировщика): несём контекст инициатора публикации, иначе логи
+            // пробуждения уходят без requestId (audit/toLoggingUpdate.md, §5)
+            Map<String, String> wakeContext = MDC.getCopyOfContextMap();
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    userIds.forEach(waitRegistry::wake);
+                    Map<String, String> previous = MDC.getCopyOfContextMap();
+                    if (wakeContext != null) {
+                        MDC.setContextMap(wakeContext);
+                    }
+                    try {
+                        userIds.forEach(waitRegistry::wake);
+                    } finally {
+                        if (previous != null) {
+                            MDC.setContextMap(previous);
+                        } else {
+                            MDC.clear();
+                        }
+                    }
                 }
             });
             return;

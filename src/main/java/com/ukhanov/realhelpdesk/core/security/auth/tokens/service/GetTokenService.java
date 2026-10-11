@@ -1,6 +1,5 @@
 package com.ukhanov.realhelpdesk.core.security.auth.tokens.service;
 
-import java.util.List;
 import java.util.Objects;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -45,7 +44,7 @@ public class GetTokenService {
         TokenBearerResponse tokenBearerResponse = genTokenService.generateAccessJwtToken(securityUser);
         RefreshTokenModel refreshToken = genTokenService.generateRefreshJwtToken(securityUser);
 
-        int revoked = revokeActiveRefreshTokens(user);
+        int revoked = revokeActiveRefreshTokens(user, TokenStatus.REVOKED);
         if (revoked > 0) {
             logger.info("Ротация refresh-токенов: отозвано {}, userId={}", revoked, user.getId());
         }
@@ -54,20 +53,15 @@ public class GetTokenService {
         return new TokensResponse(tokenBearerResponse.token(), refreshToken.getRawToken(), securityUser.getUsername());
     }
 
-    private int revokeActiveRefreshTokens(UserModel user) {
-        List<RefreshTokenModel> active = jwtRefreshTokenRepository.findAllByUserEmailAndStatus(user.getEmail(), TokenStatus.ACTIVE);
-        for (RefreshTokenModel token : active) {
-            token.setStatus(TokenStatus.REVOKED);
-            saveTokenService.saveRefreshToken(token);
-        }
-        return active.size();
-    }
-
-    // Все активные refresh-токены пользователя (для отзыва, например при смене пароля)
-    public List<RefreshTokenModel> getActiveRefreshTokens(UserModel user) {
+    /**
+     * Отзыв активных refresh-токенов пользователя bulk-UPDATE одним запросом (а не N селектов + N сохранений): nextStatus — REVOKED при
+     * ротации, PASSWD_CHANGE при смене пароля (audit/n1.md, #9/#10).
+     */
+    @Transactional
+    public int revokeActiveRefreshTokens(UserModel user, TokenStatus nextStatus) {
         Objects.requireNonNull(user, "Пользователь не может быть null!");
 
-        return jwtRefreshTokenRepository.findAllByUserEmailAndStatus(user.getEmail(), TokenStatus.ACTIVE);
+        return jwtRefreshTokenRepository.updateStatusByEmailAndStatus(user.getEmail(), TokenStatus.ACTIVE, nextStatus);
     }
 
     private Token extractAndValidateToken(HttpServletRequest request, String tokenName) throws TokenException {
@@ -101,6 +95,9 @@ public class GetTokenService {
         validTokenService.lowLevelVerifyToken(tokenRefresh, JwtClaims.TYPE_REFRESH);
 
         UserModel user = refreshToken.getUser();
+        // Успешное обновление access-токена по refresh: видно в debug, отказ логирует advice (WARN).
+        // Идентификатор здесь доступен, поэтому пишем его, а не строку без контекста (audit B9).
+        logger.debug("Access-токен обновлён, userId={}", user.getId());
         return genTokenService.generateAccessJwtToken(new SecurityUser(user));
     }
 }

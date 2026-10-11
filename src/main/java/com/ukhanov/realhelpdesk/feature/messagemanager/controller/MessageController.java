@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ukhanov.realhelpdesk.core.pagination.dto.ItemsResponse;
 import com.ukhanov.realhelpdesk.feature.messagemanager.dto.CreateMessageRequest;
 import com.ukhanov.realhelpdesk.feature.messagemanager.dto.CreateMessageResponse;
 import com.ukhanov.realhelpdesk.feature.messagemanager.dto.MessageResponse;
@@ -39,16 +40,24 @@ public class MessageController {
             @PathVariable Long portalId, @PathVariable Long ticketId)
             throws MessageException, MessagingException, TicketException, UnsupportedEncodingException {
         CreateMessageResponse response = messageManageService.createMessage(request, ticketId, portalId);
+        // Location ведёт на существующий маршрут GET .../messages/{id}: раньше он возвращал 404
         return ResponseEntity.created(URI.create("/api/v1/portals/" + portalId + "/tickets/" + ticketId + "/messages/" + response.id()))
                 .body(response);
     }
 
     @GetMapping
     @PreAuthorize("@ticketAccessValidationService.hasTicketAccess(#portalId, #ticketId)")
-    public ResponseEntity<List<MessageResponse>> getAllMessages(@PathVariable Long portalId, @PathVariable Long ticketId)
+    public ResponseEntity<ItemsResponse<MessageResponse>> getAllMessages(@PathVariable Long portalId, @PathVariable Long ticketId)
             throws MessageException, PortalException {
         List<MessageResponse> response = messageManageService.getAllMessage(ticketId);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ItemsResponse.of(response));
+    }
+
+    @GetMapping("/{messageId}")
+    @PreAuthorize("@ticketAccessValidationService.hasTicketAccess(#portalId, #ticketId)")
+    public ResponseEntity<MessageResponse> getMessage(@PathVariable Long portalId, @PathVariable Long ticketId,
+            @PathVariable Long messageId) throws MessageException {
+        return ResponseEntity.ok(messageManageService.getMessage(ticketId, messageId));
     }
 
 }

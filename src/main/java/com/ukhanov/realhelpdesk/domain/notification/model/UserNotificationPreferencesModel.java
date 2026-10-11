@@ -16,6 +16,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 
+import org.hibernate.annotations.BatchSize;
+
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 
 import lombok.Getter;
@@ -49,7 +51,10 @@ public class UserNotificationPreferencesModel {
     @Column(name = "user_id", nullable = false, unique = true)
     private Long userId;
 
+    // EAGER остаётся (настройки читаются в оповещалках), но с батчем:
+    // findByUserIdIn по N пользователей грузит события ⌈N/50⌉ запросами, а не N
     @ElementCollection(fetch = FetchType.EAGER)
+    @BatchSize(size = 50)
     @CollectionTable(name = "user_notification_preferences_events", joinColumns = @JoinColumn(name = "preferences_id"))
     @Column(name = "event", nullable = false)
     @Enumerated(EnumType.STRING)
