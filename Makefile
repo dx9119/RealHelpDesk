@@ -15,12 +15,14 @@ GIT_SHA ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
 COMPOSE_DEV ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml
 COMPOSE_PROD ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.prod.yaml
 COMPOSE_SHARDING ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml -f infrastructure/docker-compose.sharding.yaml
+COMPOSE_LOAD ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml -f infrastructure/docker-compose.load.yaml
 
 .DEFAULT_GOAL := help
 
 .PHONY: help build clean compile package test verify format check run \
         dev-run dev-test \
-        env docker-build up up-prod up-sharding down down-sharding down-volumes logs ps restart shell check-image \
+        env docker-build up up-prod up-sharding up-load down down-sharding down-volumes logs ps restart shell check-image \
+        load load-smoke \
         migrate migrate-shard-0 migrate-shard-1 migrate-shard \
         openapi openapi-types \
         e2e-portal-access e2e-ratelimit e2e-jwt e2e-notifications e2e-portal-transfer e2e-all
@@ -104,6 +106,17 @@ shell: ## Shell внутри контейнера app
 
 check-image: docker-build ## Проверки образа: секреты, ФС, jar
 	./scripts/docker/check-image.sh $(IMAGE)
+
+## --- Нагрузочное тестирование (k6, scripts/load/) ---
+
+up-load: env ## Поднять стек с load-оверлеем (TRUST_PROXY_HEADERS=true, только локально)
+	$(COMPOSE_LOAD) up --build -d
+
+load: up-load ## Нагрузочный user journey: TARGET_VUS=10 DURATION=5m POOL_SIZE=8 (env)
+	bash scripts/load/run.sh
+
+load-smoke: up-load ## Короткий smoke-прогон user journey (2 VU, 1 минута)
+	TARGET_VUS=2 DURATION=1m bash scripts/load/run.sh
 
 ## --- Миграции схемы (Liquibase с хоста; порты БД проброшены на 127.0.0.1) ---
 # Миграции также применяет само приложение при старте (DB_MIGRATIONS_ENABLED).
