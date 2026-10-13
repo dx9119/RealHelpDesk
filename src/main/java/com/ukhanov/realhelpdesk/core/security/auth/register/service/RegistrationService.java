@@ -8,6 +8,7 @@ import jakarta.mail.MessagingException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.ukhanov.realhelpdesk.core.log.LogSanitizer;
 import com.ukhanov.realhelpdesk.core.mail.exception.EmailAccessDeniedException;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
@@ -41,7 +42,7 @@ public class RegistrationService {
     public UserModel addUser(RegisterRequest registerRequest)
             throws RegistrationException, MessagingException, EmailAccessDeniedException, UnsupportedEncodingException {
         Objects.requireNonNull(registerRequest, "getTokensRequest cannot be null");
-        logger.debug("Начало регистрации, email={}", registerRequest.email());
+        logger.debug("Начало регистрации, email={}", LogSanitizer.email(registerRequest.email()));
 
         // Проверяем наличие прошлой регистрации
         if (userDomainService.isUserExistsByEmail(registerRequest.email())) {

@@ -17,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.ukhanov.realhelpdesk.core.config.StaticProperties;
 import com.ukhanov.realhelpdesk.core.exception.ApiException;
 import com.ukhanov.realhelpdesk.core.http.RangeHeader;
+import com.ukhanov.realhelpdesk.core.log.LogSanitizer;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.storage.service.MinioStorageService;
 import com.ukhanov.realhelpdesk.domain.attachment.model.AttachmentModel;
@@ -107,7 +108,8 @@ public class AttachmentManageService {
         try (InputStream content = file.getInputStream()) {
             storageService.upload(storageKey, content, sizeBytes, contentType);
         } catch (IOException e) {
-            logger.warn("Не удалось прочитать загружаемый файл «{}» для заявки {}", fileName, ticketId, e);
+            // Граница логирует отказ один раз (GlobalExceptionHandler, WARN без стектрейса): здесь — только debug для отладки локально.
+            logger.debug("Не удалось прочитать загружаемый файл «{}» для заявки {}", LogSanitizer.fileName(fileName), ticketId, e);
             throw new AttachmentException("Не удалось прочитать файл", HttpStatus.BAD_REQUEST, e);
         }
 
@@ -119,7 +121,8 @@ public class AttachmentManageService {
             AttachmentModel attachment = attachmentDomainService.saveAttachment(attachmentMapper.toEntity(message,
                     currentUserProvider.getCurrentUserModel(), fileName, storageKey, contentType, sizeBytes));
 
-            logger.info("Файл «{}» ({} байт) прикреплён к заявке {} сообщением {}", fileName, sizeBytes, ticketId, message.getId());
+            logger.info("Файл «{}» ({} байт) прикреплён к заявке {} сообщением {}", LogSanitizer.fileName(fileName), sizeBytes, ticketId,
+                    message.getId());
             return attachmentMapper.toResponse(attachment, portalId, ticketId, staticProperties);
         } catch (ApiException | MessagingException | UnsupportedEncodingException | RuntimeException e) {
             storageService.delete(storageKey);

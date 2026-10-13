@@ -17,6 +17,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import com.ukhanov.realhelpdesk.core.log.LogSanitizer;
 import com.ukhanov.realhelpdesk.core.mail.config.EmailProperties;
 import com.ukhanov.realhelpdesk.core.mail.exception.EmailAccessDeniedException;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailLog;
@@ -79,7 +80,7 @@ public class EmailDeliveryService {
         Observation observation = Observation.createNotStarted("mail.send", observationRegistry).lowCardinalityKeyValue("operation", "send")
                 .lowCardinalityKeyValue("event", sourceEvent.name()).start();
         try {
-            logger.debug("Отправка письма, event={}, recipient={}", sourceEvent, recipient);
+            logger.debug("Отправка письма, event={}, recipient={}", sourceEvent, LogSanitizer.email(recipient));
 
             MimeMessage mimeMessage = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");

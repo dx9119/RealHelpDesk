@@ -63,7 +63,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({UsernameNotFoundException.class, BadCredentialsException.class})
     public ResponseEntity<ProblemDetail> handleAuthenticationFailure(Exception ex, HttpServletRequest request) {
-        logger.warn("Ошибка аутентификации: {}", ex.getMessage());
+        // Сообщение UsernameNotFoundException содержит email клиента: в лог адрес маскируется (obs.md, шаг 7)
+        logger.warn("Ошибка аутентификации: {}", LogSanitizer.emails(ex.getMessage()));
         markObserved(ex, request);
         return ProblemResponses.entity(HttpStatus.UNAUTHORIZED, ex.getMessage(), request);
     }

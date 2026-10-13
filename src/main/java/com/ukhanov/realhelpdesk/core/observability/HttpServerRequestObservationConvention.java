@@ -70,9 +70,14 @@ public class HttpServerRequestObservationConvention extends DefaultServerRequest
         if (context.getCarrier() instanceof HttpServletRequest request) {
             Object role = request.getAttribute(ROLE_ATTRIBUTE);
             if (role instanceof String value && !value.isBlank()) {
-                return value.startsWith(ROLE_PREFIX) ? value.substring(ROLE_PREFIX.length()) : value;
+                return roleName(value);
             }
         }
         return ANONYMOUS;
+    }
+
+    /** Имя роли для тега метрики и MDC: без префикса Spring Security {@code ROLE_} — тот же набор ADMIN/USER/NONE. */
+    public static String roleName(String role) {
+        return role.startsWith(ROLE_PREFIX) ? role.substring(ROLE_PREFIX.length()) : role;
     }
 }

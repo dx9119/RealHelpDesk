@@ -8,7 +8,7 @@
 
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} | %-5level | %X{requestId:---} | %X{clientIp:---} | %X{uriRequest:---} | %logger{40} | %msg%n</pattern>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} | %-5level | %X{requestId:---} | %X{clientIp:---} | %X{uriRequest:---} | %X{role:---} | %X{traceId:---} | %X{spanId:---} | %logger{40} | %msg%n</pattern>
             <charset>UTF-8</charset>
         </encoder>
     </appender>

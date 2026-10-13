@@ -13,6 +13,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.ukhanov.realhelpdesk.core.http.EntityTag;
+import com.ukhanov.realhelpdesk.core.log.LogSanitizer;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
@@ -114,7 +115,7 @@ public class UserManageService {
     public void sendResetLink(RecoveryRequest request) throws MessagingException, UnsupportedEncodingException {
         Objects.requireNonNull(request, "RecoveryRequest не должен быть null");
 
-        logger.debug("Запрошено восстановление пароля, email={}", request.email());
+        logger.debug("Запрошено восстановление пароля, email={}", LogSanitizer.email(request.email()));
 
         UserModel user;
         try {

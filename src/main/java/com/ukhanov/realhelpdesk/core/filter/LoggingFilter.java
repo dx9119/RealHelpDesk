@@ -31,6 +31,10 @@ public class LoggingFilter extends OncePerRequestFilter {
     public static final String REQUEST_ID = "requestId";
     public static final String CLIENT_IP = "clientIp";
     public static final String URI_REQUEST = "uriRequest";
+    public static final String ROLE = "role";
+
+    /** Значение по умолчанию: перезаписывается JwtAuthFilter после аутентификации, очищается здесь же в finally. */
+    private static final String ANONYMOUS_ROLE = "ANONYMOUS";
 
     private final ClientIpResolver clientIpResolver;
 
@@ -50,6 +54,7 @@ public class LoggingFilter extends OncePerRequestFilter {
         MDC.put(REQUEST_ID, resolveRequestId(request));
         MDC.put(CLIENT_IP, getClientIpAddress(request));
         MDC.put(URI_REQUEST, uri);
+        MDC.put(ROLE, ANONYMOUS_ROLE);
 
         long startedNs = System.nanoTime();
         boolean failed = false;
