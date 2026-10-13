@@ -56,6 +56,8 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+
+import io.micrometer.observation.ObservationRegistry;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("Тесты сервиса TicketManageService")
@@ -94,7 +96,7 @@ class TicketManageServiceTest {
     void setUp() {
         service = new TicketManageService(mockTicketDomainService, mockCurrentUserProvider, mockPortalDomainService, mockPaginationAdapter,
                 mockEmailDeliveryService, mockTicketAccessValidationService, mockTicketRepository, emailTemplates,
-                mockNotificationPublisher, Mappers.getMapper(TicketMapper.class));
+                mockNotificationPublisher, Mappers.getMapper(TicketMapper.class), ObservationRegistry.NOOP);
 
         UserModel currentUser = new UserModel();
         currentUser.setId(USER_ID);

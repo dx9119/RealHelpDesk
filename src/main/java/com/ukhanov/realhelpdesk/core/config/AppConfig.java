@@ -5,7 +5,9 @@ import java.util.List;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.TaskDecorator;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
@@ -58,6 +60,34 @@ public class AppConfig {
     @Bean
     public AuthenticationManager authenticationManager(HttpSecurity httpSecurity) throws Exception {
         return httpSecurity.getSharedObject(AuthenticationManagerBuilder.class).authenticationProvider(authenticationProvider()).build();
+    }
+
+    /**
+     * Планировщик с TaskDecorator: переносит контекст наблюдаемости (trace/span) в фоновый поток @Scheduled-задач, чтобы спаны повторов
+     * оповещений висели на том же trace, что и породивший их запрос (obs.md, шаг 6). Без этого фоновые спаны теряли бы связь с
+     * HTTP-запросом.
+     */
+    @Bean
+    public ThreadPoolTaskScheduler taskScheduler() {
+        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+        scheduler.setPoolSize(2);
+        scheduler.setTaskDecorator(contextPropagatingDecorator());
+        scheduler.setThreadNamePrefix("sched-");
+        return scheduler;
+    }
+
+    @Bean
+    public TaskDecorator contextPropagatingDecorator() {
+        return delegate -> {
+            // ObservationContext propagates trace/span через ThreadLocal; оборачиваем runnable,
+            // чтобы текущий контекст (из HTTP-запроса или предыдущей задачи) переехал в поток планировщика.
+            io.micrometer.context.ContextSnapshot snapshot = io.micrometer.context.ContextSnapshot.captureAll();
+            return () -> {
+                try (io.micrometer.context.ContextSnapshot.Scope scope = snapshot.setThreadLocals()) {
+                    delegate.run();
+                }
+            };
+        };
     }
 
     // Логика аутентификации(загрузка пользователя, проверка пароля)

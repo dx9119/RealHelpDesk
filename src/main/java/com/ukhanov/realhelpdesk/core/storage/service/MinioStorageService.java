@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import com.ukhanov.realhelpdesk.core.storage.config.MinioProperties;
 import com.ukhanov.realhelpdesk.core.storage.exception.StorageException;
 
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import io.minio.BucketExistsArgs;
 import io.minio.GetObjectArgs;
 import io.minio.MakeBucketArgs;
@@ -31,6 +33,7 @@ public class MinioStorageService {
 
     private final MinioClient minioClient;
     private final MinioProperties properties;
+    private final ObservationRegistry observationRegistry;
 
     /** После успешной проверки бакет не перепроверяется на каждой операции; при сбое флаг не поднимается и проверка повторится. */
     private volatile boolean bucketReady;
@@ -39,9 +42,10 @@ public class MinioStorageService {
      * операцией, пока не пройдёт успешно.
      */
 
-    public MinioStorageService(MinioClient minioClient, MinioProperties properties) {
+    public MinioStorageService(MinioClient minioClient, MinioProperties properties, ObservationRegistry observationRegistry) {
         this.minioClient = Objects.requireNonNull(minioClient, "minioClient не должен быть null");
         this.properties = Objects.requireNonNull(properties, "Настройки MinIO не должны быть null");
+        this.observationRegistry = Objects.requireNonNull(observationRegistry, "observationRegistry не должен быть null");
     }
 
     public void ensureBucket() {
@@ -67,13 +71,18 @@ public class MinioStorageService {
         if (size <= 0) {
             throw new IllegalArgumentException("Размер файла должен быть положительным: " + objectKey);
         }
-        ensureBucket();
+        Observation observation = Observation.createNotStarted("attachment.upload", observationRegistry)
+                .lowCardinalityKeyValue("operation", "upload").highCardinalityKeyValue("attachment.object.key", objectKey)
+                .highCardinalityKeyValue("attachment.size.bytes", String.valueOf(size)).start();
         try {
+            ensureBucket();
             // partSize = -1: размер известен, а размер части MinIO посчитает сам (5MiB — его минимум, файл меньше лимита — одна часть).
             minioClient.putObject(PutObjectArgs.builder().bucket(properties.getBucket()).object(objectKey).stream(content, size, -1)
                     .contentType(contentType).build());
             logger.debug("Файл сохранён в хранилище: {}", objectKey);
+            observation.stop();
         } catch (Exception e) {
+            observation.lowCardinalityKeyValue("outcome", "error").stop();
             throw new StorageException("Не удалось сохранить файл в хранилище", e);
         }
     }
@@ -96,8 +105,10 @@ public class MinioStorageService {
         if (offset < 0) {
             throw new IllegalArgumentException("Смещение фрагмента не может быть отрицательным: " + offset);
         }
-        ensureBucket();
+        Observation observation = Observation.createNotStarted("attachment.download", observationRegistry)
+                .lowCardinalityKeyValue("operation", "download").highCardinalityKeyValue("attachment.object.key", objectKey).start();
         try {
+            ensureBucket();
             GetObjectArgs.Builder builder = GetObjectArgs.builder().bucket(properties.getBucket()).object(objectKey);
             if (offset > 0) {
                 builder.offset(offset);
@@ -105,13 +116,17 @@ public class MinioStorageService {
             if (length >= 0) {
                 builder.length(length);
             }
-            return minioClient.getObject(builder.build());
+            InputStream stream = minioClient.getObject(builder.build());
+            observation.stop();
+            return stream;
         } catch (ErrorResponseException e) {
+            observation.lowCardinalityKeyValue("outcome", "not_found").stop();
             if (e.errorResponse() != null && "NoSuchKey".equals(e.errorResponse().code())) {
                 throw StorageException.notFound("Файл не найден в хранилище");
             }
             throw new StorageException("Не удалось получить файл из хранилища", e);
         } catch (Exception e) {
+            observation.lowCardinalityKeyValue("outcome", "error").stop();
             throw new StorageException("Не удалось получить файл из хранилища", e);
         }
     }
@@ -124,10 +139,14 @@ public class MinioStorageService {
         if (objectKey == null) {
             return;
         }
+        Observation observation = Observation.createNotStarted("attachment.delete", observationRegistry)
+                .lowCardinalityKeyValue("operation", "delete").highCardinalityKeyValue("attachment.object.key", objectKey).start();
         try {
             minioClient.removeObject(RemoveObjectArgs.builder().bucket(properties.getBucket()).object(objectKey).build());
             logger.debug("Файл удалён из хранилища: {}", objectKey);
+            observation.stop();
         } catch (Exception e) {
+            observation.lowCardinalityKeyValue("outcome", "error").stop();
             logger.warn("Не удалось удалить файл из хранилища {}: {}", objectKey, e.getMessage());
         }
     }

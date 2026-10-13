@@ -26,6 +26,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.micrometer.observation.ObservationRegistry;
 import io.minio.BucketExistsArgs;
 import io.minio.GetObjectArgs;
 import io.minio.GetObjectResponse;
@@ -66,7 +67,7 @@ class MinioStorageServiceTest {
         properties.setAccessKey("minioadmin");
         properties.setSecretKey("secret");
         properties.setBucket(BUCKET);
-        storageService = new MinioStorageService(mockMinioClient, properties);
+        storageService = new MinioStorageService(mockMinioClient, properties, ObservationRegistry.NOOP);
     }
 
     // ────────────────────────────────────────────────

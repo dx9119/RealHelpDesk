@@ -15,6 +15,7 @@ import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
 import com.ukhanov.realhelpdesk.core.mail.support.EmailTemplatesFixture;
+import com.ukhanov.realhelpdesk.core.observability.AuthMetrics;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenStatus;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.GetTokenService;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
@@ -40,6 +41,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 @ExtendWith(MockitoExtension.class)
 class UserManageServiceTest {
 
@@ -62,8 +65,8 @@ class UserManageServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new UserManageService(currentUserProvider, userDomainService, emailDeliveryService, passwordEncoder, getTokenService,
-                emailTemplates, userMapper);
+        service = new UserManageService(currentUserProvider, userDomainService, emailDeliveryService, passwordEncoder,
+                new AuthMetrics(new SimpleMeterRegistry()), getTokenService, emailTemplates, userMapper);
     }
 
     // ────────────────────────────────────────────────────────────────

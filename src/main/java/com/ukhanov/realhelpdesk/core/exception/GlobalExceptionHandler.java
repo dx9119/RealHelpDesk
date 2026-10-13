@@ -28,6 +28,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.filter.ServerHttpObservationFilter;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
@@ -49,24 +50,28 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ProblemDetail> handleApiException(ApiException ex, HttpServletRequest request) {
         logger.warn("Ошибка API {}: {}", ex.getStatus().value(), ex.getMessage());
+        markObserved(ex, request);
         return ProblemResponses.entity(ex.getStatus(), ex.getMessage(), request);
     }
 
     @ExceptionHandler(ApiRuntimeException.class)
     public ResponseEntity<ProblemDetail> handleApiRuntimeException(ApiRuntimeException ex, HttpServletRequest request) {
         logger.warn("Ошибка API {}: {}", ex.getStatus().value(), ex.getMessage());
+        markObserved(ex, request);
         return ProblemResponses.entity(ex.getStatus(), ex.getMessage(), request);
     }
 
     @ExceptionHandler({UsernameNotFoundException.class, BadCredentialsException.class})
     public ResponseEntity<ProblemDetail> handleAuthenticationFailure(Exception ex, HttpServletRequest request) {
         logger.warn("Ошибка аутентификации: {}", ex.getMessage());
+        markObserved(ex, request);
         return ProblemResponses.entity(HttpStatus.UNAUTHORIZED, ex.getMessage(), request);
     }
 
     @ExceptionHandler(AuthorizationDeniedException.class)
     public ResponseEntity<ProblemDetail> handleAuthorizationDenied(AuthorizationDeniedException ex, HttpServletRequest request) {
         logger.warn("Доступ запрещен: {}", ex.getMessage());
+        markObserved(ex, request);
         return ProblemResponses.entity(HttpStatus.FORBIDDEN, "Доступ запрещен", request);
     }
 
@@ -80,9 +85,11 @@ public class GlobalExceptionHandler {
         ApiException cause = findApiException(ex);
         if (cause != null) {
             logger.warn("Ошибка API {} (из выражения доступа): {}", cause.getStatus().value(), cause.getMessage());
+            markObserved(ex, request);
             return ProblemResponses.entity(cause.getStatus(), cause.getMessage(), request);
         }
         logger.error("Перехвачено необработанное исключение: {}", ex.getMessage(), ex);
+        markObserved(ex, request);
         return ProblemResponses.entity(HttpStatus.INTERNAL_SERVER_ERROR, "Операция завершилась неудачей", request);
     }
 
@@ -101,6 +108,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(JwtException.class)
     public ResponseEntity<ProblemDetail> handleJwtException(JwtException ex, HttpServletRequest request) {
         logger.warn("JWT ошибка: {}", ex.getMessage());
+        markObserved(ex, request);
         return ProblemResponses.entity(HttpStatus.UNAUTHORIZED, "Некорректный или недействительный токен", request);
     }
 
@@ -118,6 +126,7 @@ public class GlobalExceptionHandler {
         // значения не логируем: отклонённая разметка как раз и есть содержимое поля (audit/toLoggingUpdate.md, C6)
         logger.warn("Ошибка валидации тела запроса {}: поля {}", LogSanitizer.uri(request.getRequestURI()), errors.keySet());
 
+        markObserved(ex, request);
         return ProblemResponses.entity(HttpStatus.BAD_REQUEST, "Некорректный запрос", request, errors);
     }
 
@@ -128,6 +137,7 @@ public class GlobalExceptionHandler {
         String expected = ex.getRequiredType() != null ? "Ожидаемый тип: " + ex.getRequiredType().getSimpleName() + ". " : "";
         Map<String, String> errors = Map.of(ex.getName(), expected + "Получено: " + ex.getValue());
 
+        markObserved(ex, request);
         return ProblemResponses.entity(HttpStatus.BAD_REQUEST, "Некорректный параметр запроса", request, errors);
     }
 
@@ -140,12 +150,14 @@ public class GlobalExceptionHandler {
             errors.put(violation.getPropertyPath().toString(), violation.getMessage());
         }
 
+        markObserved(ex, request);
         return ProblemResponses.entity(HttpStatus.BAD_REQUEST, "Некорректный запрос", request, errors);
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ProblemDetail> handleMissingParameter(MissingServletRequestParameterException ex, HttpServletRequest request) {
         logger.warn("Отсутствует обязательный параметр '{}'", ex.getParameterName());
+        markObserved(ex, request);
         return ProblemResponses.entity(HttpStatus.BAD_REQUEST, "Отсутствует обязательный параметр '" + ex.getParameterName() + "'",
                 request);
     }
@@ -153,6 +165,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ProblemDetail> handleMaxUploadSize(MaxUploadSizeExceededException ex, HttpServletRequest request) {
         logger.warn("Загружаемый файл превышает лимит: {}", ex.getMessage());
+        markObserved(ex, request);
         return ProblemResponses.entity(HttpStatus.PAYLOAD_TOO_LARGE, "Файл превышает допустимый размер", request);
     }
 
@@ -160,6 +173,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MissingServletRequestPartException.class)
     public ResponseEntity<ProblemDetail> handleMissingRequestPart(MissingServletRequestPartException ex, HttpServletRequest request) {
         logger.warn("Отсутствует обязательная часть запроса '{}'", ex.getRequestPartName());
+        markObserved(ex, request);
         return ProblemResponses.entity(HttpStatus.BAD_REQUEST, "Отсутствует обязательная часть запроса '" + ex.getRequestPartName() + "'",
                 request);
     }
@@ -167,42 +181,49 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MultipartException.class)
     public ResponseEntity<ProblemDetail> handleMultipartException(MultipartException ex, HttpServletRequest request) {
         logger.warn("Ошибка разбора multipart-запроса {}: {}", LogSanitizer.uri(request.getRequestURI()), ex.getMessage());
+        markObserved(ex, request);
         return ProblemResponses.entity(HttpStatus.BAD_REQUEST, "Некорректный multipart-запрос", request);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ProblemDetail> handleUnreadableMessage(HttpMessageNotReadableException ex, HttpServletRequest request) {
         logger.warn("Нечитаемое тело запроса {}: {}", LogSanitizer.uri(request.getRequestURI()), ex.getMessage());
+        markObserved(ex, request);
         return ProblemResponses.entity(HttpStatus.BAD_REQUEST, "Некорректное тело запроса", request);
     }
 
     @ExceptionHandler(PropertyReferenceException.class)
     public ResponseEntity<ProblemDetail> handlePropertyReference(PropertyReferenceException ex, HttpServletRequest request) {
         logger.warn("Недопустимое поле сортировки: {}", ex.getPropertyName());
+        markObserved(ex, request);
         return ProblemResponses.entity(HttpStatus.BAD_REQUEST, "Недопустимое поле сортировки: " + ex.getPropertyName(), request);
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<ProblemDetail> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
         logger.warn("Метод {} не поддерживается для {}", ex.getMethod(), LogSanitizer.uri(request.getRequestURI()));
+        markObserved(ex, request);
         return ProblemResponses.entity(HttpStatus.METHOD_NOT_ALLOWED, "Метод " + ex.getMethod() + " не поддерживается", request);
     }
 
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     public ResponseEntity<ProblemDetail> handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException ex, HttpServletRequest request) {
         logger.warn("Неподдерживаемый тип содержимого: {}", ex.getContentType());
+        markObserved(ex, request);
         return ProblemResponses.entity(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Неподдерживаемый тип содержимого", request);
     }
 
     @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
     public ResponseEntity<ProblemDetail> handleNoHandler(Exception ex, HttpServletRequest request) {
         logger.warn("Маршрут не найден: {} {}", request.getMethod(), LogSanitizer.uri(request.getRequestURI()));
+        markObserved(ex, request);
         return ProblemResponses.entity(HttpStatus.NOT_FOUND, "Ресурс не найден", request);
     }
 
     @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
     public ResponseEntity<ProblemDetail> handleOptimisticLocking(ObjectOptimisticLockingFailureException ex, HttpServletRequest request) {
         logger.warn("Конфликт версий при сохранении объекта: {}", ex.getMessage());
+        markObserved(ex, request);
         return ProblemResponses.entity(HttpStatus.CONFLICT, "Конфликт версий, проверьте актуальность данных и попробуйте снова", request);
     }
 
@@ -210,18 +231,21 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ProblemDetail> handleMailSendException(MailSendException ex, HttpServletRequest request) {
         Throwable rootCause = ex.getCause();
         logger.error("Ошибка при отправке email: {}", rootCause != null ? rootCause.getMessage() : ex.getMessage(), ex);
+        markObserved(ex, request);
         return ProblemResponses.entity(HttpStatus.SERVICE_UNAVAILABLE, "Ошибка отправки email", request);
     }
 
     @ExceptionHandler(MailException.class)
     public ResponseEntity<ProblemDetail> handleMailException(MailException ex, HttpServletRequest request) {
         logger.error("Почтовый модуль недоступен: {}", ex.getMessage(), ex);
+        markObserved(ex, request);
         return ProblemResponses.entity(HttpStatus.SERVICE_UNAVAILABLE, "Почтовая система столкнулась с ошибкой", request);
     }
 
     @ExceptionHandler(MessagingException.class)
     public ResponseEntity<ProblemDetail> handleMessagingException(MessagingException ex, HttpServletRequest request) {
         logger.error("MIME или SMTP ошибка: {}", ex.getMessage(), ex);
+        markObserved(ex, request);
         return ProblemResponses.entity(HttpStatus.SERVICE_UNAVAILABLE, "Ошибка отправки email", request);
     }
 
@@ -231,12 +255,23 @@ public class GlobalExceptionHandler {
         HttpStatus resolved = status != null ? status : HttpStatus.INTERNAL_SERVER_ERROR;
         String detail = ex.getReason() != null ? ex.getReason() : resolved.getReasonPhrase();
         logger.warn("Ошибка ответа {}: {}", resolved.value(), detail);
+        markObserved(ex, request);
         return ProblemResponses.entity(resolved, detail, request);
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleGenericException(Exception ex, HttpServletRequest request) {
         logger.error("Перехвачено необработанное исключение: {}", ex.getMessage(), ex);
+        markObserved(ex, request);
         return ProblemResponses.entity(HttpStatus.INTERNAL_SERVER_ERROR, "Операция завершилась неудачей", request);
+    }
+
+    /**
+     * Отмечает исключение в контексте наблюдения запроса. Без этого ServerHttpObservationFilter ничего не знает о
+     * перехваченном @ControllerAdvice исключении (DispatcherServlet вернул ответ штатно), и в теге exception метрики http.server.requests
+     * стоял бы none.
+     */
+    private void markObserved(Throwable ex, HttpServletRequest request) {
+        ServerHttpObservationFilter.findObservationContext(request).ifPresent(context -> context.setError(ex));
     }
 }

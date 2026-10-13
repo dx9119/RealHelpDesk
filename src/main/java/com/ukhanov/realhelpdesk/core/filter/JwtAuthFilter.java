@@ -20,6 +20,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import com.ukhanov.realhelpdesk.core.config.WhiteUrlConfig;
 import com.ukhanov.realhelpdesk.core.exception.ProblemResponseWriter;
 import com.ukhanov.realhelpdesk.core.log.LogSanitizer;
+import com.ukhanov.realhelpdesk.core.observability.HttpServerRequestObservationConvention;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenBearerResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.AccessTokenAuthService;
@@ -92,6 +93,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(user.getId().toString(), null,
                     List.of(new SimpleGrantedAuthority(user.getUserRole().name())));
             SecurityContextHolder.getContext().setAuthentication(auth);
+            // Роль в атрибут запроса: к моменту остановки наблюдения http.server.requests
+            // SecurityContext уже очищен, а тег role обязан отражать именно этот запрос.
+            request.setAttribute(HttpServerRequestObservationConvention.ROLE_ATTRIBUTE, user.getUserRole().name());
 
             // Следующий фильтр
             filterChain.doFilter(request, response);

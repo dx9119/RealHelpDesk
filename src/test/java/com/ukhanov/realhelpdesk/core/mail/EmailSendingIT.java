@@ -49,6 +49,8 @@ import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.micrometer.observation.ObservationRegistry;
+
 @DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
 @DisplayName("Реальная отправка email по SMTP (GreenMail + H2)")
 class EmailSendingIT {
@@ -316,8 +318,9 @@ class EmailSendingIT {
         EmailDeliveryService emailDeliveryService(JavaMailSender mailSender, UserDomainService userDomainService,
                 EmailProperties emailProperties, EmailPolicyService emailPolicyService, CurrentUserProvider currentUserProvider,
                 EmailLogService emailLogService, RateLimitProperties rateLimitProperties, EmailTemplates emailTemplates) {
+            // NOOP-реестр: слайсу @DataJpaTest наблюдаемость не нужна, тесту важна только SMTP-логика.
             return new EmailDeliveryService(mailSender, userDomainService, emailProperties, emailPolicyService, currentUserProvider,
-                    emailLogService, rateLimitProperties, emailTemplates);
+                    emailLogService, rateLimitProperties, emailTemplates, ObservationRegistry.NOOP);
         }
     }
 }

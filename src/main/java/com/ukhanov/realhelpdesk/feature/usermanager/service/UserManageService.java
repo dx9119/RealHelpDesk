@@ -8,6 +8,7 @@ import jakarta.mail.MessagingException;
 import jakarta.transaction.Transactional;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +16,7 @@ import com.ukhanov.realhelpdesk.core.http.EntityTag;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
+import com.ukhanov.realhelpdesk.core.observability.AuthMetrics;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenStatus;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.GetTokenService;
@@ -43,6 +45,7 @@ public class UserManageService {
     private final UserDomainService userDomainService;
     private final EmailDeliveryService emailDeliveryService;
     private final PasswordEncoder passwordEncoder;
+    private final AuthMetrics authMetrics;
     private final GetTokenService getTokenService;
     private final EmailTemplates emailTemplates;
     private final UserMapper userMapper;
@@ -113,7 +116,13 @@ public class UserManageService {
 
         logger.debug("Запрошено восстановление пароля, email={}", request.email());
 
-        UserModel user = userDomainService.getUserByEmail(request.email());
+        UserModel user;
+        try {
+            user = userDomainService.getUserByEmail(request.email());
+        } catch (UsernameNotFoundException ex) {
+            authMetrics.record(AuthMetrics.TYPE_PASSWORD_RESET, AuthMetrics.RESULT_FAILURE);
+            throw ex;
+        }
 
         Long recoverPasswdToken = RANDOM.nextLong();
         user.setRecoveryPasswdToken(recoverPasswdToken);
@@ -123,6 +132,7 @@ public class UserManageService {
         emailDeliveryService.sendEmail(user.getEmail(), emailTemplates.passwordResetSubject(),
                 emailTemplates.passwordResetBody(recoverPasswdToken.toString()), NotificationEvent.RECOVERY_PASSWORD, user.getId());
         logger.info("Отправлено письмо восстановления пароля, userId={}", user.getId());
+        authMetrics.record(AuthMetrics.TYPE_PASSWORD_RESET, AuthMetrics.RESULT_SUCCESS);
     }
 
     @Transactional
@@ -130,7 +140,13 @@ public class UserManageService {
         Objects.requireNonNull(code, "Код не должен быть null");
         Objects.requireNonNull(request, "Запрос не должен быть null");
 
-        UserModel user = userDomainService.getUserByRecoveryPasswdToken(code);
+        UserModel user;
+        try {
+            user = userDomainService.getUserByRecoveryPasswdToken(code);
+        } catch (UsernameNotFoundException ex) {
+            authMetrics.record(AuthMetrics.TYPE_PASSWORD_RESET, AuthMetrics.RESULT_FAILURE);
+            throw ex;
+        }
 
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setRecoveryPasswdToken(RANDOM.nextLong());
@@ -143,6 +159,7 @@ public class UserManageService {
         // Bulk-UPDATE одним запросом вместо поштучного сохранения (audit/n1.md, #10)
         int revoked = getTokenService.revokeActiveRefreshTokens(user, TokenStatus.PASSWD_CHANGE);
         logger.info("Пароль изменён, отозвано refresh-токенов: {}, userId={}", revoked, user.getId());
+        authMetrics.record(AuthMetrics.TYPE_PASSWORD_RESET, AuthMetrics.RESULT_SUCCESS);
     }
 
 }

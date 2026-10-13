@@ -39,8 +39,8 @@ if [ "${RESET_LIMITS:-0}" = "1" ]; then
   $COMPOSE restart app
 fi
 
-echo "── Проверка стека ($BASE/actuator/health)"
-if ! timeout 120 bash -c 'until curl -skf "$0/actuator/health" >/dev/null; do sleep 3; done' "$BASE"; then
+echo "── Проверка стека (http://localhost:8081/actuator/health)"
+if ! timeout 120 bash -c 'until curl -sf http://localhost:8081/actuator/health >/dev/null; do sleep 3; done'; then
   echo "Стек не отвечает. Поднимите: make up-load" >&2
   exit 1
 fi

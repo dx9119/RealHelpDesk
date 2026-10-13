@@ -2,6 +2,7 @@ package com.ukhanov.realhelpdesk.core.storage.health;
 
 import java.util.Objects;
 
+import org.springframework.boot.health.autoconfigure.contributor.ConditionalOnEnabledHealthIndicator;
 import org.springframework.boot.health.contributor.Health;
 import org.springframework.boot.health.contributor.HealthIndicator;
 import org.springframework.stereotype.Component;
@@ -20,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RequiredArgsConstructor
 @Component
+@ConditionalOnEnabledHealthIndicator("minio")
 public class MinioHealthIndicator implements HealthIndicator {
 
     /** Имя бина в actuator: minio → /actuator/health показывает блок "minio". */

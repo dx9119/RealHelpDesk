@@ -45,6 +45,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.micrometer.observation.ObservationRegistry;
+
 @DisplayName("Отправка писем: EmailDeliveryService")
 class EmailDeliveryServiceTest {
 
@@ -79,7 +81,7 @@ class EmailDeliveryServiceTest {
         rateLimitProperties.setLimits(Map.of("email-recovery", new RateLimitProperties.Limit(3, 86400)));
 
         service = new EmailDeliveryService(mailSender, userDomainService, emailProperties, emailPolicyService, currentUserProvider,
-                emailLogService, rateLimitProperties, emailTemplates);
+                emailLogService, rateLimitProperties, emailTemplates, ObservationRegistry.NOOP);
 
         when(mailSender.createMimeMessage()).thenAnswer(invocation -> new JavaMailSenderImpl().createMimeMessage());
         // рассылка грузит получателей батчем: возвращаем только запрошенных из stubbedUsers
