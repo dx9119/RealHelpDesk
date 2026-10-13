@@ -16,6 +16,7 @@ import org.springframework.stereotype.Repository;
 
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketLiveStatus;
 import com.ukhanov.realhelpdesk.domain.ticket.model.TicketModel;
+import com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus;
 
 @Repository
 public interface TicketRepository extends JpaRepository<TicketModel, Long>, JpaSpecificationExecutor<TicketModel> {
@@ -63,5 +64,8 @@ public interface TicketRepository extends JpaRepository<TicketModel, Long>, JpaS
     Set<Long> findTicketIdsByPortalIdAndStatusAndLiveStatus(@Param("portalId") Long portalId,
             @Param("status") com.ukhanov.realhelpdesk.domain.ticket.model.TicketStatus status,
             @Param("liveStatus") com.ukhanov.realhelpdesk.domain.ticket.model.TicketLiveStatus liveStatus);
+
+    // Count для gauge tickets.open: обновление по расписанию раз в 30 секунд, не на scrape
+    long countByTicketStatusAndTicketLiveStatus(TicketStatus ticketStatus, TicketLiveStatus ticketLiveStatus);
 
 }

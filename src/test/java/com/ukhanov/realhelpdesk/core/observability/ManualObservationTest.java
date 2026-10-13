@@ -46,6 +46,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.tck.TestObservationRegistry;
 
 /**
@@ -92,7 +93,8 @@ class ManualObservationTest {
     void ticketCreateObservationIsRecorded() throws Exception {
         TicketManageService service = new TicketManageService(ticketDomainService, currentUserProvider, portalDomainService,
                 paginationAdapter, emailDeliveryService, ticketAccessValidationService, ticketRepository, emailTemplates,
-                notificationPublisher, Mappers.getMapper(TicketMapper.class), observationRegistry);
+                notificationPublisher, Mappers.getMapper(TicketMapper.class), observationRegistry,
+                new BusinessMetrics(new SimpleMeterRegistry()));
 
         UserModel currentUser = new UserModel();
         currentUser.setId(USER_ID);
@@ -149,7 +151,7 @@ class ManualObservationTest {
         EmailDeliveryService service = new EmailDeliveryService(mailSender,
                 org.mockito.Mockito.mock(com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService.class), emailProperties,
                 emailPolicyService, org.mockito.Mockito.mock(CurrentUserProvider.class), emailLogService, rateLimitProperties,
-                emailTemplates, observationRegistry);
+                emailTemplates, observationRegistry, new BusinessMetrics(new SimpleMeterRegistry()));
 
         service.sendEmail("user@example.com", "Тема", "Текст", NotificationEvent.NEW_TICKET);
 

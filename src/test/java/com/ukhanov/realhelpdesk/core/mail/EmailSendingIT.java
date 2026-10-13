@@ -40,6 +40,7 @@ import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailLogService;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailPolicyService;
 import com.ukhanov.realhelpdesk.core.mail.support.EmailTemplatesFixture;
+import com.ukhanov.realhelpdesk.core.observability.BusinessMetrics;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.config.RateLimitProperties;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
@@ -49,6 +50,7 @@ import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 
 @DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
@@ -320,7 +322,8 @@ class EmailSendingIT {
                 EmailLogService emailLogService, RateLimitProperties rateLimitProperties, EmailTemplates emailTemplates) {
             // NOOP-реестр: слайсу @DataJpaTest наблюдаемость не нужна, тесту важна только SMTP-логика.
             return new EmailDeliveryService(mailSender, userDomainService, emailProperties, emailPolicyService, currentUserProvider,
-                    emailLogService, rateLimitProperties, emailTemplates, ObservationRegistry.NOOP);
+                    emailLogService, rateLimitProperties, emailTemplates, ObservationRegistry.NOOP,
+                    new BusinessMetrics(new SimpleMeterRegistry()));
         }
     }
 }

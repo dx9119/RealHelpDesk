@@ -71,6 +71,8 @@ class ActuatorSecurityTest {
         assertThat(response.statusCode()).isEqualTo(200);
         assertThat(response.body()).contains("jvm_memory_used_bytes");
         assertThat(response.body()).contains("application=\"test-app\"").contains("env=\"test\"");
+        // gauge tickets.open регистрируется в контексте и попадает в скрейп (obs.md, шаг 8)
+        assertThat(response.body()).contains("tickets_open");
     }
 
     @Test

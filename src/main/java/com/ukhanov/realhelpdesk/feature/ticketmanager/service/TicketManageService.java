@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
+import com.ukhanov.realhelpdesk.core.observability.BusinessMetrics;
 import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
 import com.ukhanov.realhelpdesk.core.pagination.service.PaginationAdapter;
 import com.ukhanov.realhelpdesk.core.security.accesscontrol.TicketAccessValidationService;
@@ -59,6 +60,7 @@ public class TicketManageService {
     private final NotificationPublisher notificationPublisher;
     private final TicketMapper ticketMapper;
     private final ObservationRegistry observationRegistry;
+    private final BusinessMetrics businessMetrics;
 
     public TicketResponse getTicketById(Long ticketId) throws TicketException {
         Objects.requireNonNull(ticketId, "ticketId не должен быть null");
@@ -83,6 +85,8 @@ public class TicketManageService {
                 .start();
         try {
             TicketModel saved = ticketDomainService.saveTicket(ticket);
+            // инкремент после коммита saveTicket: откат или исключение раньше счётчик не завышает
+            businessMetrics.ticketCreated(saved.getTicketPriority(), saved.getAccessStatus());
             observation.highCardinalityKeyValue("ticket.id", String.valueOf(saved.getId()));
             logger.info("Создана заявка {} в портале {}", saved.getId(), portalId);
 
@@ -168,6 +172,10 @@ public class TicketManageService {
             TicketStatus previousStatus = ticket.getTicketStatus();
             ticket.setTicketStatus(status);
             TicketModel ticketSaved = ticketDomainService.saveTicket(ticket);
+            businessMetrics.statusTransition(previousStatus, status);
+            if (status == TicketStatus.CLOSED && previousStatus != TicketStatus.CLOSED) {
+                businessMetrics.timeToResolution(ticketSaved.getCreatedAt());
+            }
             logger.info("Заявка {}: статус {} → {}", ticketId, previousStatus, status);
 
             PortalModel portal = portalDomainService.getPortalById(portalId);
