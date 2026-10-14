@@ -45,8 +45,8 @@ class DbObservabilityTest {
     @Test
     @DisplayName("hibernate.sessions.open отдаётся — статистика Hibernate подключена (generate_statistics=true в тестовом профиле)")
     void hibernateMetricsAreRegistered() {
-        assertThat(meterRegistry.find("hibernate.sessions.open").meter()).as("hibernate-метрики требуют hibernate.generate_statistics=true")
-                .isNotNull();
+        assertThat(meterRegistry.find("hibernate.query.executions").meter())
+                .as("hibernate-метрики требуют hibernate.generate_statistics=true").isNotNull();
         assertThat(meterRegistry.find("hibernate.statements").meter()).isNotNull();
     }
 

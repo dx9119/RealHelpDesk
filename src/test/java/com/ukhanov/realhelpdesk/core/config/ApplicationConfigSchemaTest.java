@@ -70,8 +70,13 @@ class ApplicationConfigSchemaTest {
             "management.metrics.distribution.percentiles-histogram.http.server.requests",
             "management.metrics.distribution.slo.http.server.requests", "management.prometheus.metrics.export.enabled",
             "management.metrics.tags.application", "management.metrics.tags.env", "management.metrics.web.server.max-uri-tags",
-            "management.server.port", "management.server.address", "management.server.ssl.enabled", "observability.prometheus.auth.enabled",
-            "observability.prometheus.auth.username", "observability.prometheus.auth.password",
+            // Отключение неиспользуемых семейств метрик (obs.md, шаг 10)
+            "management.metrics.enable.tomcat", "management.metrics.enable.hibernate.cache", "management.metrics.enable.hibernate.entities",
+            "management.metrics.enable.hibernate.collections", "management.metrics.enable.spring.security.filterchains",
+            "management.metrics.enable.spring.security.http.secured.requests", "management.metrics.enable.spring.security.authorizations",
+            "management.metrics.enable.spring.data.repository", "management.server.port", "management.server.address",
+            "management.server.ssl.enabled", "observability.prometheus.auth.enabled", "observability.prometheus.auth.username",
+            "observability.prometheus.auth.password",
             // Почта: таймауты SMTP и health-группа вне readiness (obs.md, шаг 9)
             "spring.mail.properties.mail.smtp.connectiontimeout", "spring.mail.properties.mail.smtp.timeout",
             "spring.mail.properties.mail.smtp.writetimeout", "management.endpoint.health.group.smtp.include");

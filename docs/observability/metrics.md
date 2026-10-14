@@ -55,6 +55,42 @@
   конвенция добавила бы его к имени (`tickets_created_events_total`), исказив канонические имена из плана, а счётчик событий безразмерен.
   Description заполнен у каждой метрики.
 
+## Защита от кардинальности (шаг 10)
+
+Список отключений согласован по замеру `/actuator/prometheus` (155 семейств / 1422 series до шага 10; цель — до 3000 series на инстанс).
+
+**MeterFilter'ы** (`ObservabilityConfiguration`):
+
+- `maximumAllowableTags` для `http.server.requests` и `http.client.requests` по `uri` — потолок 100 уникальных значений, сверху DENY
+  (для server-цепочки дублируется свойством `management.metrics.web.server.max-uri-tags`).
+- `ignoreTags` для опасных тегов (`userId`, `email`, `ticketId`, `sessionId`, `token`, `password` и т.п.) — срезает их у любой метрики, даже
+  если новый код добавит их в tag list по ошибке.
+- `deny` по именам: `disk.free`, `disk.total` (диск контейнера = хостовая ФС, вводит в заблуждение), `jvm.buffer.*`, `hibernate.flushes`,
+  `hibernate.sessions.*`, `hibernate.optimistic.failures`.
+
+**Отключённые биндеры** (`management.metrics.enable.*`):
+
+| Свойство | Обоснование |
+|---|---|
+| `tomcat=false` | Сессии не используются (stateless JWT) — `tomcat_sessions_*` всегда шум |
+| `hibernate.cache=false` | L2-кэш не подключён — метрики всегда нули |
+| `hibernate.entities/collections=false` | Счётчики CRUD сущностей дублируют `hibernate.query.executions` и `hibernate.statements` |
+| `spring.security.filterchains=false` | ~30 семейств before/after-таймеров фильтров; 401 и ошибки доступа уже видны в `http.server.requests` и `auth.attempts` |
+| `spring.security.http.secured.requests=false`, `spring.security.authorizations=false` | Дублируют `http.server.requests` (uri, status, role) |
+| `spring.data.repository=false` | Таймеры по каждому методу репозитория дублируют `hibernate.query.executions` |
+
+**Сохранены**: `http.server.requests` (гистограмма + SLO), `auth.attempts`, бизнес-метрики шага 8, `mail.*`, `ticket.create`,
+`hibernate.query.executions/statements/transactions`, `jdbc.connections`, `jvm.gc/memory/threads`, `logback_events` (рост ошибок),
+`process`/`system`, `executor.*`, `tasks.scheduled.*`.
+
+**Пул планировщика.** Boot автоматически биндит `ThreadPoolTaskScheduler` как `executor.*{name=taskScheduler}` — отдельный биндер не нужен.
+
+**Замер после шага 10** (холодый старт, без трафика): 56 семейств / 92 series; `executor_*` присутствуют, отключённые семейства в скрейпе
+отсутствуют. Прогон `user_journey` (2 VU, 1 минута, 317 запросов) добавляет HTTP/business-метрики — суммарно порядка 120–150 series.
+
+**Тесты**: `ObservabilityConfigurationTest` (deny/ignoreTags/потолок uri на SimpleMeterRegistry), `HttpObservabilityTest`
+(отключённые метрики отсутствуют, `executor.*{name=taskScheduler}` привязан, серия запросов с разными ID не растит число uri-значений).
+
 ## Проверка вручную
 
 ```bash

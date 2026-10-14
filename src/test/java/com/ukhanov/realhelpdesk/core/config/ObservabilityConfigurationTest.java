@@ -1,0 +1,99 @@
+package com.ukhanov.realhelpdesk.core.config;
+
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import io.micrometer.core.instrument.Meter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+
+/**
+ * MeterFilter'ы защитного слоя (obs.md, шаг 10): deny неиспользуемых метрик, срез опасных тегов и потолок uri-значений. Проверяются на
+ * SimpleMeterRegistry без контекста Spring — фильтры применяются в том же порядке, что и бинами в реестре приложения.
+ */
+@DisplayName("MeterFilter'ы: deny, ignoreTags и потолок uri")
+class ObservabilityConfigurationTest {
+
+    private final ObservabilityConfiguration configuration = new ObservabilityConfiguration();
+
+    private MeterRegistry meterRegistry;
+
+    @BeforeEach
+    void setUp() {
+        meterRegistry = new SimpleMeterRegistry();
+        meterRegistry.config().meterFilter(configuration.uriCardinalityMeterFilter())
+                .meterFilter(configuration.ignoreDangerousTagsMeterFilter()).meterFilter(configuration.denyUnusedMetricsMeterFilter());
+    }
+
+    @Test
+    @DisplayName("Согласованные deny-метрики (disk, jvm.buffer, внутренние счётчики Hibernate) не регистрируются")
+    void deniedMetricsAreNotRegistered() {
+        meterRegistry.counter("disk.free").increment();
+        meterRegistry.counter("disk.total").increment();
+        meterRegistry.counter("jvm.buffer.count").increment();
+        meterRegistry.counter("jvm.buffer.memory.used").increment();
+        meterRegistry.counter("jvm.buffer.total.capacity").increment();
+        meterRegistry.counter("hibernate.flushes").increment();
+        meterRegistry.counter("hibernate.sessions.open").increment();
+        meterRegistry.counter("hibernate.sessions.closed").increment();
+        meterRegistry.counter("hibernate.optimistic.failures").increment();
+
+        assertThat(meterRegistry.find("disk.free").meter()).as("disk.free отклонён").isNull();
+        assertThat(meterRegistry.find("jvm.buffer.count").meter()).as("jvm.buffer.count отклонён").isNull();
+        assertThat(meterRegistry.find("hibernate.flushes").meter()).as("hibernate.flushes отклонён").isNull();
+        // Ключевые метрики из согласованного списка «сохраняем» не задеты
+        meterRegistry.counter("hibernate.query.executions").increment();
+        meterRegistry.counter("http.server.requests").increment();
+        assertThat(meterRegistry.find("hibernate.query.executions").meter()).as("hibernate.query.executions остаётся").isNotNull();
+        assertThat(meterRegistry.find("http.server.requests").meter()).as("http.server.requests остаётся").isNotNull();
+    }
+
+    @Test
+    @DisplayName("Опасные теги (email, userId, ticketId и т.п.) срезаются с любого meter")
+    void dangerousTagsAreIgnored() {
+        meterRegistry.counter("auth.attempts", "type", "login", "email", "user@example.com", "userId", "42", "ticketId", "7").increment();
+
+        Meter meter = meterRegistry.find("auth.attempts").meter();
+        assertThat(meter).isNotNull();
+        assertThat(meter.getId().getTags()).extracting(Tag::getKey).containsExactly("type");
+        assertThat(meter.getId().getTags()).extracting(Tag::getValue).containsExactly("login");
+    }
+
+    @Test
+    @DisplayName("uri-тег: после 100 уникальных значений новые отклоняются, существующие не теряются")
+    void uriTagHitsMaximumAndDeniesFurther() {
+        for (int i = 0; i < 100; i++) {
+            meterRegistry.counter("http.server.requests", "uri", "/api/v1/generated-" + i).increment();
+        }
+        meterRegistry.counter("http.server.requests", "uri", "/api/v1/generated-100").increment();
+
+        AtomicInteger uniqueUris = new AtomicInteger();
+        meterRegistry.find("http.server.requests").meters().forEach(meter -> {
+            meter.getId().getTags().stream().filter(tag -> tag.getKey().equals("uri")).findFirst()
+                    .ifPresent(tag -> uniqueUris.incrementAndGet());
+        });
+
+        assertThat(uniqueUris).as("101-й uri отклонён, ровно 100 уникальных значений").hasValue(100);
+        assertThat(meterRegistry.find("http.server.requests").tags("uri", "/api/v1/generated-100").meter())
+                .as("uri за пределами лимита не зарегистрирован").isNull();
+        assertThat(meterRegistry.find("http.server.requests").tags("uri", "/api/v1/generated-99").meter())
+                .as("uri в пределах лимита сохраняется").isNotNull();
+    }
+
+    @Test
+    @DisplayName("Клиентские http-метрики тоже ограничены потолком uri")
+    void clientUriTagHitsMaximum() {
+        for (int i = 0; i < 101; i++) {
+            meterRegistry.counter("http.client.requests", "uri", "/storage/" + i).increment();
+        }
+
+        long clientMeters = meterRegistry.find("http.client.requests").meters().size();
+        assertThat(clientMeters).as("http.client.requests под тем же потолком uri").isEqualTo(100);
+    }
+}
