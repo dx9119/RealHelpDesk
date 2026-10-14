@@ -114,6 +114,9 @@ curl -s localhost:9090/api/v1/alerts
 - Тесты: `HttpObservabilityTest`, `DbObservabilityTest`, `ObservabilityConfigurationTest`,
   `ActuatorSecurityTest`, `LogCorrelationAndMaskingTest`, `ObservabilityContextTest`,
   `TracingSmokeTest`; всего 539 (`mvn verify`).
+- Финальные испытания на живом стеке: load-smoke k6 (317 запросов, 100% checks, все пороги
+  в допуске), бизнес-метрики в Prometheus после трафика, сквозная цепочка
+  лог → Loki → Tempo по traceId (6 спанов на запрос), 8/8 правил алертов загружены.
 
 ### Что осознанно не внедрено
 
@@ -134,6 +137,9 @@ curl -s localhost:9090/api/v1/alerts
   в `obs-up`-контуре.
 - `promtool` не принимает `vector(hour())` — фильтры рабочего времени заданы цепочкой
   `hour() >= 9 < 18`.
+- PrometheusNaming срезает суффикс `.created` у meter-имён (OpenMetrics резервирует `_created`):
+  бизнес-счётчик `tickets.created` экспортируется как `tickets_total`, не `tickets_created_total`
+  (см. [metrics.md](metrics.md)).
 
 ### Рекомендации на следующий этап
 

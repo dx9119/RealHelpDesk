@@ -92,7 +92,10 @@ Grafana ◀── datasources: prometheus (метрики), tempo (трейсы)
 
 В оверлее приложение получает `OTLP_TRACING_ENDPOINT=http://otel-collector:4318/v1/traces`; без оверлея
 (обычный `make up`) endpoint — `localhost:4317` (gRPC) из `stack.env`, экспорта трейсов нет (соединение
-отклоняется, приложение работает).
+отклоняется, приложение работает). Load-оверлей (`docker-compose.load.yaml`) дублирует тот же endpoint:
+`make up-load`/`make load-smoke` пересоздают app, и без дубля OTLP-env откатился бы на `localhost:4317`,
+сломав экспорт трейсов при запущенном obs-стеке. В комбинации «obs + load» endpoint'ы совпадают —
+порядок подключения compose-файлов не влияет.
 
 ## Как найти трейс по traceId из лога
 
