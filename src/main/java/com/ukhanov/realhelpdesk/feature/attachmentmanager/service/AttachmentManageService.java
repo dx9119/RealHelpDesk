@@ -17,6 +17,8 @@ import org.springframework.web.multipart.MultipartFile;
 import com.ukhanov.realhelpdesk.core.config.StaticProperties;
 import com.ukhanov.realhelpdesk.core.exception.ApiException;
 import com.ukhanov.realhelpdesk.core.http.RangeHeader;
+import com.ukhanov.realhelpdesk.core.log.LogSanitizer;
+import com.ukhanov.realhelpdesk.core.observability.BusinessMetrics;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.storage.service.MinioStorageService;
 import com.ukhanov.realhelpdesk.domain.attachment.model.AttachmentModel;
@@ -74,10 +76,12 @@ public class AttachmentManageService {
     private final CurrentUserProvider currentUserProvider;
     private final AttachmentMapper attachmentMapper;
     private final StaticProperties staticProperties;
+    private final BusinessMetrics businessMetrics;
 
     public AttachmentManageService(MinioStorageService storageService, AttachmentDomainService attachmentDomainService,
             MessageDomainService messageDomainService, MessageManageService messageManageService, TicketDomainService ticketDomainService,
-            CurrentUserProvider currentUserProvider, AttachmentMapper attachmentMapper, StaticProperties staticProperties) {
+            CurrentUserProvider currentUserProvider, AttachmentMapper attachmentMapper, StaticProperties staticProperties,
+            BusinessMetrics businessMetrics) {
         this.storageService = Objects.requireNonNull(storageService, "storageService must not be null");
         this.attachmentDomainService = Objects.requireNonNull(attachmentDomainService, "attachmentDomainService must not be null");
         this.messageDomainService = Objects.requireNonNull(messageDomainService, "messageDomainService must not be null");
@@ -86,6 +90,7 @@ public class AttachmentManageService {
         this.currentUserProvider = Objects.requireNonNull(currentUserProvider, "currentUserProvider must not be null");
         this.attachmentMapper = Objects.requireNonNull(attachmentMapper, "attachmentMapper must not be null");
         this.staticProperties = Objects.requireNonNull(staticProperties, "staticProperties must not be null");
+        this.businessMetrics = Objects.requireNonNull(businessMetrics, "businessMetrics must not be null");
     }
 
     public AttachmentResponse uploadAttachment(MultipartFile file, String messageText, Long portalId, Long ticketId)
@@ -107,7 +112,8 @@ public class AttachmentManageService {
         try (InputStream content = file.getInputStream()) {
             storageService.upload(storageKey, content, sizeBytes, contentType);
         } catch (IOException e) {
-            logger.warn("Не удалось прочитать загружаемый файл «{}» для заявки {}", fileName, ticketId, e);
+            // Граница логирует отказ один раз (GlobalExceptionHandler, WARN без стектрейса): здесь — только debug для отладки локально.
+            logger.debug("Не удалось прочитать загружаемый файл «{}» для заявки {}", LogSanitizer.fileName(fileName), ticketId, e);
             throw new AttachmentException("Не удалось прочитать файл", HttpStatus.BAD_REQUEST, e);
         }
 
@@ -119,7 +125,11 @@ public class AttachmentManageService {
             AttachmentModel attachment = attachmentDomainService.saveAttachment(attachmentMapper.toEntity(message,
                     currentUserProvider.getCurrentUserModel(), fileName, storageKey, contentType, sizeBytes));
 
-            logger.info("Файл «{}» ({} байт) прикреплён к заявке {} сообщением {}", fileName, sizeBytes, ticketId, message.getId());
+            // инкремент после коммита saveAttachment: откат или исключение раньше счётчики не завышают
+            businessMetrics.attachmentUploaded(contentType, sizeBytes);
+
+            logger.info("Файл «{}» ({} байт) прикреплён к заявке {} сообщением {}", LogSanitizer.fileName(fileName), sizeBytes, ticketId,
+                    message.getId());
             return attachmentMapper.toResponse(attachment, portalId, ticketId, staticProperties);
         } catch (ApiException | MessagingException | UnsupportedEncodingException | RuntimeException e) {
             storageService.delete(storageKey);

@@ -103,8 +103,10 @@ ENV JAVA_JMX_OPTS="-Djava.rmi.server.hostname=127.0.0.1 \
     -Dcom.sun.management.jmxremote.port=5005 \
     -Dcom.sun.management.jmxremote.rmi.port=5005"
 
-# Предполагается работа на порту 8443
+# Приложение работает на 8443 (SERVER_PORT), actuator — на отдельном
+# управляющем порту 8081 (MANAGEMENT_PORT, obs.md, шаг 3)
 EXPOSE 8443
+EXPOSE 8081
 
 # Запуск приложения. Entrypoint сначала поднимает keystore, затем exec java.
 ENTRYPOINT ["/app/entrypoint.sh"]

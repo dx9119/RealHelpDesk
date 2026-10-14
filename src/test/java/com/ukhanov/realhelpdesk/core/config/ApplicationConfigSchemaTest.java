@@ -55,11 +55,31 @@ class ApplicationConfigSchemaTest {
             // Батчи Hibernate (n1.md)
             "spring.jpa.properties.hibernate.jdbc.batch_size", "spring.jpa.properties.hibernate.order_inserts",
             "spring.jpa.properties.hibernate.order_updates", "spring.jpa.properties.hibernate.default_batch_fetch_size",
+            // База данных: имя пуля и порог медленных запросов (obs.md, шаг 5)
+            "spring.datasource.hikari.pool-name", "spring.jpa.properties.hibernate.log_slow_query",
             // Корректное завершение (long polling + @Scheduled)
             "server.shutdown", "spring.lifecycle.timeout-per-shutdown-phase", "spring.task.scheduling.shutdown.await-termination",
-            // Actuator
+            // Трассировка (obs.md, шаг 6)
+            "management.tracing.sampling.probability", "management.opentelemetry.resource-attributes.service.name",
+            "management.opentelemetry.resource-attributes.service.version",
+            "management.opentelemetry.resource-attributes.deployment.environment", "management.opentelemetry.tracing.export.otlp.endpoint",
+            // Actuator / метрики (obs.md, шаги 2–4)
             "management.endpoints.web.exposure.include", "management.endpoint.health.probes.enabled",
-            "management.endpoint.health.show-details");
+            "management.endpoint.health.show-details", "management.endpoint.health.group.liveness.include",
+            "management.endpoint.health.group.readiness.include",
+            "management.metrics.distribution.percentiles-histogram.http.server.requests",
+            "management.metrics.distribution.slo.http.server.requests", "management.prometheus.metrics.export.enabled",
+            "management.metrics.tags.application", "management.metrics.tags.env", "management.metrics.web.server.max-uri-tags",
+            // Отключение неиспользуемых семейств метрик (obs.md, шаг 10)
+            "management.metrics.enable.tomcat", "management.metrics.enable.hibernate.cache", "management.metrics.enable.hibernate.entities",
+            "management.metrics.enable.hibernate.collections", "management.metrics.enable.spring.security.filterchains",
+            "management.metrics.enable.spring.security.http.secured.requests", "management.metrics.enable.spring.security.authorizations",
+            "management.metrics.enable.spring.data.repository", "management.server.port", "management.server.address",
+            "management.server.ssl.enabled", "observability.prometheus.auth.enabled", "observability.prometheus.auth.username",
+            "observability.prometheus.auth.password",
+            // Почта: таймауты SMTP и health-группа вне readiness (obs.md, шаг 9)
+            "spring.mail.properties.mail.smtp.connectiontimeout", "spring.mail.properties.mail.smtp.timeout",
+            "spring.mail.properties.mail.smtp.writetimeout", "management.endpoint.health.group.smtp.include");
 
     /**
      * Конфигурация среды: файлы схемы и места со значениями. В них не должно появиться деструктивного режима ddl-auto — иначе рестарт

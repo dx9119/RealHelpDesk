@@ -16,12 +16,14 @@ COMPOSE_DEV ?= docker compose -f infrastructure/docker-compose.yaml -f infrastru
 COMPOSE_PROD ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.prod.yaml
 COMPOSE_SHARDING ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml -f infrastructure/docker-compose.sharding.yaml
 COMPOSE_LOAD ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml -f infrastructure/docker-compose.load.yaml
+COMPOSE_OBSERVABILITY ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml -f infrastructure/docker-compose.observability.yaml
 
 .DEFAULT_GOAL := help
 
 .PHONY: help build clean compile package test verify format check run \
         dev-run dev-test \
         env docker-build up up-prod up-sharding up-load down down-sharding down-volumes logs ps restart shell check-image \
+        obs-up obs-down obs-open obs-reload obs-alerts \
         load load-smoke \
         migrate migrate-shard-0 migrate-shard-1 migrate-shard \
         openapi openapi-types \
@@ -91,6 +93,32 @@ down-sharding: ## Остановить стек с шардированием (�
 
 down-volumes: ## Остановить стек и удалить тома (данные БД/MinIO)
 	$(COMPOSE_DEV) down -v
+
+## --- Наблюдаемость (audit/obs.md; подробности: docs/observability/README.md) ---
+
+obs-up: env ## Поднять стек + наблюдаемость (Grafana: http://localhost:3001, Prometheus: :9090)
+	@set -a && . infrastructure/.env && set +a && \
+	METRICS_USER=$$(sed -n 's/^METRICS_USER=//p' scripts/docker/stack.env) && \
+	test -n "$$METRICS_USER" -a -n "$$METRICS_PASSWORD" || \
+	  (echo "METRICS_USER (scripts/docker/stack.env) / METRICS_PASSWORD (infrastructure/.env) не заданы" && exit 1) && \
+	mkdir -p infrastructure/observability/prometheus/secrets && \
+	printf '%s' "$$METRICS_USER" > infrastructure/observability/prometheus/secrets/metrics_user && \
+	printf '%s' "$$METRICS_PASSWORD" > infrastructure/observability/prometheus/secrets/metrics_password && \
+	chmod 644 infrastructure/observability/prometheus/secrets/metrics_user \
+	          infrastructure/observability/prometheus/secrets/metrics_password
+	$(COMPOSE_OBSERVABILITY) up --build -d
+
+obs-down: ## Остановить стек с наблюдаемостью (томы целы)
+	$(COMPOSE_OBSERVABILITY) down
+
+obs-open: ## Открыть Grafana в браузере (нужен obs-up; порт GRAFANA_PORT, дефолт 3001)
+	@xdg-open http://localhost:3001 >/dev/null 2>&1 || open http://localhost:3001 >/dev/null 2>&1 || echo "Grafana: http://localhost:3001"
+
+obs-reload: ## Горячая перезагрузка правил Prometheus (нужен obs-up; alerts.yml)
+	curl -sf -X POST localhost:9090/-/reload && echo "Правила перезагружены"
+
+obs-alerts: ## Текущие состояния алертов Prometheus (нужен obs-up)
+	curl -s localhost:9090/api/v1/alerts | grep -oE '"alertname":"[^"]+"|"state":"[^"]+"' | paste - - || echo "Prometheus недоступен"
 
 logs: ## Логи приложения (follow)
 	$(COMPOSE_DEV) logs -f app

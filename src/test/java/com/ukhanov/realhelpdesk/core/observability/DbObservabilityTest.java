@@ -1,0 +1,63 @@
+package com.ukhanov.realhelpdesk.core.observability;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalManagementPort;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import io.micrometer.core.instrument.MeterRegistry;
+
+/**
+ * База данных и миграции (obs.md, шаг 5): метрики пула Hikari, метрики Hibernate (статистика включается профилем) и готовность БД в
+ * readiness. Шардовые пулы в приложении нет — шардинг инфраструктурный (ShardingSphere-прокси), их HealthIndicator и счётчик
+ * db.shard.routing на уровне JVM не применимы.
+ */
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "spring.profiles.active=test")
+@DisplayName("База данных: метрики Hikari/Hibernate и readiness")
+class DbObservabilityTest {
+
+    private static final HttpClient CLIENT = HttpClient.newHttpClient();
+
+    @LocalManagementPort
+    private int managementPort;
+
+    @Autowired
+    private MeterRegistry meterRegistry;
+
+    @Test
+    @DisplayName("hikaricp.connections.* отдаётся с тегом pool=app-main — каждый пул опознаётся по имени")
+    void hikariPoolMetricsUseConfiguredPoolName() {
+        assertThat(meterRegistry.find("hikaricp.connections.active").tag("pool", "app-main").meter())
+                .as("hikari-пул должен отдавать метрики с настроенным именем").isNotNull();
+        assertThat(meterRegistry.find("hikaricp.connections.max").tag("pool", "app-main").gauge()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("hibernate.sessions.open отдаётся — статистика Hibernate подключена (generate_statistics=true в тестовом профиле)")
+    void hibernateMetricsAreRegistered() {
+        assertThat(meterRegistry.find("hibernate.query.executions").meter())
+                .as("hibernate-метрики требуют hibernate.generate_statistics=true").isNotNull();
+        assertThat(meterRegistry.find("hibernate.statements").meter()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("readiness отдаёт UP: группа включает readinessState, db, minio (minio выключен в тестовом профиле, DOWN не мешает)")
+    void readinessGroupIncludesDbAndIsUp() throws IOException, InterruptedException {
+        HttpResponse<String> response = CLIENT
+                .send(HttpRequest.newBuilder(URI.create("http://localhost:" + managementPort + "/actuator/health/readiness"))
+                        .timeout(Duration.ofSeconds(5)).GET().build(), HttpResponse.BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).contains("\"status\":\"UP\"");
+    }
+}

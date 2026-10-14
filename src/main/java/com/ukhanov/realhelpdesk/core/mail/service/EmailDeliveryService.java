@@ -13,21 +13,26 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import com.ukhanov.realhelpdesk.core.log.LogSanitizer;
 import com.ukhanov.realhelpdesk.core.mail.config.EmailProperties;
 import com.ukhanov.realhelpdesk.core.mail.exception.EmailAccessDeniedException;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailLog;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
+import com.ukhanov.realhelpdesk.core.observability.BusinessMetrics;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.config.RateLimitProperties;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
 
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -44,6 +49,8 @@ public class EmailDeliveryService {
     private final EmailLogService emailLogService;
     private final RateLimitProperties rateLimitProperties;
     private final EmailTemplates emailTemplates;
+    private final ObservationRegistry observationRegistry;
+    private final BusinessMetrics businessMetrics;
 
     public void sendEmail(String recipient, String subject, String text, NotificationEvent sourceEvent)
             throws MessagingException, EmailAccessDeniedException, UnsupportedEncodingException {
@@ -73,29 +80,40 @@ public class EmailDeliveryService {
     private EmailLog deliver(String recipient, String subject, String text, NotificationEvent sourceEvent, Long userId)
             throws MessagingException, UnsupportedEncodingException {
 
-        logger.debug("Отправка письма, event={}, recipient={}", sourceEvent, recipient);
+        Observation observation = Observation.createNotStarted("mail.send", observationRegistry).lowCardinalityKeyValue("operation", "send")
+                .lowCardinalityKeyValue("event", sourceEvent.name()).start();
+        try {
+            logger.debug("Отправка письма, event={}, recipient={}", sourceEvent, LogSanitizer.email(recipient));
 
-        MimeMessage mimeMessage = mailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
 
-        helper.setFrom(emailProperties.getFrom(), "Оповещения Заявус");
-        helper.setTo(recipient);
-        helper.setSubject(subject);
-        helper.setText(text, false); // false = plain text
+            helper.setFrom(emailProperties.getFrom(), "Оповещения Заявус");
+            helper.setTo(recipient);
+            helper.setSubject(subject);
+            helper.setText(text, false); // false = plain text
 
-        mimeMessage.setHeader("MIME-Version", "1.0");
-        mimeMessage.setHeader("Content-Type", "text/plain; charset=UTF-8");
-        mimeMessage.setHeader("Content-Transfer-Encoding", "7bit");
+            mimeMessage.setHeader("MIME-Version", "1.0");
+            mimeMessage.setHeader("Content-Type", "text/plain; charset=UTF-8");
+            mimeMessage.setHeader("Content-Transfer-Encoding", "7bit");
 
-        mailSender.send(mimeMessage);
-        if (userId != null) {
-            logger.info("Письмо отправлено, event={}, userId={}", sourceEvent, userId);
-        } else {
-            logger.info("Письмо отправлено, event={}", sourceEvent);
+            mailSender.send(mimeMessage);
+            businessMetrics.mailSent(sourceEvent, true);
+            if (userId != null) {
+                logger.info("Письмо отправлено, event={}, userId={}", sourceEvent, userId);
+            } else {
+                logger.info("Письмо отправлено, event={}", sourceEvent);
+            }
+            observation.stop();
+
+            // журнал — только фактически отправленные письма: он же считает квоту для emailLimiter
+            return new EmailLog(subject, emailProperties.getFrom(), recipient, sourceEvent);
+        } catch (MessagingException | UnsupportedEncodingException | MailException e) {
+            // MailException (ошибка SMTP) раньше не останавливал наблюдение — и mail.sent не считал неудачу
+            businessMetrics.mailSent(sourceEvent, false);
+            observation.lowCardinalityKeyValue("outcome", "error").stop();
+            throw e;
         }
-
-        // журнал — только фактически отправленные письма: он же считает квоту для emailLimiter
-        return new EmailLog(subject, emailProperties.getFrom(), recipient, sourceEvent);
     }
 
     public void emailLimiter(String recipient) {

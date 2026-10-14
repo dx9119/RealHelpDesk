@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
+import com.ukhanov.realhelpdesk.core.observability.BusinessMetrics;
 import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
 import com.ukhanov.realhelpdesk.core.pagination.service.PaginationAdapter;
 import com.ukhanov.realhelpdesk.core.security.accesscontrol.TicketAccessValidationService;
@@ -36,6 +37,8 @@ import com.ukhanov.realhelpdesk.feature.ticketmanager.dto.TicketResponse;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.exception.TicketException;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.mapper.TicketMapper;
 
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -56,6 +59,8 @@ public class TicketManageService {
     private final EmailTemplates emailTemplates;
     private final NotificationPublisher notificationPublisher;
     private final TicketMapper ticketMapper;
+    private final ObservationRegistry observationRegistry;
+    private final BusinessMetrics businessMetrics;
 
     public TicketResponse getTicketById(Long ticketId) throws TicketException {
         Objects.requireNonNull(ticketId, "ticketId не должен быть null");
@@ -75,17 +80,29 @@ public class TicketManageService {
         PortalModel portal = portalDomainService.getPortalById(portalId);
 
         TicketModel ticket = ticketMapper.fromRequest(request, user, portal);
-        TicketModel saved = ticketDomainService.saveTicket(ticket);
-        logger.info("Создана заявка {} в портале {}", saved.getId(), portalId);
+        Observation observation = Observation.createNotStarted("ticket.create", observationRegistry)
+                .lowCardinalityKeyValue("operation", "create").highCardinalityKeyValue("ticket.portal.id", String.valueOf(portalId))
+                .start();
+        try {
+            TicketModel saved = ticketDomainService.saveTicket(ticket);
+            // инкремент после коммита saveTicket: откат или исключение раньше счётчик не завышает
+            businessMetrics.ticketCreated(saved.getTicketPriority(), saved.getAccessStatus());
+            observation.highCardinalityKeyValue("ticket.id", String.valueOf(saved.getId()));
+            logger.info("Создана заявка {} в портале {}", saved.getId(), portalId);
 
-        // In-app оповещение о новой заявке: до письма, чтобы не зависеть от SMTP; автора исключает publisher
-        notificationPublisher.publishToPortalUsers(portal, NotificationEvent.NEW_TICKET, user.getId(), saved.getId(), saved.getTitle());
+            // In-app оповещение о новой заявке: до письма, чтобы не зависеть от SMTP; автора исключает publisher
+            notificationPublisher.publishToPortalUsers(portal, NotificationEvent.NEW_TICKET, user.getId(), saved.getId(), saved.getTitle());
 
-        // Отправляем письмо с оповещением о создании заявки всем пользователям портала
-        emailDeliveryService.initNotifyPortalUsers(portal, emailTemplates.ticketCreatedSubject(ticket.getId()),
-                emailTemplates.ticketCreatedBody(ticket.getId(), portal.getId()), NotificationEvent.NEW_TICKET);
+            // Отправляем письмо с оповещением о создании заявки всем пользователям портала
+            emailDeliveryService.initNotifyPortalUsers(portal, emailTemplates.ticketCreatedSubject(ticket.getId()),
+                    emailTemplates.ticketCreatedBody(ticket.getId(), portal.getId()), NotificationEvent.NEW_TICKET);
 
-        return new CreateTicketResponse(saved.getId());
+            observation.stop();
+            return new CreateTicketResponse(saved.getId());
+        } catch (Exception e) {
+            observation.lowCardinalityKeyValue("outcome", "error").stop();
+            throw e;
+        }
 
     }
 
@@ -148,20 +165,33 @@ public class TicketManageService {
             throw new TicketException("You can't change status of ticket");
         }
 
-        TicketStatus previousStatus = ticket.getTicketStatus();
-        ticket.setTicketStatus(status);
-        TicketModel ticketSaved = ticketDomainService.saveTicket(ticket);
-        logger.info("Заявка {}: статус {} → {}", ticketId, previousStatus, status);
+        Observation observation = Observation.createNotStarted("ticket.status.change", observationRegistry)
+                .lowCardinalityKeyValue("operation", "status.change").lowCardinalityKeyValue("status", status.name())
+                .highCardinalityKeyValue("ticket.id", String.valueOf(ticketId)).start();
+        try {
+            TicketStatus previousStatus = ticket.getTicketStatus();
+            ticket.setTicketStatus(status);
+            TicketModel ticketSaved = ticketDomainService.saveTicket(ticket);
+            businessMetrics.statusTransition(previousStatus, status);
+            if (status == TicketStatus.CLOSED && previousStatus != TicketStatus.CLOSED) {
+                businessMetrics.timeToResolution(ticketSaved.getCreatedAt());
+            }
+            logger.info("Заявка {}: статус {} → {}", ticketId, previousStatus, status);
 
-        PortalModel portal = portalDomainService.getPortalById(portalId);
+            PortalModel portal = portalDomainService.getPortalById(portalId);
 
-        // In-app оповещение об изменении заявки (действующего пользователя publisher исключает)
-        notificationPublisher.publishToPortalUsers(portal, NotificationEvent.CHANGE_TICKET, currentUserProvider.getCurrentUserId(),
-                ticketSaved.getId(), ticketSaved.getTitle());
+            // In-app оповещение об изменении заявки (действующего пользователя publisher исключает)
+            notificationPublisher.publishToPortalUsers(portal, NotificationEvent.CHANGE_TICKET, currentUserProvider.getCurrentUserId(),
+                    ticketSaved.getId(), ticketSaved.getTitle());
 
-        // Отправляем письмо
-        emailDeliveryService.initNotifyPortalUsers(portal, emailTemplates.updateStatusTicketSubject(ticketSaved.getId(), status),
-                emailTemplates.updateStatusTicketBody(ticketSaved.getId(), portalId), NotificationEvent.CHANGE_TICKET);
+            // Отправляем письмо
+            emailDeliveryService.initNotifyPortalUsers(portal, emailTemplates.updateStatusTicketSubject(ticketSaved.getId(), status),
+                    emailTemplates.updateStatusTicketBody(ticketSaved.getId(), portalId), NotificationEvent.CHANGE_TICKET);
+            observation.stop();
+        } catch (Exception e) {
+            observation.lowCardinalityKeyValue("outcome", "error").stop();
+            throw e;
+        }
     }
 
     public void setTicketPriority(Long portalId, Long ticketId, TicketPriority priority)

@@ -20,7 +20,12 @@ public class MinioClientConfig {
         Objects.requireNonNull(properties.getAccessKey(), "minio.access-key не задан");
         Objects.requireNonNull(properties.getSecretKey(), "minio.secret-key не задан");
 
-        return MinioClient.builder().endpoint(properties.getEndpoint()).credentials(properties.getAccessKey(), properties.getSecretKey())
-                .build();
+        MinioClient client = MinioClient.builder().endpoint(properties.getEndpoint())
+                .credentials(properties.getAccessKey(), properties.getSecretKey()).build();
+        // SDK по умолчанию ждёт до 5 минут на каждую сетевую фазу: health-проверка (obs.md, шаг 9) обязана
+        // отвечать за секунды, а зависшая загрузка не должна держать поток минутами. connect 1.5 с — общий
+        // предел для всех операций; чтение/запись 10 с — пауза дольше 10 секунд означает мёртвый канал.
+        client.setTimeout(1500, 10000, 10000);
+        return client;
     }
 }

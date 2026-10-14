@@ -5,6 +5,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.ukhanov.realhelpdesk.core.observability.AuthMetrics;
 import com.ukhanov.realhelpdesk.core.security.auth.login.dto.LoginRequest;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokensResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
@@ -26,12 +27,14 @@ public class LoginService {
     private final GetTokenService getTokenService;
     private final UserDomainService userDomainService;
     private final CustomUserDetailsService customUserDetailsService;
+    private final AuthMetrics authMetrics;
     // Проверяем, если пользователь существует и пароль правильный - отдаем токены
     // Аутентификация/Аутентификация происходит в фильтре JwtAuthFilter
     public TokensResponse processLogin(LoginRequest loginRequest) throws TokenException {
         if (!userDomainService.isUserExistsByEmail(loginRequest.email())) {
             // Адрес в лог не пишем: это PII и данные, которые присылает клиент (в том числе злоумышленник).
             logger.warn("Отказ во входе: пользователь не найден");
+            authMetrics.record(AuthMetrics.TYPE_LOGIN, AuthMetrics.RESULT_FAILURE);
             throw new UsernameNotFoundException("Ошибка авторизации: неверный логин, пароль или отсутствующий пользователь");
         }
 
@@ -40,11 +43,13 @@ public class LoginService {
 
         if (user.getOriginalUser().getUserStatus() != UserStatus.ACTIVE) {
             logger.warn("Отказ во входе: учётная запись не активна, userId={}", userId);
+            authMetrics.record(AuthMetrics.TYPE_LOGIN, AuthMetrics.RESULT_LOCKED);
             throw new BadCredentialsException("Ошибка авторизации: неверный логин, пароль или отсутствующий пользователь");
         }
 
         if (!isPasswordValid(loginRequest.password(), user.getPassword())) {
             logger.warn("Отказ во входе: неверный пароль, userId={}", userId);
+            authMetrics.record(AuthMetrics.TYPE_LOGIN, AuthMetrics.RESULT_FAILURE);
             throw new BadCredentialsException("Ошибка авторизации: неверный логин, пароль или отсутствующий пользователь");
 
         }
@@ -54,6 +59,7 @@ public class LoginService {
         // (audit/toLoggingUpdate.md, B1), и первый вход после регистрации не оставлял следа.
         TokensResponse tokens = getTokenService.getNewTokens(user.getOriginalUser());
         logger.info("Вход выполнен, userId={}", userId);
+        authMetrics.record(AuthMetrics.TYPE_LOGIN, AuthMetrics.RESULT_SUCCESS);
         return tokens;
     }
 

@@ -20,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 
 import com.ukhanov.realhelpdesk.core.config.StaticProperties;
+import com.ukhanov.realhelpdesk.core.observability.BusinessMetrics;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.core.storage.exception.StorageException;
@@ -51,6 +52,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Тесты сервиса вложений AttachmentManageService")
@@ -85,19 +90,21 @@ class AttachmentManageServiceTest {
     private AttachmentManageService service;
     private final AttachmentMapper attachmentMapper = Mappers.getMapper(AttachmentMapper.class);
     private final StaticProperties staticProperties = new StaticProperties();
+    private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     @BeforeEach
     void setUp() {
         service = new AttachmentManageService(mockStorageService, mockAttachmentDomainService, mockMessageDomainService,
-                mockMessageManageService, mockTicketDomainService, mockCurrentUserProvider, attachmentMapper, staticProperties);
+                mockMessageManageService, mockTicketDomainService, mockCurrentUserProvider, attachmentMapper, staticProperties,
+                new BusinessMetrics(meterRegistry));
     }
 
     @Test
     @DisplayName("Конструктор без настройки статики — ошибка, а не NPE в момент сборки URL")
     void constructor_rejectsNullStaticProperties() {
         assertThatThrownBy(() -> new AttachmentManageService(mockStorageService, mockAttachmentDomainService, mockMessageDomainService,
-                mockMessageManageService, mockTicketDomainService, mockCurrentUserProvider, attachmentMapper, null))
-                .isInstanceOf(NullPointerException.class).hasMessageContaining("staticProperties");
+                mockMessageManageService, mockTicketDomainService, mockCurrentUserProvider, attachmentMapper, null,
+                new BusinessMetrics(meterRegistry))).isInstanceOf(NullPointerException.class).hasMessageContaining("staticProperties");
     }
 
     // ────────────────────────────────────────────────
@@ -137,6 +144,15 @@ class AttachmentManageServiceTest {
 
         verify(mockMessageManageService).createMessage(requestCaptor.capture(), eq(TICKET_ID), eq(PORTAL_ID));
         assertThat(requestCaptor.getValue().messageText()).isEqualTo("Вот отчёт");
+
+        // Бизнес-метрики вложений (obs.md, шаг 8): группа contentType, размер в байтах
+        Counter uploaded = meterRegistry.find("attachments.uploaded").tags("content_type", "application").counter();
+        assertThat(uploaded).isNotNull();
+        assertThat(uploaded.count()).isEqualTo(1);
+        DistributionSummary summary = meterRegistry.find("attachments.size").tags("content_type", "application").summary();
+        assertThat(summary).isNotNull();
+        assertThat(summary.totalAmount()).isEqualTo(CONTENT.length);
+        assertThat(summary.getId().getBaseUnit()).isEqualTo("bytes");
     }
 
     @Test

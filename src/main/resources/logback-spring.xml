@@ -1,14 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
 
-    <!-- prod: request-id; IP клиента в этот паттерн не входит (см. DEBUG_PATTERN и ClientIpResolver).
-         Значение по умолчанию отделяется от ключа через ":-", поэтому в шаблоне стоит лишний дефис:
-         пустая колонка рисуется двумя дефисами, а не одним (см. docs/code-style.md, §7 аудита логирования). -->
-    <property name="PROD_PATTERN"
-              value="%d{yyyy-MM-dd HH:mm:ss.SSS} | %-5level | %X{requestId:---} | %logger{40} | %msg%n"/>
-    <!-- debug: дополнительно IP и путь запроса (без query-string и секретных сегментов) -->
+    <!-- debug (локальный запуск): читаемый формат с корреляцией. MDC-ключи: requestId, clientIp, uriRequest
+         (см. LoggingFilter), role (LoggingFilter → JwtAuthFilter), traceId/spanId (кладёт Slf4JEventListener,
+         только при включённом OTel). Значение по умолчанию отделяется от ключа через ":-", поэтому в шаблоне
+         стоит лишний дефис: пустая колонка рисуется двумя дефисами (см. docs/code-style.md, раздел «Логирование»). -->
     <property name="DEBUG_PATTERN"
-              value="%d{yyyy-MM-dd HH:mm:ss.SSS} | %-5level | %X{requestId:---} | %X{clientIp:---} | %X{uriRequest:---} | %logger{40} | %msg%n"/>
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} | %-5level | %X{requestId:---} | %X{clientIp:---} | %X{uriRequest:---} | %X{role:---} | %X{traceId:---} | %X{spanId:---} | %logger{40} | %msg%n"/>
 
     <springProfile name="debug">
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
@@ -23,10 +21,14 @@
         </root>
     </springProfile>
 
+    <!-- prod и остальные профили: JSON по ECS (obs.md, шаг 7). MDC уходит полями JSON, service.name/version/
+         environment — из logging.structured.ecs.*. Конвертер берёт format из системного свойства
+         CONSOLE_LOG_STRUCTURED_FORMAT (logging.structured.format.console=ecs в application-prod.properties),
+         без него — ecs по умолчанию. clientIp из JSON исключён в application-prod.properties. -->
     <springProfile name="!debug">
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-            <encoder>
-                <pattern>${PROD_PATTERN}</pattern>
+            <encoder class="org.springframework.boot.logging.logback.StructuredLogEncoder">
+                <format>${CONSOLE_LOG_STRUCTURED_FORMAT:-ecs}</format>
                 <charset>UTF-8</charset>
             </encoder>
         </appender>

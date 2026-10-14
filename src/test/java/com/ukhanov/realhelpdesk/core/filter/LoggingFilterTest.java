@@ -57,6 +57,17 @@ class LoggingFilterTest {
         return request;
     }
 
+    @Test
+    @DisplayName("В MDC role=ANONYMOUS до аутентификации, после фильтра MDC очищен")
+    void mdcRoleDefaultsToAnonymousAndIsCleared() throws Exception {
+        AtomicReference<String> role = new AtomicReference<>();
+
+        filter(false).doFilter(request(), new MockHttpServletResponse(), (req, res) -> role.set(MDC.get(LoggingFilter.ROLE)));
+
+        assertThat(role.get()).isEqualTo("ANONYMOUS");
+        assertThat(MDC.get(LoggingFilter.ROLE)).isNull();
+    }
+
     /** Запоминаем значение MDC ровно в момент обработки запроса — после фильтра он MDC чистит. */
     private static FilterChain chain(AtomicReference<String> mdcIp) {
         return new FilterChain() {

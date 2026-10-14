@@ -17,6 +17,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpStatus;
+import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 
@@ -26,6 +27,7 @@ import com.ukhanov.realhelpdesk.core.mail.model.EmailLog;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.support.EmailTemplatesFixture;
+import com.ukhanov.realhelpdesk.core.observability.BusinessMetrics;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.config.RateLimitProperties;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
@@ -39,11 +41,16 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.observation.ObservationRegistry;
 
 @DisplayName("Отправка писем: EmailDeliveryService")
 class EmailDeliveryServiceTest {
@@ -60,6 +67,7 @@ class EmailDeliveryServiceTest {
     private EmailLogService emailLogService;
     private RateLimitProperties rateLimitProperties;
     private EmailDeliveryService service;
+    private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     private final EmailTemplates emailTemplates = EmailTemplatesFixture.emailTemplates();
 
@@ -79,7 +87,7 @@ class EmailDeliveryServiceTest {
         rateLimitProperties.setLimits(Map.of("email-recovery", new RateLimitProperties.Limit(3, 86400)));
 
         service = new EmailDeliveryService(mailSender, userDomainService, emailProperties, emailPolicyService, currentUserProvider,
-                emailLogService, rateLimitProperties, emailTemplates);
+                emailLogService, rateLimitProperties, emailTemplates, ObservationRegistry.NOOP, new BusinessMetrics(meterRegistry));
 
         when(mailSender.createMimeMessage()).thenAnswer(invocation -> new JavaMailSenderImpl().createMimeMessage());
         // рассылка грузит получателей батчем: возвращаем только запрошенных из stubbedUsers
@@ -123,6 +131,25 @@ class EmailDeliveryServiceTest {
         verify(emailLogService).add(argThat((EmailLog log) -> "Тема письма".equals(log.getTitle()) && FROM.equals(log.getSender())
                 && RECIPIENT.equals(log.getRecipient()) && log.getNotificationEvent() == NotificationEvent.NEW_TICKET
                 && log.getSentAt() != null));
+
+        Counter success = meterRegistry.find("mail.sent").tags("type", "NEW_TICKET", "result", "success").counter();
+        assertThat(success).isNotNull();
+        assertThat(success.count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Ошибка SMTP → mail.sent{result=failure} и исключение наружу")
+    void sendEmail_smtpFailureCountsFailedMetric() {
+        doThrow(new MailSendException("Connection refused")).when(mailSender).send(any(MimeMessage.class));
+
+        MailSendException exception = catchThrowableOfType(
+                () -> service.sendEmail(RECIPIENT, "Тема письма", "Текст письма", NotificationEvent.NEW_TICKET), MailSendException.class);
+
+        assertThat(exception).isNotNull();
+        Counter failure = meterRegistry.find("mail.sent").tags("type", "NEW_TICKET", "result", "failure").counter();
+        assertThat(failure).isNotNull();
+        assertThat(failure.count()).isEqualTo(1);
+        assertThat(meterRegistry.find("mail.sent").tags("result", "success").counter()).isNull();
     }
 
     @Test
@@ -135,6 +162,8 @@ class EmailDeliveryServiceTest {
         verify(emailLogService, never()).add(any(EmailLog.class));
         verify(mailSender, never()).createMimeMessage();
         verify(mailSender, never()).send(any(MimeMessage.class));
+        // стоп-лист не отправлял письмо — попыток и неудач в метрике нет
+        assertThat(meterRegistry.find("mail.sent").counter()).isNull();
     }
 
     @Test

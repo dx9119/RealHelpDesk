@@ -59,12 +59,13 @@ jobs:
           KEY_STORE_PASS=$(openssl rand -hex 8)
           MINIO_ROOT_USER=rhd-ci
           MINIO_ROOT_PASSWORD=$(openssl rand -base64 32)
+          METRICS_PASSWORD=$(openssl rand -base64 32)
           EOF
       - name: Поднять стек
         run: make up
       - name: Дождаться готовности приложения
         run: |
-          timeout 180 bash -c 'until curl -skf https://localhost:8443/actuator/health >/dev/null; do echo "wait..."; sleep 5; done'
+          timeout 180 bash -c 'until curl -sf http://localhost:8081/actuator/health >/dev/null; do echo "wait..."; sleep 5; done'
       - name: E2E-сценарии
         run: make e2e-all
       - name: Логи стека (при падении)

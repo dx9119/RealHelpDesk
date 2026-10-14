@@ -1,0 +1,15 @@
+# Provisioning дашбордов Grafana (obs.md, шаг 11/12): каталог с JSON-дашбордами
+# монтируется в /varlib/grafana/dashboards; сами дашборды (Service RED, JVM, БД, …)
+# добавляются на шаге 12 в infrastructure/observability/grafana/dashboards.
+apiVersion: 1
+
+providers:
+  - name: realhelpdesk
+    orgId: 1
+    folder: RealHelpDesk
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards

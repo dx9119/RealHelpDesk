@@ -16,6 +16,7 @@ import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
 import com.ukhanov.realhelpdesk.core.mail.support.EmailTemplatesFixture;
+import com.ukhanov.realhelpdesk.core.observability.BusinessMetrics;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.message.model.MessageModel;
@@ -43,6 +44,10 @@ import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Тесты сервиса MessageManageService")
 class MessageManageServiceTest {
@@ -69,6 +74,8 @@ class MessageManageServiceTest {
 
     private final EmailTemplates emailTemplates = EmailTemplatesFixture.emailTemplates();
 
+    private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+
     private static final Long TICKET_ID = 42L;
     private static final Long PORTAL_ID = 100L;
     private static final String MESSAGE_TEXT = "Это тестовое сообщение от клиента";
@@ -78,7 +85,7 @@ class MessageManageServiceTest {
     @BeforeEach
     void setUp() {
         service = new MessageManageService(mockMessageMapper, mockCurrentUserProvider, mockTicketDomainService, mockMessageDomainService,
-                mockEmailDeliveryService, emailTemplates, mockNotificationPublisher);
+                mockEmailDeliveryService, emailTemplates, mockNotificationPublisher, new BusinessMetrics(meterRegistry));
     }
 
     // ────────────────────────────────────────────────
@@ -119,7 +126,73 @@ class MessageManageServiceTest {
         verify(mockEmailDeliveryService).sendUserNotification(eq(USER_EMAIL), eq(emailTemplates.ticketReplySubject(TICKET_ID)),
                 eq(emailTemplates.ticketReplyBody(TICKET_ID, PORTAL_ID)), eq(NotificationEvent.NEW_MESSAGE), eq(USER_ID));
 
+        // Счётчик сообщений до вставки — для метрики первого ответа
+        verify(mockMessageDomainService).countByTicketId(TICKET_ID);
+
         verifyNoMoreInteractions(mockEmailDeliveryService, mockMessageDomainService, mockTicketDomainService);
+    }
+
+    // ────────────────────────────────────────────────
+    // createMessage — бизнес-метрики (obs.md, шаг 8)
+    // ────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("createMessage → первый ответ пишет tickets.time.to.first.response, переход в IN_PROGRESS считается")
+    void createMessage_firstMessageRecordsTimeToFirstResponse() throws Exception {
+        // given
+        CreateMessageRequest request = new CreateMessageRequest(MESSAGE_TEXT);
+
+        UserModel currentUser = createUser(USER_EMAIL);
+        when(mockCurrentUserProvider.getCurrentUserModel()).thenReturn(currentUser);
+
+        TicketModel ticket = createTicket(TICKET_ID, TicketStatus.OPEN, currentUser);
+        when(mockTicketDomainService.findTicketById(TICKET_ID)).thenReturn(ticket);
+
+        when(mockMessageMapper.toEntity(eq(request), eq(currentUser), eq(ticket)))
+                .thenReturn(createMessage(ticket, currentUser, MESSAGE_TEXT));
+        MessageModel savedMessage = createMessage(ticket, currentUser, MESSAGE_TEXT);
+        savedMessage.setId(777L);
+        when(mockMessageDomainService.saveMessage(any(MessageModel.class))).thenReturn(savedMessage);
+        when(mockMessageDomainService.countByTicketId(TICKET_ID)).thenReturn(0L);
+
+        // when
+        service.createMessage(request, TICKET_ID, PORTAL_ID);
+
+        // then
+        Timer firstResponse = meterRegistry.find("tickets.time.to.first.response").timer();
+        assertThat(firstResponse).isNotNull();
+        assertThat(firstResponse.count()).isEqualTo(1);
+
+        Counter transition = meterRegistry.find("tickets.status.transitions").tags("from", "OPEN", "to", "IN_PROGRESS").counter();
+        assertThat(transition).isNotNull();
+        assertThat(transition.count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("createMessage → второе сообщение не завышает время первого ответа и не считает переход")
+    void createMessage_secondMessageDoesNotRecordFirstResponse() throws Exception {
+        // given: в заявке уже есть сообщения и статус уже IN_PROGRESS
+        CreateMessageRequest request = new CreateMessageRequest(MESSAGE_TEXT);
+
+        UserModel currentUser = createUser(USER_EMAIL);
+        when(mockCurrentUserProvider.getCurrentUserModel()).thenReturn(currentUser);
+
+        TicketModel ticket = createTicket(TICKET_ID, TicketStatus.IN_PROGRESS, currentUser);
+        when(mockTicketDomainService.findTicketById(TICKET_ID)).thenReturn(ticket);
+
+        when(mockMessageMapper.toEntity(eq(request), eq(currentUser), eq(ticket)))
+                .thenReturn(createMessage(ticket, currentUser, MESSAGE_TEXT));
+        MessageModel savedMessage = createMessage(ticket, currentUser, MESSAGE_TEXT);
+        savedMessage.setId(778L);
+        when(mockMessageDomainService.saveMessage(any(MessageModel.class))).thenReturn(savedMessage);
+        when(mockMessageDomainService.countByTicketId(TICKET_ID)).thenReturn(1L);
+
+        // when
+        service.createMessage(request, TICKET_ID, PORTAL_ID);
+
+        // then
+        assertThat(meterRegistry.find("tickets.time.to.first.response").timer()).isNull();
+        assertThat(meterRegistry.find("tickets.status.transitions").counter()).isNull();
     }
 
     // ────────────────────────────────────────────────
@@ -206,6 +279,7 @@ class MessageManageServiceTest {
         t.setTicketStatus(status);
         t.setTicketLiveStatus(TicketLiveStatus.ACTIVE);
         t.setAccessStatus(TicketAccessStatus.CREATOR_AND_PORTAL_USERS);
+        t.setCreatedAt(Instant.now());
         return t;
     }
 

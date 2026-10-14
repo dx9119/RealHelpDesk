@@ -34,6 +34,9 @@
         <!-- lombok-mapstruct-binding: без него Lombok 1.18.16+ «заглушает» MapStruct,
              и генерация XxxMapperImpl перестаёт видеть геттеры/сеттеры DTO. -->
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
+        <!-- opentelemetry-instrumentation выравнивается с opentelemetry-bom из Spring Boot
+             (4.1.1 держит otel 1.62.0 — jdbc 2.28.1-alpha собран именно под эту версию API). -->
+        <opentelemetry-instrumentation.version>2.28.1-alpha</opentelemetry-instrumentation.version>
     </properties>
 
     <dependencies>
@@ -42,6 +45,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <!-- Метрики Hibernate (obs.md, шаг 5): hibernate.*-гейджи без hibernate-micrometer не регистрируются —
+             HibernateMetricsAutoConfiguration в Boot 4 требует org.hibernate.orm.micrometer.HibernateMetrics с classpath. -->
+        <dependency>
+            <groupId>org.hibernate.orm</groupId>
+            <artifactId>hibernate-micrometer</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -131,6 +140,19 @@
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-prometheus</artifactId>
         </dependency>
+        <!-- Трассировка SQL (obs.md, шаги 5–6): обёртка DataSource даёт спаны db.client.query на каждый
+             JDBC-запрос. Версия выровнена с opentelemetry-bom из Spring Boot (см. свойство выше). -->
+        <dependency>
+            <groupId>io.opentelemetry.instrumentation</groupId>
+            <artifactId>opentelemetry-jdbc</artifactId>
+            <version>${opentelemetry-instrumentation.version}</version>
+        </dependency>
+        <!-- Распределённая трассировка OpenTelemetry (obs.md, шаг 6): стартер тянет micrometer-tracing-bridge-otel,
+             opentelemetry-sdk/exporter-otlp и авто-конфигурацию sampling/OTLP-endpoint/resource-attributes. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-opentelemetry</artifactId>
+        </dependency>
 
         <!-- Hibernate Validator -->
         <dependency>
@@ -160,6 +182,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- TestObservationRegistry / micrometer-tracing-test (obs.md, шаг 6): проверка наблюдений и тегов -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-opentelemetry-test</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>

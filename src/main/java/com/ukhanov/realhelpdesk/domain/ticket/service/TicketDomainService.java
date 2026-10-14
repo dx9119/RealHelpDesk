@@ -36,7 +36,8 @@ public class TicketDomainService {
             logger.debug("Заявка сохранена: {}", savedTicket.getId());
             return savedTicket;
         } catch (Exception e) {
-            logger.error("Не удалось сохранить заявку «{}»", ticketModel.getTitle(), e);
+            // Ошибка логируется один раз на границе (GlobalExceptionHandler: ERROR со стектрейсом) — здесь только debug для отладки.
+            logger.debug("Не удалось сохранить заявку «{}»", ticketModel.getTitle(), e);
             throw new PersistenceException("Не удалось сохранить заявку", e);
         }
     }

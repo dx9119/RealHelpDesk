@@ -54,4 +54,48 @@ class LogSanitizerTest {
         assertThat(LogSanitizer.value("application/pdf")).isEqualTo("application/pdf");
         assertThat(LogSanitizer.value(null)).isEmpty();
     }
+
+    @Test
+    @DisplayName("Email маскируется: видна первая буква и домен")
+    void email_isMasked() {
+        assertThat(LogSanitizer.email("john.doe@example.com")).isEqualTo("j***@example.com");
+        assertThat(LogSanitizer.email("admin@corp.example.org")).isEqualTo("a***@corp.example.org");
+    }
+
+    @Test
+    @DisplayName("Email: null, пустой и не разобранный адрес не утекают в лог")
+    void email_blankAndUnparsableAreMasked() {
+        assertThat(LogSanitizer.email(null)).isEmpty();
+        assertThat(LogSanitizer.email("  ")).isEmpty();
+        assertThat(LogSanitizer.email("not-an-email")).isEqualTo("***");
+    }
+
+    @Test
+    @DisplayName("Email в произвольном тексте маскируется, остальной текст сохраняется")
+    void emails_masksAddressesInsideText() {
+        String message = "Не найден пользователь с email: john.doe@example.com (портал support@corp.example.com)";
+
+        assertThat(LogSanitizer.emails(message))
+                .isEqualTo("Не найден пользователь с email: j***@example.com (портал s***@corp.example.com)");
+        assertThat(LogSanitizer.emails("без адресов")).isEqualTo("без адресов");
+        assertThat(LogSanitizer.emails(null)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Имя файла: базовое имя скрыто, расширение остаётся")
+    void fileName_masksBaseNameKeepsExtension() {
+        assertThat(LogSanitizer.fileName("скан-паспорта.pdf")).isEqualTo("***.pdf");
+        assertThat(LogSanitizer.fileName("report.final.xlsx")).isEqualTo("***.xlsx");
+        assertThat(LogSanitizer.fileName("без-расширения")).isEqualTo("***");
+        assertThat(LogSanitizer.fileName(".env")).isEqualTo("***");
+        assertThat(LogSanitizer.fileName(null)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Телефон: видны первые 4 символа")
+    void phone_masksTail() {
+        assertThat(LogSanitizer.phone("+79991234567")).isEqualTo("+799***");
+        assertThat(LogSanitizer.phone("12")).isEqualTo("***");
+        assertThat(LogSanitizer.phone(null)).isEmpty();
+    }
 }

@@ -1,0 +1,32 @@
+# Tempo (obs.md, шаг 11): приём трейсов от OTel Collector по OTLP (gRPC 4317 / HTTP 4318),
+# локальное хранилище (filesystem + WAL). Выбран вместо Jaeger: нативный OTLP-приёмник,
+# первоклассная интеграция с Grafana (serviceMap, tracesToLogs) и хвостовой сэмплинг на стороне
+# Collector, а не отдельного агента. Метрики из трейсов (metrics_generator) не включены —
+# http.server.requests уже даёт RED-метрики, дубль не нужен.
+
+server:
+  http_listen_port: 3200
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+ingester:
+  max_block_duration: 5m
+
+compactor:
+  compaction:
+    block_retention: 48h
+
+storage:
+  trace:
+    backend: local
+    local:
+      path: /var/tempo/traces
+    wal:
+      path: /var/tempo/wal

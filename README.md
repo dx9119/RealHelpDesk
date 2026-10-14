@@ -180,6 +180,25 @@ TypeScript-типы для фронта).
 рестарте. За прокси задайте `TRUST_PROXY_HEADERS=true` в `scripts/docker/stack.env`
 (см. «Клиентский IP»), иначе все запросы будут считаться с одного IP.
 
+## Наблюдаемость
+
+Метрики (Micrometer → Prometheus), трейсы (OTel → Tempo) и логи с
+`traceId`/`spanId` (→ Loki через Alloy). Стек поднимается вместе с приложением:
+
+| Команда | Что делает |
+|---|---|
+| `make obs-up` | Стек + Prometheus (`127.0.0.1:9090`) + Grafana (`127.0.0.1:3001`) + Tempo/Loki/Collector |
+| `make obs-down` | Остановить наблюдаемость (тома целы) |
+| `make obs-open` | Открыть Grafana в браузере |
+| `make obs-reload` | Горячая перезагрузка правил алертов Prometheus |
+| `make obs-alerts` | Текущие состояния алертов |
+
+Метрики на management-порту 8081 (`/actuator/prometheus`, HTTP Basic). Сводный
+дашборд — Grafana → RealHelpDesk → Обзор; алерты (8 шт.) имеют runbooks в
+`docs/runbooks/`. Как добавить метрику, правила кардинальности и отладка по
+traceId — `docs/observability/README.md`; каталог бизнес-метрик —
+`docs/observability/metrics.md`; SLO — `docs/observability/slo.md`.
+
 ## Тесты и проверки
 
 **Все тесты проводятся только в dev среде.** Юнит- и интеграционные — на хосте,
@@ -243,6 +262,12 @@ E2E-сценарии идут по живому стеку (`make up`) — вс�
   уникальный `X-Forwarded-For` и получает свой bucket рейт-лимитов. Без
   этого профиля все VU делят один `127.0.0.1` и логин упирается в лимит
   10/300с. Включать **только локально** — за таким профилем нет прокси.
+- **Совместимость с наблюдаемостью** — load-оверлей дублирует
+  `OTLP_TRACING_ENDPOINT` на collector: `up-load`/`load-smoke` пересоздают
+  app, и без этого ключа экспорт трейсов откатился бы на `localhost:4317`
+  из `stack.env`, сломав связку с запущенным obs-стеком (`make obs-up`).
+  Прогон метрик/трейсов во время load-теста: поднимите `make obs-up`,
+  затем `make load-smoke` — смотрите Grafana и `make obs-alerts`.
 - **Cookie jar** — явная per-VU jar (k6 сбрасывает встроенную между
   итерациями): access-token из логина живёт между витками, re-login
   происходит только по 401.

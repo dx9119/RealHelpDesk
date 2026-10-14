@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
+import com.ukhanov.realhelpdesk.core.observability.BusinessMetrics;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.message.model.MessageModel;
@@ -43,6 +44,7 @@ public class MessageManageService {
     private final EmailDeliveryService emailDeliveryService;
     private final EmailTemplates emailTemplates;
     private final NotificationPublisher notificationPublisher;
+    private final BusinessMetrics businessMetrics;
 
     public CreateMessageResponse createMessage(CreateMessageRequest request, Long ticketId, Long portalId)
             throws MessagingException, TicketException, UnsupportedEncodingException {
@@ -51,9 +53,19 @@ public class MessageManageService {
 
         UserModel user = currentUserProvider.getCurrentUserModel();
         TicketModel ticket = ticketDomainService.findTicketById(ticketId);
+        TicketStatus previousStatus = ticket.getTicketStatus();
+        // до сохранения: первый ответ — в заявке ещё нет сообщений (доменное «без ответа» = без сообщений)
+        boolean firstResponse = messageDomainService.countByTicketId(ticketId) == 0;
+
         ticket.setTicketStatus(TicketStatus.IN_PROGRESS);
         ticketDomainService.saveTicket(ticket);
         MessageModel message = messageDomainService.saveMessage(messageMapper.toEntity(request, user, ticket));
+
+        // инкременты после коммита saveMessage: откат или исключение раньше счётчики не завышают
+        businessMetrics.statusTransition(previousStatus, TicketStatus.IN_PROGRESS);
+        if (firstResponse) {
+            businessMetrics.timeToFirstResponse(ticket.getCreatedAt());
+        }
 
         // In-app оповещение автору заявки о новом сообщении (ответившего автора publisher исключает)
         notificationPublisher.publishToUsers(Set.of(ticket.getAuthor().getId()), NotificationEvent.NEW_MESSAGE, user.getId(),

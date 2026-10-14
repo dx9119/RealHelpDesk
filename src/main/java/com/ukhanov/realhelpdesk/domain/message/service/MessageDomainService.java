@@ -48,4 +48,11 @@ public class MessageDomainService {
         return messages;
     }
 
+    /** Количество сообщений заявки: нужно, чтобы поймать первый ответ до вставки нового сообщения. */
+    public long countByTicketId(Long ticketId) {
+        Objects.requireNonNull(ticketId, "Идентификатор заявки не должен быть null");
+
+        return messageRepository.countByTicketId(ticketId);
+    }
+
 }

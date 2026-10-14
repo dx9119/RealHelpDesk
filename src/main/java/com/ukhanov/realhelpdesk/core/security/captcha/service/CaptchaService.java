@@ -9,6 +9,7 @@ import javax.imageio.ImageIO;
 import org.springframework.stereotype.Service;
 
 import com.google.code.kaptcha.impl.DefaultKaptcha;
+import com.ukhanov.realhelpdesk.core.observability.AuthMetrics;
 import com.ukhanov.realhelpdesk.core.security.captcha.dto.DtoCaptchaProperties;
 import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaException;
 import com.ukhanov.realhelpdesk.core.security.captcha.utils.CaptchaStorage;
@@ -23,6 +24,7 @@ public class CaptchaService {
 
     private final DefaultKaptcha captchaProducer;
     private final DtoCaptchaProperties captchaProperties;
+    private final AuthMetrics authMetrics;
 
     public String generateCaptchaText(String capId) {
         String captchaText = captchaProducer.createText();
@@ -49,8 +51,10 @@ public class CaptchaService {
         String expectedCode = captchaId == null ? null : CaptchaStorage.remove(captchaId);
 
         if (expectedCode == null || captCode == null || !expectedCode.equalsIgnoreCase(captCode)) {
+            authMetrics.record(AuthMetrics.TYPE_CAPTCHA, AuthMetrics.RESULT_FAILURE);
             throw new CaptchaException("Провал прохождения капчи");
         }
+        authMetrics.record(AuthMetrics.TYPE_CAPTCHA, AuthMetrics.RESULT_SUCCESS);
     }
 
 }

@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import org.springframework.stereotype.Service;
 
+import com.ukhanov.realhelpdesk.core.observability.AuthMetrics;
 import com.ukhanov.realhelpdesk.core.security.auth.refresh.exception.RefreshException;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.dto.TokenStatusResponse;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
@@ -31,12 +32,14 @@ public class RefreshService {
     private final ValidTokenService validTokenService;
     private final FindTokenService findTokenService;
     private final SaveTokenService saveTokenService;
+    private final AuthMetrics authMetrics;
 
     public String updateAccess(HttpServletRequest request) throws TokenException, RefreshException {
         Token refreshToken = new Token(decodeTokenService.extractTokenFromCookies(request, "refreshToken"));
 
         TokenStatusResponse tokenStatus = getTokenService.getStatusRefreshTokenFromCookie(request);
         if (tokenStatus.tokenStatus() != TokenStatus.ACTIVE) {
+            authMetrics.record(AuthMetrics.TYPE_REFRESH, AuthMetrics.RESULT_FAILURE);
             throw new RefreshException("Токен обновления не активен");
         }
         try {
@@ -44,9 +47,11 @@ public class RefreshService {
             // Событие «access-токен обновлён» с userId пишет GetTokenService.getNewAccessToken:
             // повторять здесь строку без идентификатора смысла нет
             TokenBearer newAccessToken = getTokenService.getNewAccessToken(refreshToken);
+            authMetrics.record(AuthMetrics.TYPE_REFRESH, AuthMetrics.RESULT_SUCCESS);
             return newAccessToken.getToken();
         } catch (TokenException | JwtException e) {
             revokeQuietly(refreshToken);
+            authMetrics.record(AuthMetrics.TYPE_REFRESH, AuthMetrics.RESULT_FAILURE);
             throw new RefreshException("Токен обновления недействителен");
         }
     }

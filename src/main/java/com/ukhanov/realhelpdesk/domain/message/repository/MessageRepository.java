@@ -16,4 +16,7 @@ public interface MessageRepository extends JpaRepository<MessageModel, Long> {
     // который зависит от плана запроса (у вложений и оповещений сортировка уже была).
     @EntityGraph(attributePaths = {"ticket", "author"})
     List<MessageModel> findByTicketIdOrderByIdAsc(Long ticketId);
+
+    // Первый ответ в заявке: считается до вставки нового сообщения (метрика tickets.time.to.first.response)
+    long countByTicketId(Long ticketId);
 }

@@ -23,6 +23,7 @@ import com.ukhanov.realhelpdesk.core.mail.model.EmailTemplates;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
 import com.ukhanov.realhelpdesk.core.mail.support.EmailTemplatesFixture;
+import com.ukhanov.realhelpdesk.core.observability.BusinessMetrics;
 import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
 import com.ukhanov.realhelpdesk.core.pagination.service.PaginationAdapter;
 import com.ukhanov.realhelpdesk.core.security.accesscontrol.TicketAccessValidationService;
@@ -56,6 +57,11 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.observation.ObservationRegistry;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("Тесты сервиса TicketManageService")
@@ -85,6 +91,8 @@ class TicketManageServiceTest {
 
     private final EmailTemplates emailTemplates = EmailTemplatesFixture.emailTemplates();
 
+    private final SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+
     private static final Long TICKET_ID = 42L;
     private static final Long PORTAL_ID = 100L;
     private static final Long USER_ID = 77L;
@@ -94,7 +102,8 @@ class TicketManageServiceTest {
     void setUp() {
         service = new TicketManageService(mockTicketDomainService, mockCurrentUserProvider, mockPortalDomainService, mockPaginationAdapter,
                 mockEmailDeliveryService, mockTicketAccessValidationService, mockTicketRepository, emailTemplates,
-                mockNotificationPublisher, Mappers.getMapper(TicketMapper.class));
+                mockNotificationPublisher, Mappers.getMapper(TicketMapper.class), ObservationRegistry.NOOP,
+                new BusinessMetrics(meterRegistry));
 
         UserModel currentUser = new UserModel();
         currentUser.setId(USER_ID);
@@ -258,6 +267,44 @@ class TicketManageServiceTest {
         assertThat(result).isNotNull();
         assertThat(result.totalElements()).isEqualTo(1L);
         assertThat(result.content()).hasSize(1);
+    }
+
+    // ────────────────────────────────────────────────
+    // Бизнес-метрики (obs.md, шаг 8)
+    // ────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("createTicket → tickets.created с тегами priority и access из enum'ов заявки")
+    void createTicket_incrementsTicketsCreatedMetric() throws Exception {
+        CreateTicketRequest request = new CreateTicketRequest("New Issue", null, null, null);
+        when(mockPortalDomainService.getPortalById(PORTAL_ID)).thenReturn(defaultPortal(PORTAL_ID));
+        when(mockTicketDomainService.saveTicket(any())).thenReturn(defaultTicket(TICKET_ID));
+
+        service.createTicket(request, PORTAL_ID);
+
+        Counter created = meterRegistry.find("tickets.created").tags("priority", "MEDIUM", "access", "CREATOR_AND_PORTAL_USERS").counter();
+        assertThat(created).isNotNull();
+        assertThat(created.count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("setTicketStatus → переход в CLOSED считает transitions и таймер времени решения")
+    void setTicketStatus_closeCountsTransitionAndResolutionTimer() throws Exception {
+        TicketModel ticket = defaultTicket(TICKET_ID);
+        when(mockTicketDomainService.findTicketById(TICKET_ID)).thenReturn(ticket);
+        when(mockTicketAccessValidationService.hasTicketChange(PORTAL_ID, TICKET_ID)).thenReturn(true);
+        when(mockTicketDomainService.saveTicket(any())).thenReturn(ticket);
+        when(mockPortalDomainService.getPortalById(PORTAL_ID)).thenReturn(defaultPortal(PORTAL_ID));
+
+        service.setTicketStatus(PORTAL_ID, TICKET_ID, TicketStatus.CLOSED);
+
+        Counter transition = meterRegistry.find("tickets.status.transitions").tags("from", "OPEN", "to", "CLOSED").counter();
+        assertThat(transition).isNotNull();
+        assertThat(transition.count()).isEqualTo(1);
+
+        Timer resolution = meterRegistry.find("tickets.time.to.resolution").timer();
+        assertThat(resolution).isNotNull();
+        assertThat(resolution.count()).isEqualTo(1);
     }
 
     // ────────────────────────────────────────────────
