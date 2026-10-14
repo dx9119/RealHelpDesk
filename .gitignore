@@ -46,6 +46,7 @@ ssl/
 
 # Локальные секреты (шаблон хранится в infrastructure/.env.example)
 infrastructure/.env
+infrastructure/observability/prometheus/secrets/
 
 # Файлы Docker (если не коммитите образы)
 # Dockerfile.local

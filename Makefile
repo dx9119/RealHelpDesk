@@ -16,12 +16,14 @@ COMPOSE_DEV ?= docker compose -f infrastructure/docker-compose.yaml -f infrastru
 COMPOSE_PROD ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.prod.yaml
 COMPOSE_SHARDING ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml -f infrastructure/docker-compose.sharding.yaml
 COMPOSE_LOAD ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml -f infrastructure/docker-compose.load.yaml
+COMPOSE_OBSERVABILITY ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml -f infrastructure/docker-compose.observability.yaml
 
 .DEFAULT_GOAL := help
 
 .PHONY: help build clean compile package test verify format check run \
         dev-run dev-test \
         env docker-build up up-prod up-sharding up-load down down-sharding down-volumes logs ps restart shell check-image \
+        up-observability down-observability \
         load load-smoke \
         migrate migrate-shard-0 migrate-shard-1 migrate-shard \
         openapi openapi-types \
@@ -91,6 +93,23 @@ down-sharding: ## Остановить стек с шардированием (�
 
 down-volumes: ## Остановить стек и удалить тома (данные БД/MinIO)
 	$(COMPOSE_DEV) down -v
+
+## --- Наблюдаемость (obs.md: Prometheus; шаг 11 добавит Grafana/Collector) ---
+
+up-observability: env ## Поднять локальный стек + Prometheus (UI: http://localhost:9090)
+	@set -a && . infrastructure/.env && set +a && \
+	METRICS_USER=$$(sed -n 's/^METRICS_USER=//p' scripts/docker/stack.env) && \
+	test -n "$$METRICS_USER" -a -n "$$METRICS_PASSWORD" || \
+	  (echo "METRICS_USER (scripts/docker/stack.env) / METRICS_PASSWORD (infrastructure/.env) не заданы" && exit 1) && \
+	mkdir -p infrastructure/observability/prometheus/secrets && \
+	printf '%s' "$$METRICS_USER" > infrastructure/observability/prometheus/secrets/metrics_user && \
+	printf '%s' "$$METRICS_PASSWORD" > infrastructure/observability/prometheus/secrets/metrics_password && \
+	chmod 644 infrastructure/observability/prometheus/secrets/metrics_user \
+	          infrastructure/observability/prometheus/secrets/metrics_password
+	$(COMPOSE_OBSERVABILITY) up --build -d
+
+down-observability: ## Остановить стек с Prometheus (томы целы)
+	$(COMPOSE_OBSERVABILITY) down
 
 logs: ## Логи приложения (follow)
 	$(COMPOSE_DEV) logs -f app

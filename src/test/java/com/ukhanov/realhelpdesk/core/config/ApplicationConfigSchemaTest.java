@@ -57,7 +57,6 @@ class ApplicationConfigSchemaTest {
             "spring.jpa.properties.hibernate.order_updates", "spring.jpa.properties.hibernate.default_batch_fetch_size",
             // База данных: имя пуля и порог медленных запросов (obs.md, шаг 5)
             "spring.datasource.hikari.pool-name", "spring.jpa.properties.hibernate.log_slow_query",
-            "spring.jpa.properties.hibernate.session.events.log.LOG_QUERIES_SLOWER_THAN_MS",
             // Корректное завершение (long polling + @Scheduled)
             "server.shutdown", "spring.lifecycle.timeout-per-shutdown-phase", "spring.task.scheduling.shutdown.await-termination",
             // Трассировка (obs.md, шаг 6)
@@ -71,11 +70,11 @@ class ApplicationConfigSchemaTest {
             "management.metrics.distribution.percentiles-histogram.http.server.requests",
             "management.metrics.distribution.slo.http.server.requests", "management.prometheus.metrics.export.enabled",
             "management.metrics.tags.application", "management.metrics.tags.env", "management.metrics.web.server.max-uri-tags",
-            "management.server.port", "management.server.address", "observability.prometheus.auth.enabled",
+            "management.server.port", "management.server.address", "management.server.ssl.enabled", "observability.prometheus.auth.enabled",
             "observability.prometheus.auth.username", "observability.prometheus.auth.password",
             // Почта: таймауты SMTP и health-группа вне readiness (obs.md, шаг 9)
             "spring.mail.properties.mail.smtp.connectiontimeout", "spring.mail.properties.mail.smtp.timeout",
-            "spring.mail.properties.mail.smtp.writetimeout", "management.endpoint.health.group.mail.include");
+            "spring.mail.properties.mail.smtp.writetimeout", "management.endpoint.health.group.smtp.include");
 
     /**
      * Конфигурация среды: файлы схемы и места со значениями. В них не должно появиться деструктивного режима ddl-auto — иначе рестарт

@@ -1,0 +1,43 @@
+# Оверлей наблюдаемости: Prometheus со скрейпом управляющего порта приложения.
+# Подключается после базы + override (make up-observability):
+#   docker-compose.yaml + docker-compose.override.yaml + docker-compose.observability.yaml
+# Для нагрузочного прогона вместе с метриками — добавьте fourth файл
+# docker-compose.load.yaml (TRUST_PROXY_HEADERS для k6).
+# В этот же файл на шаге 11 obs.md добавятся Grafana, OTel Collector и Tempo.
+
+services:
+  prometheus:
+    # Версия закреплена: обновление — осознанная правка с ревью, не latest.
+    image: prom/prometheus:v3.15.0
+    mem_limit: 256m
+    ports:
+      # Только loopback: наружу (и в сеть контейнеров) Prometheus не светится.
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      # Креды скрейпа (username_file/password_file): Prometheus не умеет
+      # env-подстановку в конфиге, пароль поэтому не через environment, а файлом.
+      # Каталог генерирует make up-observability из infrastructure/.env;
+      # без него Prometheus упадёт с «password_file ... does not exist».
+      - ./observability/prometheus/secrets:/etc/prometheus/secrets:ro
+      - prometheus_data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # lifecycle-режим: перечитать конфиг по POST /-/reload без рестарта
+      # (потребуется для alert-правил, obs.md, шаг 12)
+      - --web.enable-lifecycle
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - backend
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  prometheus_data:
