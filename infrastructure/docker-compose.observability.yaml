@@ -24,6 +24,8 @@ services:
       - "127.0.0.1:9090:9090"
     volumes:
       - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      # Правила алертов (obs.md, шаг 12); проверка — promtool check rules.
+      - ./observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       # Креды скрейпа (username_file/password_file): Prometheus не умеет
       # env-подстановку в конфиге, пароль поэтому не через environment, а файлом.
       # Каталог генерирует make obs-up из infrastructure/.env;

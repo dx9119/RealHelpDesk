@@ -8,7 +8,7 @@
 # файл (env-замена документируется только для external_labels), поэтому
 # basic_auth.username/password пишутся литерально, а пароль читается из
 # отдельного файла (username_file/password_file). Файлы кладёт
-# `make up-observability` из infrastructure/.env в
+# `make obs-up` из infrastructure/.env в
 # infrastructure/observability/prometheus/secrets/ (каталог в .gitignore);
 # compose монтирует каталог в /etc/prometheus/secrets:ro.
 #
@@ -20,6 +20,11 @@ global:
   # укладывается в ожидание алертов шага 12 (evaluation_interval).
   scrape_interval: 15s
   evaluation_interval: 15s
+
+# Правила алертов (obs.md, шаг 12): alerts.yml монтируется compose'ом.
+# Перезагрузка после правок: curl -X POST localhost:9090/-/reload (web.enable-lifecycle).
+rule_files:
+  - /etc/prometheus/alerts.yml
 
 scrape_configs:
   - job_name: realhelpdesk

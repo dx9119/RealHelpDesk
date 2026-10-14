@@ -1,0 +1,138 @@
+# Правила алертов Prometheus (obs.md, шаг 12).
+#
+# Каждый алерт: severity, summary, description, runbook_url → docs/runbooks/<name>.md.
+# Имена метрик — канонические из docs/observability/metrics.md (Boot 4:
+# jdbc_connections_* вместо hikaricp_*, см. runbook db-pool-saturation).
+# Подключение: rule_files в prometheus.yml, монтирование в compose.
+# Проверка: promtool check rules (см. infrastructure/observability/README.md).
+
+groups:
+  - name: realhelpdesk-api
+    rules:
+      - alert: ApiHighErrorRate
+        # obs.md: error rate 5xx > 2% в течение 5 минут.
+        expr: |
+          (
+            sum by (instance) (rate(http_server_requests_seconds_count{status=~"5.."}[5m]))
+            /
+            clamp_min(sum by (instance) (rate(http_server_requests_seconds_count[5m])), 0.001)
+          ) > 0.02
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Доля ошибок 5xx выше 2% ({{ $value | humanizePercentage }})"
+          description: "У {{ $labels.instance }} более 2% HTTP-ответов — 5xx на протяжении 5 минут. Смотрите панель «Ошибки 5xx» дашборда RealHelpDesk — Обзор."
+          runbook_url: "https://github.com/anomalyco/RealHelpDesk/blob/feat/observability/docs/runbooks/api-high-error-rate.md"
+
+      - alert: ApiHighLatencyP99
+        # obs.md: p99 latency > SLO в течение 10 минут. SLO p99 ≤ 500 мс — docs/observability/slo.md.
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum by (instance, le) (rate(http_server_requests_seconds_bucket{uri!~"NOT_FOUND|UNKNOWN"}[5m]))
+          ) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p99 латентности API выше SLO 500 мс ({{ $value | humanizeDuration }})"
+          description: "У {{ $labels.instance }} p99 времени ответа превышает 500 мс дольше 10 минут (окно 5 минут)."
+          runbook_url: "https://github.com/anomalyco/RealHelpDesk/blob/feat/observability/docs/runbooks/api-high-latency.md"
+
+  - name: realhelpdesk-database
+    rules:
+      - alert: DatabasePoolSaturation
+        # Boot 4 экспортирует jdbc_connections_{active,idle,max,min} — метрик
+        # pending/timeout (hikaricp.*) в скрейпе нет. Насыщение пула — ранний
+        # предвестник исчерпания; диагностика исчерпания — в runbook.
+        expr: |
+          (
+            jdbc_connections_active
+            /
+            clamp_min(jdbc_connections_max, 1)
+          ) > 0.9
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Пул соединений БД занят более чем на 90% ({{ $labels.name }})"
+          description: "У {{ $labels.instance }} активных соединений {{ $value | humanizePercentage }} от максимума ({{ $labels.name }}) на протяжении 2 минут — риск исчерпания пула."
+          runbook_url: "https://github.com/anomalyco/RealHelpDesk/blob/feat/observability/docs/runbooks/db-pool-saturation.md"
+
+  - name: realhelpdesk-jvm
+    rules:
+      - alert: JvmHeapHigh
+        # obs.md: JVM heap > 90% в течение 10 минут.
+        expr: |
+          (
+            sum by (instance) (jvm_memory_used_bytes{area="heap"})
+            /
+            sum by (instance) (jvm_memory_max_bytes{area="heap"})
+          ) > 0.9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Heap JVM занят более чем на 90% ({{ $value | humanizePercentage }})"
+          description: "У {{ $labels.instance }} использовано более 90% heap на протяжении 10 минут — риск Full GC / OOM."
+          runbook_url: "https://github.com/anomalyco/RealHelpDesk/blob/feat/observability/docs/runbooks/jvm-heap-high.md"
+
+      - alert: JvmGcOverheadHigh
+        # Доля времени в GC: rate(sum) — секунды пауз в секунду. > 0.1 = 10%.
+        expr: |
+          sum by (instance) (rate(jvm_gc_pause_seconds_sum[5m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Более 10% времени уходит на GC ({{ $value | humanizePercentage }})"
+          description: "У {{ $labels.instance }} суммарные паузы GC составляют более 10% процессорного времени на протяжении 10 минут."
+          runbook_url: "https://github.com/anomalyco/RealHelpDesk/blob/feat/observability/docs/runbooks/jvm-gc-overhead.md"
+
+  - name: realhelpdesk-availability
+    rules:
+      - alert: AppUnreachable
+        # Скрейп управляющего порта падает = приложение недоступно или
+        # management-порт закрыт. Readiness напрямую не скрейпится (см. runbook).
+        expr: |
+          up{job="realhelpdesk"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Приложение не отдаёт метрики (скрейп down)"
+          description: "Цель {{ $labels.instance }} недоступна для Prometheus более 2 минут: приложение упало, зависло или закрыл управляющий порт."
+          runbook_url: "https://github.com/anomalyco/RealHelpDesk/blob/feat/observability/docs/runbooks/app-unreachable.md"
+
+      - alert: NoNewTickets
+        # Осторожный порог (obs.md): нет новых заявок при рабочем трафике.
+        # Часовой пояс hour()/day_of_week() — UTC; 9–18 UTC ≈ рабочий день MSK
+        # с поправкой (см. runbook, как перенастроить).
+        expr: |
+          (
+            increase(tickets_total[2h]) == 0
+            and on() (hour() >= 9 < 18)
+            and on() (day_of_week() >= 1 < 6)
+          )
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Нет новых заявок более 2 часов в рабочее время"
+          description: "Счётчик tickets.created не рос 2 часа подряд в рабочее время (пн–пт, 9–18 UTC). Возможна деградация фронтенда/шлюза или перестал работать канал создания заявок."
+          runbook_url: "https://github.com/anomalyco/RealHelpDesk/blob/feat/observability/docs/runbooks/no-new-tickets.md"
+
+  - name: realhelpdesk-security
+    rules:
+      - alert: AuthFailuresSpike
+        # obs.md: рост auth.attempts{result=failure} — возможный перебор паролей.
+        expr: |
+          sum by (instance) (rate(auth_attempts_total{result="failure"}[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Всплеск неудачных попыток аутентификации ({{ $value | humanize }}/с)"
+          description: "У {{ $labels.instance }} неудачные попытки входа идут со скоростью более 6/мин на протяжении 5 минут — возможный перебор паролей или сломанный клиент."
+          runbook_url: "https://github.com/anomalyco/RealHelpDesk/blob/feat/observability/docs/runbooks/auth-failures-spike.md"

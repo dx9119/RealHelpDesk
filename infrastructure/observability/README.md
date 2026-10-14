@@ -49,6 +49,38 @@ Prometheus не умеет env-подстановку в конфиге, поэ�
 собираются через `histogram_quantile`. Изменения дашбордов через UI сохраняются (allowUiUpdates),
 для переноса на другой стенд скопируйте JSON обратно в `grafana/dashboards/`.
 
+## Алерты
+
+Правила — `prometheus/prometheus.yml` → `rule_files: alerts.yml` (монтируется compose'ом).
+8 алертов в 5 группах (api, database, jvm, availability, security); каждому —
+severity/summary/description/runbook_url. Runbooks: `docs/runbooks/*.md`. SLO: `docs/observability/slo.md`.
+
+| Алерт | Порог | Runbook |
+|---|---|---|
+| ApiHighErrorRate | 5xx > 2% / 5 мин (critical) | `docs/runbooks/api-high-error-rate.md` |
+| ApiHighLatencyP99 | p99 > 500 мс (SLO) / 10 мин | `docs/runbooks/api-high-latency.md` |
+| DatabasePoolSaturation | active/max > 90% / 2 мин | `docs/runbooks/db-pool-saturation.md` |
+| JvmHeapHigh | heap > 90% / 10 мин | `docs/runbooks/jvm-heap-high.md` |
+| JvmGcOverheadHigh | GC > 10% времени / 10 мин | `docs/runbooks/jvm-gc-overhead.md` |
+| AppUnreachable | `up == 0` / 2 мин (critical) | `docs/runbooks/app-unreachable.md` |
+| NoNewTickets | нет заявок 2 ч в рабочее время | `docs/runbooks/no-new-tickets.md` |
+| AuthFailuresSpike | failure > 6/мин / 5 мин | `docs/runbooks/auth-failures-spike.md` |
+
+> В Boot 4.1 пул экспортируется как `jdbc_connections_*` — метрик `hikaricp_connections_pending/timeout`
+> из obs.md нет; вместо pending используется насыщение пула (см. runbook db-pool-saturation).
+
+Проверка и перезагрузка правил:
+
+```bash
+# синтаксис (promtool из образа, без локальной установки)
+docker run --rm -v $PWD/infrastructure/observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro \
+  --entrypoint promtool prom/prometheus:v3.15.0 check rules /etc/prometheus/alerts.yml
+# горячая перезагрузка (web.enable-lifecycle включён)
+curl -X POST localhost:9090/-/reload
+# текущие состояния алертов
+curl -s localhost:9090/api/v1/alerts
+```
+
 ## Потоки данных
 
 ```
