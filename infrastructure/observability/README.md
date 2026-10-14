@@ -28,8 +28,26 @@ Prometheus не умеет env-подстановку в конфиге, поэ�
 
 Логин Grafana: `GRAFANA_ADMIN_USER`/`GRAFANA_ADMIN_PASSWORD` из `infrastructure/.env`
 (по умолчанию admin/admin — задайте свой перед использованием). Datasources (Prometheus, Tempo, Loki)
-подключаются автоматически через `grafana/provisioning/`; каталог `grafana/dashboards/` — под дашборды
-шага 12.
+подключаются автоматически через `grafana/provisioning/`; дашборды лежат в `grafana/dashboards/`
+и провижинятся в папку RealHelpDesk.
+
+## Дашборды
+
+**RealHelpDesk — Обзор** (`grafana/dashboards/realhelpdesk-overview.json`, uid `realhelpdesk-overview`) —
+сводный дашборд на 23 панели, папка RealHelpDesk, URL: `http://127.0.0.1:3001/d/realhelpdesk-overview`:
+
+- **Service RED**: RPS, доля 5xx (пороги 2%/5% — как в алертах obs.md), p95/p99, RPS и p95 по
+  эндпоинтам, распределение статусов.
+- **Бизнес**: попытки аутентификации (failure подсвечивается красным), открытые заявки по статусам,
+  скорость создания заявок, TTFR p95, почта (mail.sent + SMTP p95), ticket.create p95, переходы
+  статусов, логи по уровням.
+- **JVM**: heap used/max, GC-паузы, потоки, CPU процесса/системы.
+- **БД и фон**: пул соединений (active/idle/max), Hibernate queries/s, очередь планировщика
+  taskScheduler, аптайм.
+
+Панели используют канонические имена из `docs/observability/metrics.md`; перцентильные гистограммы
+собираются через `histogram_quantile`. Изменения дашбордов через UI сохраняются (allowUiUpdates),
+для переноса на другой стенд скопируйте JSON обратно в `grafana/dashboards/`.
 
 ## Потоки данных
 
