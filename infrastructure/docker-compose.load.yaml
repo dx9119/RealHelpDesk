@@ -8,6 +8,11 @@
 #          Без этого все VU делят один 127.0.0.1 и логин упирается в 10/300с.
 #          Включать ТОЛЬКО локально: за этим профилем нет прокси, кто угодно
 #          может подставить чужой IP (см. ClientIpResolver).
+#          OTLP_TRACING_ENDPOINT дублирует override из observability.yaml:
+#          up-load пересоздаёт app и без этого ключа откатился бы на
+#          localhost:4317 из stack.env, ломая экспорт трейсов при запущенном
+#          obs-стеке. Без obs-стека hostname не резолвится — соединение
+#          отклоняется, приложение работает (штатная деградация).
 #   k6   — контейнер grafana/k6: ходит в app по внутренней сети https://app:8443,
 #          скрипт монтируется из scripts/load/.
 
@@ -16,6 +21,7 @@ services:
     environment:
       TRUST_PROXY_HEADERS: "true"
       CLIENT_IP_FORWARDED_INDEX: "0"
+      OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
 
   k6:
     image: grafana/k6:2.3.0

@@ -17,8 +17,11 @@
 | `mail.sent` | Counter | `type` (enum `NotificationEvent`), `result` (`success`/`failure`) | Фактические попытки отправки письма |
 | `auth.attempts` | Counter | `type`, `result` | Попытки аутентификации (шаг 4, `AuthMetrics`) |
 
-Экспортируемые имена в Prometheus: `tickets_created_total`, `tickets_status_transitions_total`, `tickets_open`, `attachments_uploaded_total`,
-`attachments_size_bytes`, `mail_sent_total`, `auth_attempts_total`; Timer получает суффикс `_seconds` автоматически
+Экспортируемые имена в Prometheus: `tickets_total` (Micrometer-имя `tickets.created`: конвенция
+PrometheusNaming срезает суффикс `.created` — OpenMetrics резервирует `_created` вспомогательной
+меткой, поэтому к `tickets` добавляется только `_total`), `tickets_status_transitions_total`,
+`tickets_open`, `attachments_uploaded_total`, `attachments_size_bytes`, `mail_sent_total`,
+`auth_attempts_total`; Timer получает суффикс `_seconds` автоматически
 (`tickets_time_to_first_response_seconds_bucket/…_sum/…_count`).
 
 ## Теги и кардинальность
@@ -96,10 +99,10 @@
 ```bash
 # после логина и создания заявки/сообщения/вложения и отправки письма
 curl -s -u test-metrics:test-password localhost:8081/actuator/prometheus \
-  | grep -E 'tickets_created|tickets_status_transitions|tickets_open|tickets_time_to|attachments_|mail_sent'
+  | grep -E 'tickets_total|tickets_status_transitions|tickets_open|tickets_time_to|attachments_|mail_sent'
 ```
 
-Ожидаемо: `tickets_created_total{priority="MEDIUM",…}` растёт при создании заявки, `tickets_time_to_first_response_seconds_count` появляется на
+Ожидаемо: `tickets_total{priority="MEDIUM",…}` растёт при создании заявки, `tickets_time_to_first_response_seconds_count` появляется на
 первом сообщении, `tickets_open{status="OPEN"}` обновляется не чаще раза в 30 секунд, `attachments_size_bytes` растёт на загрузках.
 
 ## Тесты
