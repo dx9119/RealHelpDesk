@@ -2,6 +2,8 @@ package com.ukhanov.realhelpdesk.core.observability;
 
 import java.util.Map;
 
+import jakarta.mail.internet.MimeMessage;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -11,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.mail.MailSendException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 
@@ -26,6 +29,7 @@ import com.ukhanov.realhelpdesk.core.security.accesscontrol.TicketAccessValidati
 import com.ukhanov.realhelpdesk.core.security.ratelimit.config.RateLimitProperties;
 import com.ukhanov.realhelpdesk.core.security.user.CurrentUserProvider;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
+import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
 import com.ukhanov.realhelpdesk.core.storage.config.MinioProperties;
 import com.ukhanov.realhelpdesk.core.storage.service.MinioStorageService;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
@@ -43,6 +47,7 @@ import com.ukhanov.realhelpdesk.feature.ticketmanager.mapper.TicketMapper;
 import com.ukhanov.realhelpdesk.feature.ticketmanager.service.TicketManageService;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -130,7 +135,7 @@ class ManualObservationTest {
         }
 
         observationRegistry.assertThat().hasObservationWithNameEqualTo("attachment.upload").that().hasBeenStarted()
-                .hasLowCardinalityKeyValue("operation", "upload");
+                .hasLowCardinalityKeyValue("operation", "upload").hasLowCardinalityKeyValue("outcome", "error");
         assertNoForbiddenLowCardinalityKeys();
     }
 
@@ -139,6 +144,32 @@ class ManualObservationTest {
     void mailSendObservationIsRecorded() throws Exception {
         JavaMailSender mailSender = org.mockito.Mockito.mock(JavaMailSender.class);
         when(mailSender.createMimeMessage()).thenAnswer(invocation -> new JavaMailSenderImpl().createMimeMessage());
+        EmailDeliveryService service = emailDeliveryService(mailSender);
+
+        service.sendEmail("user@example.com", "Тема", "Текст", NotificationEvent.NEW_TICKET);
+
+        observationRegistry.assertThat().hasObservationWithNameEqualTo("mail.send").that().hasBeenStarted().hasBeenStopped()
+                .hasLowCardinalityKeyValue("operation", "send").hasLowCardinalityKeyValue("event", "NEW_TICKET");
+        assertNoForbiddenLowCardinalityKeys();
+    }
+
+    @Test
+    @DisplayName("mail.send: ошибка SMTP → наблюдение остановлено с outcome=error (результат наблюдения, obs.md, шаг 9)")
+    void mailSendFailureSetsOutcomeError() throws Exception {
+        JavaMailSender mailSender = org.mockito.Mockito.mock(JavaMailSender.class);
+        when(mailSender.createMimeMessage()).thenAnswer(invocation -> new JavaMailSenderImpl().createMimeMessage());
+        org.mockito.Mockito.doThrow(new MailSendException("Connection refused")).when(mailSender).send(any(MimeMessage.class));
+        EmailDeliveryService service = emailDeliveryService(mailSender);
+
+        assertThatThrownBy(() -> service.sendEmail("user@example.com", "Тема", "Текст", NotificationEvent.NEW_TICKET))
+                .isInstanceOf(MailSendException.class);
+
+        observationRegistry.assertThat().hasObservationWithNameEqualTo("mail.send").that().hasBeenStarted().hasBeenStopped()
+                .hasLowCardinalityKeyValue("operation", "send").hasLowCardinalityKeyValue("outcome", "error");
+        assertNoForbiddenLowCardinalityKeys();
+    }
+
+    private EmailDeliveryService emailDeliveryService(JavaMailSender mailSender) {
         EmailPolicyService emailPolicyService = org.mockito.Mockito.mock(EmailPolicyService.class);
         when(emailPolicyService.isStopList(any(), any())).thenReturn(false);
         EmailLogService emailLogService = org.mockito.Mockito.mock(EmailLogService.class);
@@ -148,16 +179,9 @@ class ManualObservationTest {
         RateLimitProperties rateLimitProperties = new RateLimitProperties();
         rateLimitProperties.setLimits(Map.of("email-recovery", new RateLimitProperties.Limit(3, 86400)));
 
-        EmailDeliveryService service = new EmailDeliveryService(mailSender,
-                org.mockito.Mockito.mock(com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService.class), emailProperties,
-                emailPolicyService, org.mockito.Mockito.mock(CurrentUserProvider.class), emailLogService, rateLimitProperties,
-                emailTemplates, observationRegistry, new BusinessMetrics(new SimpleMeterRegistry()));
-
-        service.sendEmail("user@example.com", "Тема", "Текст", NotificationEvent.NEW_TICKET);
-
-        observationRegistry.assertThat().hasObservationWithNameEqualTo("mail.send").that().hasBeenStarted().hasBeenStopped()
-                .hasLowCardinalityKeyValue("operation", "send").hasLowCardinalityKeyValue("event", "NEW_TICKET");
-        assertNoForbiddenLowCardinalityKeys();
+        return new EmailDeliveryService(mailSender, org.mockito.Mockito.mock(UserDomainService.class), emailProperties, emailPolicyService,
+                org.mockito.Mockito.mock(CurrentUserProvider.class), emailLogService, rateLimitProperties, emailTemplates,
+                observationRegistry, new BusinessMetrics(new SimpleMeterRegistry()));
     }
 
     /** Запрещённые ключи (obs.md): id, email и прочие ПДн не должны жить в low-cardinality тегах. */
