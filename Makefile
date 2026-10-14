@@ -23,7 +23,7 @@ COMPOSE_OBSERVABILITY ?= docker compose -f infrastructure/docker-compose.yaml -f
 .PHONY: help build clean compile package test verify format check run \
         dev-run dev-test \
         env docker-build up up-prod up-sharding up-load down down-sharding down-volumes logs ps restart shell check-image \
-        obs-up obs-down obs-open \
+        obs-up obs-down obs-open obs-reload obs-alerts \
         load load-smoke \
         migrate migrate-shard-0 migrate-shard-1 migrate-shard \
         openapi openapi-types \
@@ -94,7 +94,7 @@ down-sharding: ## Остановить стек с шардированием (�
 down-volumes: ## Остановить стек и удалить тома (данные БД/MinIO)
 	$(COMPOSE_DEV) down -v
 
-## --- Наблюдаемость (obs.md, шаги 10–11: Prometheus/Grafana/Tempo/Collector/Loki/Alloy) ---
+## --- Наблюдаемость (audit/obs.md; подробности: docs/observability/README.md) ---
 
 obs-up: env ## Поднять стек + наблюдаемость (Grafana: http://localhost:3001, Prometheus: :9090)
 	@set -a && . infrastructure/.env && set +a && \
@@ -113,6 +113,12 @@ obs-down: ## Остановить стек с наблюдаемостью (то
 
 obs-open: ## Открыть Grafana в браузере (нужен obs-up; порт GRAFANA_PORT, дефолт 3001)
 	@xdg-open http://localhost:3001 >/dev/null 2>&1 || open http://localhost:3001 >/dev/null 2>&1 || echo "Grafana: http://localhost:3001"
+
+obs-reload: ## Горячая перезагрузка правил Prometheus (нужен obs-up; alerts.yml)
+	curl -sf -X POST localhost:9090/-/reload && echo "Правила перезагружены"
+
+obs-alerts: ## Текущие состояния алертов Prometheus (нужен obs-up)
+	curl -s localhost:9090/api/v1/alerts | grep -oE '"alertname":"[^"]+"|"state":"[^"]+"' | paste - - || echo "Prometheus недоступен"
 
 logs: ## Логи приложения (follow)
 	$(COMPOSE_DEV) logs -f app
