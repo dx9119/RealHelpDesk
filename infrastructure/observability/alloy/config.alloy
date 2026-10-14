@@ -1,0 +1,50 @@
+// Alloy (obs.md, шаг 11): сбор логов приложения из docker json-file → Loki.
+// Наследник Promtail: тянет только контейнер сервиса app (фильтр по compose-метке),
+// чтобы postgres/prometheus/k6 не засоряли индекс. Логи приложения — текстовый паттерн
+// logback-spring.xml c колонками traceId/spanId (шаг 7), поэтому ссылка на трейс в Grafana
+// строится регуляркой по 32-символьному traceId.
+//
+// Важно: discovery.docker отдаёт метки вида __meta_docker_* — без relabel_rules они не
+// становятся stream-метками Loki (логи приходят как unknown_service без container).
+
+logging {
+  level = "info"
+}
+
+discovery.docker "containers" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+
+  filter {
+    name   = "label"
+    values = ["com.docker.compose.service=app"]
+  }
+}
+
+discovery.relabel "containers" {
+  targets = []
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "container_label_com_docker_compose_service"
+  }
+}
+
+loki.source.docker "containers" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.docker.containers.targets
+  relabel_rules = discovery.relabel.containers.rules
+  forward_to    = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

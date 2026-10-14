@@ -23,7 +23,7 @@ COMPOSE_OBSERVABILITY ?= docker compose -f infrastructure/docker-compose.yaml -f
 .PHONY: help build clean compile package test verify format check run \
         dev-run dev-test \
         env docker-build up up-prod up-sharding up-load down down-sharding down-volumes logs ps restart shell check-image \
-        up-observability down-observability \
+        obs-up obs-down obs-open \
         load load-smoke \
         migrate migrate-shard-0 migrate-shard-1 migrate-shard \
         openapi openapi-types \
@@ -94,9 +94,9 @@ down-sharding: ## Остановить стек с шардированием (�
 down-volumes: ## Остановить стек и удалить тома (данные БД/MinIO)
 	$(COMPOSE_DEV) down -v
 
-## --- Наблюдаемость (obs.md: Prometheus; шаг 11 добавит Grafana/Collector) ---
+## --- Наблюдаемость (obs.md, шаги 10–11: Prometheus/Grafana/Tempo/Collector/Loki/Alloy) ---
 
-up-observability: env ## Поднять локальный стек + Prometheus (UI: http://localhost:9090)
+obs-up: env ## Поднять стек + наблюдаемость (Grafana: http://localhost:3001, Prometheus: :9090)
 	@set -a && . infrastructure/.env && set +a && \
 	METRICS_USER=$$(sed -n 's/^METRICS_USER=//p' scripts/docker/stack.env) && \
 	test -n "$$METRICS_USER" -a -n "$$METRICS_PASSWORD" || \
@@ -108,8 +108,11 @@ up-observability: env ## Поднять локальный стек + Prometheus
 	          infrastructure/observability/prometheus/secrets/metrics_password
 	$(COMPOSE_OBSERVABILITY) up --build -d
 
-down-observability: ## Остановить стек с Prometheus (томы целы)
+obs-down: ## Остановить стек с наблюдаемостью (томы целы)
 	$(COMPOSE_OBSERVABILITY) down
+
+obs-open: ## Открыть Grafana в браузере (нужен obs-up; порт GRAFANA_PORT, дефолт 3001)
+	@xdg-open http://localhost:3001 >/dev/null 2>&1 || open http://localhost:3001 >/dev/null 2>&1 || echo "Grafana: http://localhost:3001"
 
 logs: ## Логи приложения (follow)
 	$(COMPOSE_DEV) logs -f app

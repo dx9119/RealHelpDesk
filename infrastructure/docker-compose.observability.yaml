@@ -1,11 +1,20 @@
-# Оверлей наблюдаемости: Prometheus со скрейпом управляющего порта приложения.
-# Подключается после базы + override (make up-observability):
+# Оверлей наблюдаемости (obs.md, шаги 10–11): Prometheus, Grafana, Tempo, OTel Collector, Loki, Alloy.
+# Подключается после базы + override (make obs-up):
 #   docker-compose.yaml + docker-compose.override.yaml + docker-compose.observability.yaml
 # Для нагрузочного прогона вместе с метриками — добавьте fourth файл
 # docker-compose.load.yaml (TRUST_PROXY_HEADERS для k6).
-# В этот же файл на шаге 11 obs.md добавятся Grafana, OTel Collector и Tempo.
+#
+# Топология: приложение шлёт трейсы OTLP → otel-collector → tempo; логи (stdout json-file
+# приложения) тянет alloy → loki; prometheus скрейпит управляющий порт app:8081;
+# grafana прокидывает datasources через provisioning (см. observability/grafana/).
 
 services:
+  # Приложение в этом стеке шлёт трейсы в collector (OTLP/HTTP — дефолтный
+  # протокол экспорта Spring Boot; endpoint передаётся как полный URL с /v1/traces).
+  app:
+    environment:
+      OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
+
   prometheus:
     # Версия закреплена: обновление — осознанная правка с ревью, не latest.
     image: prom/prometheus:v3.15.0
@@ -17,7 +26,7 @@ services:
       - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       # Креды скрейпа (username_file/password_file): Prometheus не умеет
       # env-подстановку в конфиге, пароль поэтому не через environment, а файлом.
-      # Каталог генерирует make up-observability из infrastructure/.env;
+      # Каталог генерирует make obs-up из infrastructure/.env;
       # без него Prometheus упадёт с «password_file ... does not exist».
       - ./observability/prometheus/secrets:/etc/prometheus/secrets:ro
       - prometheus_data:/prometheus
@@ -39,5 +48,123 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  otel-collector:
+    # Версия закреплена; конфиг — OTLP → batch → Tempo (см. observability/otel-collector/).
+    image: otel/opentelemetry-collector-contrib:0.162.0
+    mem_limit: 256m
+    volumes:
+      - ./observability/otel-collector/config.yaml:/etc/otelcol/config.yaml:ro
+    command: ["--config=/etc/otelcol/config.yaml"]
+    depends_on:
+      - tempo
+    restart: unless-stopped
+    networks:
+      - backend
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  tempo:
+    # Хранилище трейсов (filesystem + WAL); retention 48h задан в tempo.yaml.
+    image: grafana/tempo:2.8.0
+    mem_limit: 512m
+    ports:
+      # Только loopback, для отладки (/ready, поиск trace по API).
+      - "127.0.0.1:3200:3200"
+    volumes:
+      - ./observability/tempo/tempo.yaml:/etc/tempo/config.yaml:ro
+      - tempo_data:/var/tempo
+    command: ["-config.file=/etc/tempo/config.yaml"]
+    restart: unless-stopped
+    networks:
+      - backend
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  loki:
+    # Single-binary, filesystem-хранилище; слушает только внутреннюю сеть + loopback.
+    # root: образ Loki по умолчанию идёт под nobody и не может создать /var/loki/{chunks,rules}
+    # в новом volume; локальный dev-стенд, сеть loopback.
+    image: grafana/loki:3.5.0
+    user: "0:0"
+    mem_limit: 256m
+    ports:
+      # Только loopback, для отладки (/ready, query_range).
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - ./observability/loki/loki.yaml:/etc/loki/local-config.yaml:ro
+      - loki_data:/var/loki
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    restart: unless-stopped
+    networks:
+      - backend
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  alloy:
+    # Сбор логов приложения (docker json-file, фильтр compose-метки service=app) → Loki.
+    # root нужен для доступа к /var/run/docker.sock — локальный dev-стенд, сеть loopback.
+    image: grafana/alloy:v1.12.2
+    user: "0:0"
+    mem_limit: 128m
+    volumes:
+      - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy_data:/var/lib/alloy
+    command: ["run", "--storage.path=/var/lib/alloy", "/etc/alloy/config.alloy"]
+    depends_on:
+      - loki
+    restart: unless-stopped
+    networks:
+      - backend
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  grafana:
+    # UI наблюдаемости: datasources и dashboards provisioning (observability/grafana/).
+    image: grafana/grafana:12.4.13
+    mem_limit: 256m
+    ports:
+      # Только loopback. 3001, а не 3000: 3000 обычно занят dev-сервером фронтенда.
+      - "127.0.0.1:${GRAFANA_PORT:-3001}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-admin}"
+      # Пароль администратора — секрет infrastructure/.env (задайте GRAFANA_ADMIN_PASSWORD).
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-admin}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      # Anonymous off: дашборды приватны, вход — админом из .env.
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - tempo
+      - loki
+    restart: unless-stopped
+    networks:
+      - backend
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
 volumes:
   prometheus_data:
+  tempo_data:
+  loki_data:
+  grafana_data:
+  alloy_data:
