@@ -51,9 +51,10 @@ com.ukhanov.realhelpdesk
 | 2 | `make up` | Сборка образа и запуск всего стека в фоне (`docker compose up --build -d`) |
 | 3 | `make dev-run` | Dev-среда в foreground: логи всех сервисов, `Ctrl+C` — стоп |
 
-API — `https://localhost:8443`. Вспомогательные сервисы: smtp4dev
-(`http://localhost:3000`), PostgreSQL (`127.0.0.1:5432`), MinIO (`127.0.0.1:9000`).
-Полный список команд — `make help`.
+API — `https://localhost:8443`. Вспомогательные сервисы dev-среды (в рабочем
+контуре их нет): smtp4dev — тестовый почтовый ящик (`http://localhost:3000`,
+зачем он нужен — в разделе «Почта»), PostgreSQL (`127.0.0.1:5432`), MinIO
+(`127.0.0.1:9000`). Полный список команд — `make help`.
 
 ## Конфигурация
 
@@ -92,12 +93,52 @@ API — `https://localhost:8443`. Вспомогательные сервисы:
 (SQL-трассировка выключена, миграции включены, тексты исключений скрыты),
 а `ProdPreflightValidator` останавливает старт рабочего контура с
 отладочной конфигурацией (выключенная капча, localhost в CORS,
-самоподписанный keystore):
+самоподписанный keystore, почта на локальном SMTP):
 
 | Профиль | Файл | Что включает |
 |---|---|---|
 | `debug` | `application-debug.properties` | Локальная отладка: DEBUG по приложению, SQL-логи Hibernate без значений параметров |
 | `prod` (по умолчанию) | `application-prod.properties` | Рабочий контур: INFO/WARN, пошаговая трассировка и SQL выключены, инварианты рабочего контура |
+
+### Почта
+
+Почта уходит во внешний SMTP-сервер: встроенного SMTP нет. В dev-среде при
+этом работает smtp4dev — тестовый SMTP-сервис (контейнер `smtp`, UI на
+`http://localhost:3000`), который поднимается только dev-оверлеем
+`infrastructure/docker-compose.override.yaml`; в рабочем контуре его нет.
+
+**Зачем в проекте smtp4dev.** Регистрация, подтверждение email и восстановление
+пароля отправляют письма с кодами, а в dev/e2e их надо прочитать — иначе
+сценарий не пройдёт дальше формы. smtp4dev принимает всё, что шлёт приложение,
+и отдаёт письма через UI и REST API: e2e-скрипты
+(`scripts/e2e-jwt-flow.sh`, `scripts/e2e-portal-transfer.sh`) забирают коды
+сброса и подтверждения именно оттуда. Роли распределены так: в рабочем контуре
+почтой занимается внешний SMTP-сервер, в интеграционных тестах (`mvn verify`) —
+GreenMail, smtp4dev — только dev-среда и e2e-сценарии на ней: он не входит ни
+в prod-compose, ни в образ приложения.
+
+Настройки — `spring.mail.*` из `scripts/docker/stack.env` (для деплоя —
+`stack.prod.env`), пароль — секрет `MAIL_PASSWORD` в `infrastructure/.env`:
+
+| Переменная | Назначение |
+|---|---|
+| `MAIL_PROTOCOL` / `MAIL_HOST` / `MAIL_PORT` | Транспорт и адрес SMTP-сервера. В прод-шаблоне — внешний хост, порт `587`, `SMTP_STARTTLS=true` |
+| `MAIL_USER` / `MAIL_PASSWORD` | Учётная запись SMTP. `MAIL_PASSWORD` — секрет в `infrastructure/.env`; локальному smtp4dev пароль не нужен (тогда `SMTP_AUTH=false`) |
+| `SMTP_AUTH` / `SMTP_STARTTLS` | Аутентификация и STARTTLS; `SMTP_AUTH=true` без `MAIL_USER` — ошибка preflight'а |
+| `MAIL_FROM` | Отправитель писем (`email.from`), например `noreply@example.com` |
+| `MAIL_NOTIFY` | Адрес, куда падают уведомления о заявках (`email.notify`) |
+| `APP_PROJECT_NAME` | Название проекта в письмах |
+
+Таймауты соединения зашиты в схеме приложения (connect 3 с, ответ сервера и
+запись 10 с) — зависший SMTP не держит ни отправку, ни health-проверку.
+
+Контроль в рабочем контуре: `ProdPreflightValidator` не даст стартовать с
+пустым `MAIL_HOST` или наведённым на локальный SMTP (`localhost`,
+`127.0.0.1`, имя контейнера `smtp`), с `MAIL_PORT` вне диапазона 1–65535,
+без `MAIL_FROM` и при `SMTP_AUTH=true` без `MAIL_USER`. Доступность сервера
+отдаёт health-группа `smtp` (`/actuator/health/mail`, рукопожатие без
+письма, кэш 5 с); она сознательно вне readiness — недоступная почта не
+останавливает приём заявок, письма уходят после восстановления.
 
 ### Шардинг PostgreSQL
 

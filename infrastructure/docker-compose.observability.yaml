@@ -1,4 +1,4 @@
-# Оверлей наблюдаемости (obs.md, шаги 10–11): Prometheus, Grafana, Tempo, OTel Collector, Loki, Alloy.
+# Оверлей наблюдаемости: Prometheus, Grafana, Tempo, OTel Collector, Loki, Alloy.
 # Подключается после базы + override (make obs-up):
 #   docker-compose.yaml + docker-compose.override.yaml + docker-compose.observability.yaml
 # Для нагрузочного прогона вместе с метриками — добавьте fourth файл
@@ -24,7 +24,7 @@ services:
       - "127.0.0.1:9090:9090"
     volumes:
       - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      # Правила алертов (obs.md, шаг 12); проверка — promtool check rules.
+      # Правила алертов; проверка — promtool check rules.
       - ./observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       # Креды скрейпа (username_file/password_file): Prometheus не умеет
       # env-подстановку в конфиге, пароль поэтому не через environment, а файлом.
@@ -36,7 +36,7 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
       # lifecycle-режим: перечитать конфиг по POST /-/reload без рестарта
-      # (потребуется для alert-правил, obs.md, шаг 12)
+      # (потребуется для alert-правил)
       - --web.enable-lifecycle
     depends_on:
       app:

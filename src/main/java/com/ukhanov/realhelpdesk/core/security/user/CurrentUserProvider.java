@@ -24,7 +24,7 @@ public class CurrentUserProvider {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null) {
             // Отсутствие аутентификации — штатная ситуация для защиты, а не сбой: отдаём 401
-            // (advice логирует WARN), а не NPE → ERROR со стеком (audit/toLoggingUpdate.md, C3)
+            // (advice логирует WARN), а не NPE → ERROR со стеком
             throw new ApiRuntimeException("Пользователь не авторизован", HttpStatus.UNAUTHORIZED);
         }
 

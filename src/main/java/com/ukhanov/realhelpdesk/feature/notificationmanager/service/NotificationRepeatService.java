@@ -56,7 +56,7 @@ public class NotificationRepeatService {
     @Transactional
     public void repeatDueNotifications() {
         // MDC — thread-local и в фоновом потоке пуст: задаём технический контекст, иначе строки
-        // планировщика уходят с пустыми колонками (audit/toLoggingUpdate.md, §5 п. 6).
+        // планировщика уходят с пустыми колонками.
         MDC.put(LoggingFilter.REQUEST_ID, SCHEDULER_REQUEST_ID);
         MDC.put(LoggingFilter.URI_REQUEST, SCHEDULER_URI);
         try {

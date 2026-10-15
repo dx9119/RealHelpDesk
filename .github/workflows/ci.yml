@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    name: Maven (checkstyle, spotless, test, package)
+    name: Maven (checkstyle, spotless, verify)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,10 +19,8 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
-      - name: Стиль и тесты
-        run: mvn -B spotless:check checkstyle:check test
-      - name: Package (без тестов, они уже прошли)
-        run: mvn -B -DskipTests package
+      - name: Стиль, юнит- и интеграционные тесты
+        run: mvn -B spotless:check checkstyle:check verify
 
   docker:
     name: Образ (hadolint, trivy, gitleaks)

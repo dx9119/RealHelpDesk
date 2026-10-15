@@ -1,4 +1,4 @@
-# Provisioning дашбордов Grafana (obs.md, шаг 11/12): каталог с JSON-дашбордами
+# Provisioning дашбордов Grafana: каталог с JSON-дашбордами
 # монтируется в /varlib/grafana/dashboards; сами дашборды (Service RED, JVM, БД, …)
 # добавляются на шаге 12 в infrastructure/observability/grafana/dashboards.
 apiVersion: 1

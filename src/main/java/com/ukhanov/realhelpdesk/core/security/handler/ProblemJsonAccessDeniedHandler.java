@@ -30,7 +30,7 @@ public class ProblemJsonAccessDeniedHandler implements AccessDeniedHandler {
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response, AccessDeniedException accessDeniedException)
             throws IOException {
-        // Отказы уровня фильтра не доходят до GlobalExceptionHandler — пишем сами (audit/toLoggingUpdate.md, A8)
+        // Отказы уровня фильтра не доходят до GlobalExceptionHandler — пишем сами
         logger.warn("Доступ запрещён: {} {}", request.getMethod(), LogSanitizer.uri(request.getRequestURI()));
         problemResponseWriter.write(response, request, HttpStatus.FORBIDDEN, "Недостаточно прав для выполнения операции");
     }

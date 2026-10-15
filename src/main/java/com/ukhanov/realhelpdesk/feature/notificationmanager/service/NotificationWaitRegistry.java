@@ -55,7 +55,7 @@ public class NotificationWaitRegistry {
         for (Runnable onWake : userWaiters) {
             // Снимок контекста будящего потока: колбэк чистит MDC в finally, поэтому после его сбоя
             // строка WARN ушла бы с пустыми колонками. Восстанавливаем контекст инициатора пробуждения
-            // (поток запроса-публикации или технический id планировщика) — см. audit/toLoggingUpdate.md, §5 п. 5
+            // (поток запроса-публикации или технический id планировщика)
             Map<String, String> wakeContext = MDC.getCopyOfContextMap();
             try {
                 onWake.run();

@@ -1,6 +1,6 @@
 # Бизнес-метрики RealHelpDesk
 
-Метрики шага 8 плана `audit/obs.md`. Источник: `BusinessMetrics` и `TicketsOpenGauge` в `core/observability`. Все series при экспорте получают
+Бизнес-метрики заявок, вложений и писем. Источник: `BusinessMetrics` и `TicketsOpenGauge` в `core/observability`. Все series при экспорте получают
 общие теги `application`, `env`, `instance` из `management.metrics.tags`.
 
 ## Таблица метрик

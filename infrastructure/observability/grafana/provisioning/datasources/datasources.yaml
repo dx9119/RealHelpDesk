@@ -1,4 +1,4 @@
-# Provisioning datasources Grafana (obs.md, шаг 11): Prometheus, Tempo, Loki
+# Provisioning datasources Grafana: Prometheus, Tempo, Loki
 # подключаются автоматически — руками в UI ничего добавлять не нужно.
 # Связи: Tempo → Loki (tracesToLogs по traceId), Loki → Tempo (derived-поле TraceID),
 # Tempo → Prometheus (serviceMap для карты зависимостей).

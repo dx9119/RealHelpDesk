@@ -55,8 +55,8 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.tck.TestObservationRegistry;
 
 /**
- * Ручные Observation (obs.md, шаг 6): имена наблюдений на границах (ticket.create, attachment.upload, mail.send), low-cardinality теги и
- * отсутствие запрещённых ключей (id, email) в low-cardinality наборе.
+ * Ручные Observation: имена наблюдений на границах (ticket.create, attachment.upload, mail.send), low-cardinality теги и отсутствие
+ * запрещённых ключей (id, email) в low-cardinality наборе.
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -154,7 +154,7 @@ class ManualObservationTest {
     }
 
     @Test
-    @DisplayName("mail.send: ошибка SMTP → наблюдение остановлено с outcome=error (результат наблюдения, obs.md, шаг 9)")
+    @DisplayName("mail.send: ошибка SMTP → наблюдение остановлено с outcome=error (результат наблюдения)")
     void mailSendFailureSetsOutcomeError() throws Exception {
         JavaMailSender mailSender = org.mockito.Mockito.mock(JavaMailSender.class);
         when(mailSender.createMimeMessage()).thenAnswer(invocation -> new JavaMailSenderImpl().createMimeMessage());
@@ -184,7 +184,7 @@ class ManualObservationTest {
                 observationRegistry, new BusinessMetrics(new SimpleMeterRegistry()));
     }
 
-    /** Запрещённые ключи (obs.md): id, email и прочие ПДн не должны жить в low-cardinality тегах. */
+    /** Запрещённые ключи: id, email и прочие ПДн не должны жить в low-cardinality тегах. */
     private void assertNoForbiddenLowCardinalityKeys() {
         observationRegistry.assertThat().hasHandledContextsThatSatisfy(contexts -> {
             for (io.micrometer.observation.Observation.ContextView context : contexts) {

@@ -1,7 +1,6 @@
 # Наблюдаемость RealHelpDesk
 
-Руководство по метрикам, трейсам и логам: архитектура, правила, отладка. План внедрения — `audit/obs.md`
-(шаги 1–14 выполнены).
+Руководство по метрикам, трейсам и логам: архитектура, правила, отладка.
 
 ## Архитектура
 
@@ -101,7 +100,7 @@ curl -s localhost:9090/api/v1/alerts
 Алгоритм: сработал алерт → открыть runbook → выполнить диагностические шаги → устранить причину →
 закрыть инцидент с заметкой в runbook, если шагов не хватило.
 
-## Итоги внедрения (audit/obs.md, шаги 1–14)
+## Итоги внедрения
 
 ### Что внедрено
 
@@ -113,7 +112,7 @@ curl -s localhost:9090/api/v1/alerts
   дашборд «RealHelpDesk — Обзор» (23 панели); 8 алертов, 8 runbooks, 3 SLO.
 - Тесты: `HttpObservabilityTest`, `DbObservabilityTest`, `ObservabilityConfigurationTest`,
   `ActuatorSecurityTest`, `LogCorrelationAndMaskingTest`, `ObservabilityContextTest`,
-  `TracingSmokeTest`; всего 539 (`mvn verify`).
+  `TracingSmokeIT`; всего 569 (`mvn verify`), юнит-часть — 544 (`mvn test`).
 - Финальные испытания на живом стеке: load-smoke k6 (317 запросов, 100% checks, все пороги
   в допуске), бизнес-метрики в Prometheus после трафика, сквозная цепочка
   лог → Loki → Tempo по traceId (6 спанов на запрос), 8/8 правил алертов загружены.
@@ -124,7 +123,7 @@ curl -s localhost:9090/api/v1/alerts
 - **Tail sampling** — включён как прод-пример (`otel-collector/config-prod.yaml`), локально
   probability-сэмплинг.
 - **JSON-логи** — сохранён текстовый паттерн (Loki парсит его regex-ом в derived-поле).
-- **Профилирование** (JFR/async-profiler) и **burn-rate алерты по SLO** — вне рамок obs.md.
+- **Профилирование** (JFR/async-profiler) и **burn-rate алерты по SLO** — не внедрялись.
 
 ### Известные ограничения (совместимость с Boot 4)
 
@@ -133,7 +132,7 @@ curl -s localhost:9090/api/v1/alerts
 - `Observation.Context.getParent()` отсутствует — parent доступен как `getParentObservation()`
   (`ObservationView`).
 - В тестовом профиле `management.opentelemetry.enabled=false`: дерево наблюдений проверяется
-  статическим `ObservationHandler`-коллектором (`TracingSmokeTest`), реальный OTLP-экспорт — только
+  статическим `ObservationHandler`-коллектором (`TracingSmokeIT`), реальный OTLP-экспорт — только
   в `obs-up`-контуре.
 - `promtool` не принимает `vector(hour())` — фильтры рабочего времени заданы цепочкой
   `hour() >= 9 < 18`.

@@ -18,7 +18,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 
 /**
- * Бизнес-метрики заявок, вложений и писем (obs.md, шаг 8).
+ * Бизнес-метрики заявок, вложений и писем.
  *
  * <p>
  * Инкремент идёт сразу после успешного коммита доменной операции: {@code saveTicket}/{@code saveMessage}/{@code saveAttachment}

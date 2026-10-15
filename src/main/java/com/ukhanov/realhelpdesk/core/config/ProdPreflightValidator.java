@@ -16,14 +16,16 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
+import org.springframework.util.PlaceholderResolutionException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Prod-preflight (infraReview.md, п. 3): при профиле {@code prod} старт валится, если рабочий контур собран с отладочными значениями —
- * выключенная капча, {@code SameSite=None} без домена cookie, {@code localhost} в CORS, отключённые миграции или самоподписанный keystore
- * {@code CN=localhost}. Приём повторяет закрепление {@code ddl-auto=validate}: опасная конфигурация не может «тихо» доехать до прода.
+ * Prod-preflight: при профиле {@code prod} старт валится, если рабочий контур собран с отладочными значениями — выключенная капча,
+ * {@code SameSite=None} без домена cookie, {@code localhost} в CORS, отключённые миграции, самоподписанный keystore {@code CN=localhost}
+ * или почта, наведённая на локальный SMTP dev-стека. Приём повторяет закрепление {@code ddl-auto=validate}: опасная конфигурация не может
+ * «тихо» доехать до прода.
  *
  * <p>
  * Проверки читают финальный {@link Environment} (env-файлы + profile-файлы), то есть ловят и забытый override, и подмену в
@@ -37,6 +39,12 @@ import lombok.extern.slf4j.Slf4j;
 public class ProdPreflightValidator {
 
     private static final String LOCALHOST = "localhost";
+
+    /** Имя контейнера smtp4dev в dev-сети compose (MAIL_HOST=smtp): рабочему контуру нужен внешний почтовый сервер. */
+    private static final String LOCAL_SMTP_SERVICE = "smtp";
+
+    /** Незаданная env-подстановка остаётся в Environment строкой вида {@code ${MAIL_HOST}} — отправлять письма ей нельзя. */
+    private static final String UNRESOLVED_PLACEHOLDER = "${";
 
     private final Environment env;
 
@@ -63,16 +71,68 @@ public class ProdPreflightValidator {
             violations.add("spring.liquibase.enabled=false — миграции схемы в рабочем контуре обязательны");
         }
 
+        checkMail(violations);
+
         checkKeystoreCommonName(violations);
 
         if (!violations.isEmpty()) {
             throw new IllegalStateException(
                     "Prod-preflight: рабочий контур запущен с небезопасной конфигурацией:\n - " + String.join("\n - ", violations));
         }
-        logger.info("Prod-preflight пройден: капча включена, миграции обязательны, keystore не самоподписанный CN=localhost");
+        logger.info("Prod-preflight пройден: капча включена, миграции обязательны, keystore не самоподписанный, почта на внешнем SMTP");
     }
 
-    /** Самоподписанный keystore {@code CN=localhost} генерирует entrypoint для отладки — в проде он недопустим (infraReview.md, п. 4). */
+    /**
+     * Почта рабочего контура: хост задан и не указывает на локальный SMTP dev-стека, порт — число 1–65535, отправитель похож на адрес, а
+     * при включённой аутентификации задан и пользователь. Незаданный {@code MAIL_*} валит чтение свойства плейсхолдером —
+     * {@link #property(String)} превращает это в пустое значение, чтобы ошибка попала в список нарушений, а не упала исключением.
+     */
+    private void checkMail(List<String> violations) {
+        String host = property("spring.mail.host");
+        if (isUnset(host)) {
+            violations.add("spring.mail.host (MAIL_HOST) не задан — письма отправляться не будут");
+        } else if (LOCALHOST.equalsIgnoreCase(host) || host.contains("127.0.0.1") || LOCAL_SMTP_SERVICE.equalsIgnoreCase(host)) {
+            violations.add("spring.mail.host=" + host + " — это локальный SMTP dev-стека, рабочему контуру нужен внешний почтовый сервер");
+        }
+
+        String port = property("spring.mail.port");
+        if (isUnset(port) || !isValidPort(port)) {
+            violations.add("spring.mail.port (MAIL_PORT) должен быть числом 1–65535, сейчас: " + port);
+        }
+
+        String from = property("email.from");
+        if (isUnset(from) || !from.contains("@")) {
+            violations.add("email.from (MAIL_FROM) не задан или не похож на адрес, отправитель писем обязателен: " + from);
+        }
+
+        if ("true".equalsIgnoreCase(property("spring.mail.properties.mail.smtp.auth")) && property("spring.mail.username").isBlank()) {
+            violations.add("SMTP_AUTH=true, но spring.mail.username (MAIL_USER) пуст — аутентификация на SMTP упадёт");
+        }
+    }
+
+    /** Читает свойство, подавляя {@link PlaceholderResolutionException}: незаданная env-подстановка читается как пустое значение. */
+    private String property(String key) {
+        try {
+            return env.getProperty(key, "");
+        } catch (PlaceholderResolutionException e) {
+            return "";
+        }
+    }
+
+    private boolean isUnset(String value) {
+        return value.isBlank() || value.contains(UNRESOLVED_PLACEHOLDER);
+    }
+
+    private boolean isValidPort(String port) {
+        try {
+            int number = Integer.parseInt(port.trim());
+            return number >= 1 && number <= 65535;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    /** Самоподписанный keystore {@code CN=localhost} генерирует entrypoint для отладки — в проде он недопустим. */
     private void checkKeystoreCommonName(List<String> violations) {
         String location = env.getProperty("server.ssl.key-store", "");
         String alias = env.getProperty("server.ssl.key-alias", "");

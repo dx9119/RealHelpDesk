@@ -15,7 +15,7 @@ import java.util.regex.Pattern;
  *
  * <p>
  * {@link #email(String)} и {@link #emails(String)} маскируют адреса (первый символ локальной части + *** + домен): полный email в логах —
- * ПДн (obs.md, шаг 7).
+ * ПДн.
  * </p>
  */
 public final class LogSanitizer {

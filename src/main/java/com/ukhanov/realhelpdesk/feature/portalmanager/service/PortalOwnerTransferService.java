@@ -421,7 +421,7 @@ public class PortalOwnerTransferService {
             return portalDomainService.getPortalById(portalId);
         } catch (PortalException e) {
             // Портала нет — для ответа о передаче это ожидаемо. Всё остальное (например, сбой БД)
-            // должно падать громко, а не превращаться в portal=null (audit/toLoggingUpdate.md, A6).
+            // должно падать громко, а не превращаться в portal=null.
             logger.warn("Портал {} не найден при сборке ответа о передаче: {}", portalId, e.getMessage());
             return null;
         }

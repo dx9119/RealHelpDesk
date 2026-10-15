@@ -6,7 +6,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 
 /**
- * Счётчик попыток аутентификации {@code auth.attempts} с тегами {@code type} и {@code result} (obs.md, шаг 4).
+ * Счётчик попыток аутентификации {@code auth.attempts} с тегами {@code type} и {@code result}.
  *
  * <p>
  * Значения тегов — конечные списки: type = login/refresh/captcha/password_reset, result = success/failure/locked. Email, имя пользователя и

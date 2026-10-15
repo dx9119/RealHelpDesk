@@ -21,7 +21,7 @@
         </root>
     </springProfile>
 
-    <!-- prod и остальные профили: JSON по ECS (obs.md, шаг 7). MDC уходит полями JSON, service.name/version/
+    <!-- prod и остальные профили: JSON по ECS. MDC уходит полями JSON, service.name/version/
          environment — из logging.structured.ecs.*. Конвертер берёт format из системного свойства
          CONSOLE_LOG_STRUCTURED_FORMAT (logging.structured.format.console=ecs в application-prod.properties),
          без него — ecs по умолчанию. clientIp из JSON исключён в application-prod.properties. -->

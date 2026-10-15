@@ -1,4 +1,4 @@
-# OTel Collector (obs.md, шаг 11): OTLP-приёмник → batch → Tempo.
+# OTel Collector: OTLP-приёмник → batch → Tempo.
 # Приложение шлёт трейсы на OTLP_TRACING_ENDPOINT (в оверлее — http://otel-collector:4317).
 # Сэмплинг по умолчанию — только приём и батчинг: доля запросов решается management.tracing.sampling
 # в приложении. Прод-пример с хвостовым сэмплингом (ошибки и медленные трейсы целиком, остальное 10%)

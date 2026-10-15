@@ -14,4 +14,4 @@
 - [ ] Логи с контекстом (uri, role, traceId/spanId из паттерна) без ПДн в теле
 - [ ] Для критичного пути добавлен/обновлён алерт (`infrastructure/observability/prometheus/alerts.yml` + runbook)
 - [ ] Сводный дашборд (`realhelpdesk-overview`) обновлён при появлении новых показателей
-- [ ] Тест на метрику/Observation (SimpleMeterRegistry или `TracingSmokeTest`-подход)
+- [ ] Тест на метрику/Observation (SimpleMeterRegistry или `TracingSmokeIT`-подход)

@@ -1,4 +1,4 @@
-# Правила алертов Prometheus (obs.md, шаг 12).
+# Правила алертов Prometheus.
 #
 # Каждый алерт: severity, summary, description, runbook_url → docs/runbooks/<name>.md.
 # Имена метрик — канонические из docs/observability/metrics.md (Boot 4:
@@ -10,7 +10,7 @@ groups:
   - name: realhelpdesk-api
     rules:
       - alert: ApiHighErrorRate
-        # obs.md: error rate 5xx > 2% в течение 5 минут.
+        # Порог: error rate 5xx > 2% в течение 5 минут.
         expr: |
           (
             sum by (instance) (rate(http_server_requests_seconds_count{status=~"5.."}[5m]))
@@ -26,7 +26,7 @@ groups:
           runbook_url: "https://github.com/anomalyco/RealHelpDesk/blob/feat/observability/docs/runbooks/api-high-error-rate.md"
 
       - alert: ApiHighLatencyP99
-        # obs.md: p99 latency > SLO в течение 10 минут. SLO p99 ≤ 500 мс — docs/observability/slo.md.
+        # Порог: p99 latency > SLO в течение 10 минут. SLO p99 ≤ 500 мс — docs/observability/slo.md.
         expr: |
           histogram_quantile(
             0.99,
@@ -63,7 +63,7 @@ groups:
   - name: realhelpdesk-jvm
     rules:
       - alert: JvmHeapHigh
-        # obs.md: JVM heap > 90% в течение 10 минут.
+        # Порог: JVM heap > 90% в течение 10 минут.
         expr: |
           (
             sum by (instance) (jvm_memory_used_bytes{area="heap"})
@@ -106,7 +106,7 @@ groups:
           runbook_url: "https://github.com/anomalyco/RealHelpDesk/blob/feat/observability/docs/runbooks/app-unreachable.md"
 
       - alert: NoNewTickets
-        # Осторожный порог (obs.md): нет новых заявок при рабочем трафике.
+        # Осторожный порог: нет новых заявок при рабочем трафике.
         # Часовой пояс hour()/day_of_week() — UTC; 9–18 UTC ≈ рабочий день MSK
         # с поправкой (см. runbook, как перенастроить).
         expr: |
@@ -126,7 +126,7 @@ groups:
   - name: realhelpdesk-security
     rules:
       - alert: AuthFailuresSpike
-        # obs.md: рост auth.attempts{result=failure} — возможный перебор паролей.
+        # Порог: рост auth.attempts{result=failure} — возможный перебор паролей.
         expr: |
           sum by (instance) (rate(auth_attempts_total{result="failure"}[5m])) > 0.1
         for: 5m

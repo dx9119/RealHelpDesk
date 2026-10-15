@@ -36,7 +36,7 @@ public class GenTokenService {
         Instant expiry = dateNow.plusSeconds(jwtConfig.getAccessTokenExp() * 60L);
 
         // jti гарантирует уникальность: два токена, выданные в одну секунду, иначе байт-в-байт одинаковы.
-        // Значение токена в лог не идёт — след выпуска оставляем по userId и jti (audit/toLoggingUpdate.md, B8)
+        // Значение токена в лог не идёт — след выпуска оставляем по userId и jti
         String jti = UUID.randomUUID().toString();
         String token = Jwts.builder().issuer(jwtConfig.getIssuer()).subject(securityUser.getId()).id(jti).expiration(Date.from(expiry))
                 .issuedAt(Date.from(dateNow)).claim(JwtClaims.TYPE, JwtClaims.TYPE_ACCESS)
@@ -56,7 +56,7 @@ public class GenTokenService {
         Instant expiry = now.plusSeconds(jwtConfig.getRefreshExpiration() * 60L);
 
         // Уникальный id обязателен: в БД хеш токена хранится с unique-ограничением.
-        // В лог — только userId и jti, сам токен и его хешь не пишем (audit/toLoggingUpdate.md, B8)
+        // В лог — только userId и jti, сам токен и его хешь не пишем
         String jti = UUID.randomUUID().toString();
         String token = Jwts.builder().issuer(jwtConfig.getIssuer()).subject(securityUser.getId()).id(jti).audience()
                 .add(jwtConfig.getAudience()).and().expiration(Date.from(expiry)).issuedAt(Date.from(now))

@@ -18,9 +18,8 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * obs.md, шаг 7: в строках лога запроса есть корреляция traceId/spanId из живого OTel SDK, а ПДн (email, пароль) в лог не попадает — только
- * маскированный вид. Включённый management.opentelemetry.enabled не создаёт экспортеров: endpoint в тестовом classpath не задан, спаны
- * никуда не уходят.
+ * В строках лога запроса есть корреляция traceId/spanId из живого OTel SDK, а ПДн (email, пароль) в лог не попадает — только маскированный
+ * вид. Включённый management.opentelemetry.enabled не создаёт экспортеров: endpoint в тестовом classpath не задан, спаны никуда не уходят.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {"spring.profiles.active=test",
         "management.opentelemetry.enabled=true", "management.tracing.sampling.probability=1.0",

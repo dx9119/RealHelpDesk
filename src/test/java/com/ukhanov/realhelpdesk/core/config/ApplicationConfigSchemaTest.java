@@ -41,43 +41,43 @@ class ApplicationConfigSchemaTest {
     private static final Pattern SCHEMA_VARIABLE = Pattern.compile("\\$\\{([A-Z_][A-Z0-9_]*)}");
 
     /**
-     * Ключи, которым позволено содержать литерал (infraReview.md, §7): {@code spring.config.import} подключает
-     * application-domains.properties — значение это адрес файла, а не переменная окружения. {@code spring.jpa.hibernate.ddl-auto} закреплён
-     * в коде (validate): режим, изменяющий схему, нельзя оставить на откуп окружения — им управляют только миграции Liquibase; исключение
-     * отдельно охраняется {@link #ddlAutoIsPinnedToValidateAndNeverDestructive()}. Остальные — константы, одинаковые для всех окружений:
-     * пул Hikari, батчи Hibernate, graceful shutdown и actuator (их меняют правкой файла с ревью, а не подменой env).
+     * Ключи, которым позволено содержать литерал: {@code spring.config.import} подключает application-domains.properties — значение это
+     * адрес файла, а не переменная окружения. {@code spring.jpa.hibernate.ddl-auto} закреплён в коде (validate): режим, изменяющий схему,
+     * нельзя оставить на откуп окружения — им управляют только миграции Liquibase; исключение отдельно охраняется
+     * {@link #ddlAutoIsPinnedToValidateAndNeverDestructive()}. Остальные — константы, одинаковые для всех окружений: пул Hikari, батчи
+     * Hibernate, graceful shutdown и actuator (их меняют правкой файла с ревью, а не подменой env).
      */
     private static final Set<String> NON_SCHEMA_KEYS = Set.of("spring.config.import", "spring.jpa.hibernate.ddl-auto",
             // Пул соединений
             "spring.datasource.hikari.maximum-pool-size", "spring.datasource.hikari.minimum-idle",
             "spring.datasource.hikari.connection-timeout", "spring.datasource.hikari.max-lifetime",
             "spring.datasource.hikari.leak-detection-threshold",
-            // Батчи Hibernate (n1.md)
+            // Батчи Hibernate
             "spring.jpa.properties.hibernate.jdbc.batch_size", "spring.jpa.properties.hibernate.order_inserts",
             "spring.jpa.properties.hibernate.order_updates", "spring.jpa.properties.hibernate.default_batch_fetch_size",
-            // База данных: имя пуля и порог медленных запросов (obs.md, шаг 5)
+            // База данных: имя пуля и порог медленных запросов
             "spring.datasource.hikari.pool-name", "spring.jpa.properties.hibernate.log_slow_query",
             // Корректное завершение (long polling + @Scheduled)
             "server.shutdown", "spring.lifecycle.timeout-per-shutdown-phase", "spring.task.scheduling.shutdown.await-termination",
-            // Трассировка (obs.md, шаг 6)
+            // Трассировка
             "management.tracing.sampling.probability", "management.opentelemetry.resource-attributes.service.name",
             "management.opentelemetry.resource-attributes.service.version",
             "management.opentelemetry.resource-attributes.deployment.environment", "management.opentelemetry.tracing.export.otlp.endpoint",
-            // Actuator / метрики (obs.md, шаги 2–4)
+            // Actuator / метрики
             "management.endpoints.web.exposure.include", "management.endpoint.health.probes.enabled",
             "management.endpoint.health.show-details", "management.endpoint.health.group.liveness.include",
             "management.endpoint.health.group.readiness.include",
             "management.metrics.distribution.percentiles-histogram.http.server.requests",
             "management.metrics.distribution.slo.http.server.requests", "management.prometheus.metrics.export.enabled",
             "management.metrics.tags.application", "management.metrics.tags.env", "management.metrics.web.server.max-uri-tags",
-            // Отключение неиспользуемых семейств метрик (obs.md, шаг 10)
+            // Отключение неиспользуемых семейств метрик
             "management.metrics.enable.tomcat", "management.metrics.enable.hibernate.cache", "management.metrics.enable.hibernate.entities",
             "management.metrics.enable.hibernate.collections", "management.metrics.enable.spring.security.filterchains",
             "management.metrics.enable.spring.security.http.secured.requests", "management.metrics.enable.spring.security.authorizations",
             "management.metrics.enable.spring.data.repository", "management.server.port", "management.server.address",
             "management.server.ssl.enabled", "observability.prometheus.auth.enabled", "observability.prometheus.auth.username",
             "observability.prometheus.auth.password",
-            // Почта: таймауты SMTP и health-группа вне readiness (obs.md, шаг 9)
+            // Почта: таймауты SMTP и health-группа вне readiness
             "spring.mail.properties.mail.smtp.connectiontimeout", "spring.mail.properties.mail.smtp.timeout",
             "spring.mail.properties.mail.smtp.writetimeout", "management.endpoint.health.group.smtp.include");
 

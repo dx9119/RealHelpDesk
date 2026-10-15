@@ -145,7 +145,7 @@ class AttachmentManageServiceTest {
         verify(mockMessageManageService).createMessage(requestCaptor.capture(), eq(TICKET_ID), eq(PORTAL_ID));
         assertThat(requestCaptor.getValue().messageText()).isEqualTo("Вот отчёт");
 
-        // Бизнес-метрики вложений (obs.md, шаг 8): группа contentType, размер в байтах
+        // Бизнес-метрики вложений: группа contentType, размер в байтах
         Counter uploaded = meterRegistry.find("attachments.uploaded").tags("content_type", "application").counter();
         assertThat(uploaded).isNotNull();
         assertThat(uploaded.count()).isEqualTo(1);

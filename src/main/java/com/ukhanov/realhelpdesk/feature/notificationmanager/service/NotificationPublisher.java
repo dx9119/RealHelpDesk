@@ -133,7 +133,7 @@ public class NotificationPublisher {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             // MDC — thread-local, а afterCommit выполняется на потоке коммита (часто — поток чужого
             // HTTP-запроса или планировщика): несём контекст инициатора публикации, иначе логи
-            // пробуждения уходят без requestId (audit/toLoggingUpdate.md, §5)
+            // пробуждения уходят без requestId
             Map<String, String> wakeContext = MDC.getCopyOfContextMap();
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override

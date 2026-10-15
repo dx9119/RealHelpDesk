@@ -55,7 +55,7 @@ public class GetTokenService {
 
     /**
      * Отзыв активных refresh-токенов пользователя bulk-UPDATE одним запросом (а не N селектов + N сохранений): nextStatus — REVOKED при
-     * ротации, PASSWD_CHANGE при смене пароля (audit/n1.md, #9/#10).
+     * ротации, PASSWD_CHANGE при смене пароля.
      */
     @Transactional
     public int revokeActiveRefreshTokens(UserModel user, TokenStatus nextStatus) {

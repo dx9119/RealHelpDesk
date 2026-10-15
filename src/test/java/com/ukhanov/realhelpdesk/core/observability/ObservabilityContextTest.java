@@ -21,9 +21,9 @@ import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.tracing.Tracer;
 
 /**
- * Контекст-наблюдаемости (obs.md, шаг 13, п. 1, 2 и 6): приложение в тестовом профиле стартует с инфраструктурой tracing и prometheus —
- * бины ObservationRegistry/MeterRegistry/Tracer на месте, OTLP-экспорт отключён (тесты не требуют collector'а), а обязательные метрики
- * после обычного запроса видны в реестре.
+ * Контекст-наблюдаемости: приложение в тестовом профиле стартует с инфраструктурой tracing и prometheus — бины
+ * ObservationRegistry/MeterRegistry/Tracer на месте, OTLP-экспорт отключён (тесты не требуют collector'а), а обязательные метрики после
+ * обычного запроса видны в реестре.
  *
  * <p>
  * Проверка actuator-безопасности и контракта скрейпа живёт в ActuatorSecurityTest (шаг 3), метрики БД — в DbObservabilityTest; здесь —

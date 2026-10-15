@@ -2,7 +2,7 @@
 <!--
     Логи тестов: тот же формат, что в logback-spring.xml, но без springProfile.
     logback-spring.xml подхватывает только Spring Boot, поэтому чистые unit-тесты оставались
-    на дефолтной конфигурации Logback (root DEBUG в консоль). См. audit/toLoggingUpdate.md §7 п. 3.
+    на дефолтной конфигурации Logback (root DEBUG в консоль).
 -->
 <configuration>
 

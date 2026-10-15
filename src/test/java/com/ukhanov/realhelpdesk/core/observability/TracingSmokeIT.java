@@ -36,10 +36,10 @@ import io.micrometer.observation.ObservationHandler;
 import io.micrometer.observation.ObservationRegistry;
 
 /**
- * Smoke-тест трейсинга (obs.md, шаг 13, п. 5): HTTP-запрос порождает дерево наблюдений с общим корнем — корневой спан http.server.requests
- * и дочерние спаны сервисного слоя (mail.send при регистрации). OTel SDK включён (management.opentelemetry.enabled=true, sampling 1.0):
- * спаны строятся реальным мостом micrometer-tracing, экспорта нет — поэтому тест не требует OTLP collector'а. Регистрация идёт через
- * реальный SMTP (GreenMail), капча отключена свойством.
+ * Интеграционный smoke-тест трейсинга: HTTP-запрос порождает дерево наблюдений с общим корнем — корневой спан http.server.requests и
+ * дочерние спаны сервисного слоя (mail.send при регистрации). OTel SDK включён (management.opentelemetry.enabled=true, sampling 1.0): спаны
+ * строятся реальным мостом micrometer-tracing, экспорта нет — поэтому тест не требует OTLP collector'а. Регистрация идёт через реальный
+ * SMTP (GreenMail — только в интеграционных тестах, failsafe), капча отключена свойством.
  *
  * <p>
  * Список наблюдений собирает ObservationHandler, добавленный в закэшированный контекст один раз на JVM: реестр наблюдений живёт дольше
@@ -51,7 +51,7 @@ import io.micrometer.observation.ObservationRegistry;
         "email.notify=admin@example.com", "email.from=noreply@example.com", "email.domain=example.com"})
 @ExtendWith(OutputCaptureExtension.class)
 @DisplayName("Tracing smoke: общий traceId и дочерние спаны сервисного слоя")
-class TracingSmokeTest {
+class TracingSmokeIT {
 
     private static final String SERVER_OBSERVATION = "http.server.requests";
 

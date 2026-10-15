@@ -14,8 +14,8 @@ import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 /**
- * MeterFilter'ы защитного слоя (obs.md, шаг 10): deny неиспользуемых метрик, срез опасных тегов и потолок uri-значений. Проверяются на
- * SimpleMeterRegistry без контекста Spring — фильтры применяются в том же порядке, что и бинами в реестре приложения.
+ * MeterFilter'ы защитного слоя: deny неиспользуемых метрик, срез опасных тегов и потолок uri-значений. Проверяются на SimpleMeterRegistry
+ * без контекста Spring — фильтры применяются в том же порядке, что и бинами в реестре приложения.
  */
 @DisplayName("MeterFilter'ы: deny, ignoreTags и потолок uri")
 class ObservabilityConfigurationTest {

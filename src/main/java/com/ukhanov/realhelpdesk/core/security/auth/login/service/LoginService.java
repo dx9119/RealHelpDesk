@@ -55,8 +55,8 @@ public class LoginService {
         }
 
         // Ротация: при каждом входе выдаём свежий refresh-токен (в БД хранится только его хеш).
-        // Успешный вход логируем всегда: раньше строка появлялась только при отзыве старых refresh
-        // (audit/toLoggingUpdate.md, B1), и первый вход после регистрации не оставлял следа.
+        // Успешный вход логируем всегда: раньше строка появлялась только при отзыве старых refresh-токенов,
+        // и первый вход после регистрации не оставлял следа.
         TokensResponse tokens = getTokenService.getNewTokens(user.getOriginalUser());
         logger.info("Вход выполнен, userId={}", userId);
         authMetrics.record(AuthMetrics.TYPE_LOGIN, AuthMetrics.RESULT_SUCCESS);

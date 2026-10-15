@@ -43,7 +43,7 @@ public class WebSecurityConfiguration {
         // только после этого Spring знает его позицию, — затем вставляем фильтры «перед ним»:
         // каждый следующий вызов встаёт непосредственно перед JwtAuthFilter.
         // loggingFilter регистрируем первым из трёх: он должен оборачивать CSRF-проверку, иначе
-        // отказ CSRF (403) уходит в лог без MDC и не попадает в access-лог (audit/toLoggingUpdate.md, A7).
+        // отказ CSRF (403) уходит в лог без MDC и не попадает в access-лог.
         http.addFilterBefore(jwtAuthFilter, BasicAuthenticationFilter.class);
         http.addFilterBefore(loggingFilter, JwtAuthFilter.class);
         http.addFilterBefore(csrfProtectionFilter, JwtAuthFilter.class);

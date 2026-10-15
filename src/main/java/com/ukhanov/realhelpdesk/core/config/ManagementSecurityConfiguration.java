@@ -22,7 +22,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Безопасность управляющего порта (obs.md, шаг 3): actuator живёт на отдельном порту ({@code MANAGEMENT_PORT}), поэтому на основном сервере
+ * Безопасность управляющего порта: actuator живёт на отдельном порту ({@code MANAGEMENT_PORT}), поэтому на основном сервере
  * {@code /actuator/**} не обслуживается, а здесь — свой набор правил, независимый от JWT.
  *
  * <p>

@@ -9,7 +9,7 @@ E2E_DIR ?= scripts
 # Ревизия git для LABEL образа (org.opencontainers.image.revision)
 GIT_SHA ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
 
-# Наборы compose-файлов: база всегда, дальше — только своя (infraReview.md, п. 8).
+# Наборы compose-файлов: база всегда, дальше — только своя.
 # Явные -f отключают автоподхват docker-compose.override.yaml — рабочий стек
 # из override никогда не собирается.
 COMPOSE_DEV ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml
@@ -94,7 +94,7 @@ down-sharding: ## Остановить стек с шардированием (�
 down-volumes: ## Остановить стек и удалить тома (данные БД/MinIO)
 	$(COMPOSE_DEV) down -v
 
-## --- Наблюдаемость (audit/obs.md; подробности: docs/observability/README.md) ---
+## --- Наблюдаемость (подробности: docs/observability/README.md) ---
 
 obs-up: env ## Поднять стек + наблюдаемость (Grafana: http://localhost:3001, Prometheus: :9090)
 	@set -a && . infrastructure/.env && set +a && \

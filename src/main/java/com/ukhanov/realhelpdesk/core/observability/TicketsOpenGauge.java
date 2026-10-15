@@ -17,7 +17,7 @@ import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 
 /**
- * Gauge открытых заявок {@code tickets.open} по статусам (obs.md, шаг 8).
+ * Gauge открытых заявок {@code tickets.open} по статусам.
  *
  * <p>
  * Значения обновляются расписанием раз в 30 секунд count-запросом на статус, а не по запросу scrape — сам скрейп в БД не ходит. Gauge в

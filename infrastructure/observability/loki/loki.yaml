@@ -1,4 +1,4 @@
-# Loki (obs.md, шаг 11): single-binary режим, filesystem-хранилище, без аутентификации —
+# Loki: single-binary режим, filesystem-хранилище, без аутентификации —
 # слушает только внутреннюю сеть compose. Схема v13 (tsdb), индексы по 24 часа.
 # Логи приложения крутятся в docker json-file (stdout) — их тянет Alloy.
 

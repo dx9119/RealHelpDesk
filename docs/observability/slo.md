@@ -1,4 +1,4 @@
-# SLO RealHelpDesk (obs.md, шаг 12)
+# SLO RealHelpDesk
 
 SLO — цели по SLI, измеряемым метриками из `docs/observability/metrics.md`.
 Окно ошибок: скользящие 30 дней. Алерты на бюджет ошибок: `infrastructure/observability/prometheus/alerts.yml`.
@@ -20,7 +20,7 @@ SLO — цели по SLI, измеряемым метриками из `docs/ob
 
 | | |
 |---|---|
-| **SLI** | `ticket.create` (наблюдение сервисного слоя, obs.md шаг 4): p95 |
+| **SLI** | `ticket.create` (наблюдение сервисного слоя): p95 |
 | **Цель** | p95 ≤ 500 мс, p99 ≤ 1 с |
 | **Окно** | 7 дней (операционная, короче бизнес-SLO — быстрее фидбек) |
 | **Сигнал** | Дашборд «ticket.create p95»; косвенно алерт `ApiHighLatencyP99` (HTTP p99 > 500 мс) |

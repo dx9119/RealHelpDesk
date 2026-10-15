@@ -19,7 +19,7 @@ public interface JwtRefreshTokenRepository extends JpaRepository<RefreshTokenMod
     List<RefreshTokenModel> findAllByUserEmailAndStatus(String email, TokenStatus status);
 
     /**
-     * Bulk-отзыв одним UPDATE: вместо N селектов и N сохранений сущностей при ротации или смене пароля (audit/n1.md, #9/#10).
+     * Bulk-отзыв одним UPDATE: вместо N селектов и N сохранений сущностей при ротации или смене пароля.
      */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""

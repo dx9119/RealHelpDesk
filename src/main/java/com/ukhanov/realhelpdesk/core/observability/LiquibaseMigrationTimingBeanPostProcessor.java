@@ -11,9 +11,9 @@ import org.springframework.stereotype.Component;
 import liquibase.integration.spring.SpringLiquibase;
 
 /**
- * Время миграций Liquibase в логах старта (obs.md, шаг 5): Boot запускает миграции в afterPropertiesSet бина {@link SpringLiquibase},
- * поэтому обёртка ставится до инициализации и засекает длительность. Метрика не заводится — по плану, если нет простого способа: миграции
- * выполняются один раз при старте, их место в логах, а не в рантайм-метриках.
+ * Время миграций Liquibase в логах старта: Boot запускает миграции в afterPropertiesSet бина {@link SpringLiquibase}, поэтому обёртка
+ * ставится до инициализации и засекает длительность. Метрика не заводится — по плану, если нет простого способа: миграции выполняются один
+ * раз при старте, их место в логах, а не в рантайм-метриках.
  */
 @Component
 @ConditionalOnClass(SpringLiquibase.class)

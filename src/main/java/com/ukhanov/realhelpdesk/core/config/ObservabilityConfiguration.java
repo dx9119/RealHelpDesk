@@ -19,8 +19,8 @@ import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationPredicate;
 
 /**
- * Защитный слой наблюдаемости (obs.md, шаги 2, 4 и 10): отсекает шум и добавляет тег роли в http.server.requests, ограничивает
- * кардинальность тегов и отключает неиспользуемые метрики.
+ * Защитный слой наблюдаемости: отсекает шум и добавляет тег роли в http.server.requests, ограничивает кардинальность тегов и отключает
+ * неиспользуемые метрики.
  *
  * <p>
  * В Boot 4 свойства {@code management.observations.http.server.requests.ignore-patterns} больше нет, поэтому исключения задаются
@@ -29,9 +29,9 @@ import io.micrometer.observation.ObservationPredicate;
  * </p>
  *
  * <p>
- * MeterFilter'ы (obs.md, шаг 10) — вторая линия защиты после свойств {@code management.metrics.*}: потолок уникальных значений uri, срез
- * опасных тегов на случай их появления в будущем коде и deny-список метрик, согласованный по замеру /actuator/prometheus (см.
- * docs/observability/metrics.md, раздел «Отключённые метрики»).
+ * MeterFilter'ы — вторая линия защиты после свойств {@code management.metrics.*}: потолок уникальных значений uri, срез опасных тегов на
+ * случай их появления в будущем коде и deny-список метрик, согласованный по замеру /actuator/prometheus (см. docs/observability/metrics.md,
+ * раздел «Отключённые метрики»).
  * </p>
  */
 @Configuration
@@ -52,9 +52,9 @@ public class ObservabilityConfiguration {
             "password");
 
     /**
-     * Метрики, отключённые по согласованию (obs.md, шаг 10): диск контейнера отражает хостовую ФС и вводит в заблуждение, буферы JVM и
-     * внутренние счётчики Hibernate (flush/sessions/optimistic) не нужны для алертинга. Остальные семейства отключены свойствами
-     * management.metrics.enable.* в application.properties.
+     * Метрики, отключённые по согласованию: диск контейнера отражает хостовую ФС и вводит в заблуждение, буферы JVM и внутренние счётчики
+     * Hibernate (flush/sessions/optimistic) не нужны для алертинга. Остальные семейства отключены свойствами management.metrics.enable.* в
+     * application.properties.
      */
     private static final Set<String> DENIED_METRICS = Set.of("disk.free", "disk.total", "jvm.buffer.count", "jvm.buffer.memory.used",
             "jvm.buffer.total.capacity", "hibernate.flushes", "hibernate.sessions.open", "hibernate.sessions.closed",
@@ -78,9 +78,9 @@ public class ObservabilityConfiguration {
     }
 
     /**
-     * Потолок uri-тегов (obs.md, шаг 10): после MAX_URI_TAGS уникальных значений новые uri отклоняются, а не плодят серии. Для
-     * http.server.requests тот же лимит дублируется свойством management.metrics.web.server.max-uri-tags. В текущей версии Micrometer
-     * политика превышения задаётся фильтром-аргументом — передаём deny (молчаливый; Boot-версия свойства логирует warn один раз).
+     * Потолок uri-тегов: после MAX_URI_TAGS уникальных значений новые uri отклоняются, а не плодят серии. Для http.server.requests тот же
+     * лимит дублируется свойством management.metrics.web.server.max-uri-tags. В текущей версии Micrometer политика превышения задаётся
+     * фильтром-аргументом — передаём deny (молчаливый; Boot-версия свойства логирует warn один раз).
      */
     @Bean
     MeterFilter uriCardinalityMeterFilter() {

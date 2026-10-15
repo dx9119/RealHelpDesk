@@ -1,4 +1,4 @@
-# Prometheus (obs.md, шаг 11 — часть инфраструктуры наблюдаемости).
+# Prometheus.
 #
 # Скрейпит управляющий порт приложения (management.server.port, HTTP Basic
 # сервисной учёткой METRICS_USER/METRICS_PASSWORD — те же креды, что
@@ -21,7 +21,7 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
-# Правила алертов (obs.md, шаг 12): alerts.yml монтируется compose'ом.
+# Правила алертов: alerts.yml монтируется compose'ом.
 # Перезагрузка после правок: curl -X POST localhost:9090/-/reload (web.enable-lifecycle).
 rule_files:
   - /etc/prometheus/alerts.yml

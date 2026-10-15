@@ -25,7 +25,10 @@ class ProdPreflightValidatorTest {
         env = new MockEnvironment().withProperty("captcha.enabled", "true").withProperty("jwt.cookie.same-site", "Lax")
                 .withProperty("jwt.cookie.domain", "").withProperty("cors.allowed-origins", "https://example.com")
                 .withProperty("spring.liquibase.enabled", "true").withProperty("server.ssl.key-alias", "tomcat")
-                .withProperty("server.ssl.key-store-password", "changeit").withProperty("server.ssl.key-store-type", "PKCS12");
+                .withProperty("server.ssl.key-store-password", "changeit").withProperty("server.ssl.key-store-type", "PKCS12")
+                .withProperty("spring.mail.host", "smtp.example.com").withProperty("spring.mail.port", "587")
+                .withProperty("spring.mail.username", "user@example.com").withProperty("spring.mail.properties.mail.smtp.auth", "true")
+                .withProperty("email.from", "noreply@example.com");
     }
 
     @Test
@@ -93,6 +96,60 @@ class ProdPreflightValidatorTest {
                 .hasMessageContaining("captcha.enabled=false").hasMessageContaining("jwt.cookie.same-site=None")
                 .hasMessageContaining("localhost:3000").hasMessageContaining("spring.liquibase.enabled=false")
                 .hasMessageContaining("CN=localhost");
+    }
+
+    @Test
+    @DisplayName("Не заданный MAIL_HOST — старт валится")
+    void mailHostMissing_fails() {
+        env.withProperty("spring.mail.host", "");
+
+        assertThatThrownBy(() -> new ProdPreflightValidator(env).validate()).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("MAIL_HOST");
+    }
+
+    @Test
+    @DisplayName("Неразрешённая подстановка ${MAIL_HOST} вместо хоста — старт валится")
+    void mailHostUnresolvedPlaceholder_fails() {
+        env.withProperty("spring.mail.host", "${MAIL_HOST}");
+
+        assertThatThrownBy(() -> new ProdPreflightValidator(env).validate()).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("MAIL_HOST");
+    }
+
+    @Test
+    @DisplayName("Локальный SMTP dev-стека (MAIL_HOST=smtp) — старт валится")
+    void localMailHost_fails() {
+        env.withProperty("spring.mail.host", "smtp");
+
+        assertThatThrownBy(() -> new ProdPreflightValidator(env).validate()).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("локальный SMTP");
+    }
+
+    @Test
+    @DisplayName("MAIL_PORT не число в диапазоне 1–65535 — старт валится")
+    void invalidMailPort_fails() {
+        env.withProperty("spring.mail.port", "70000");
+
+        assertThatThrownBy(() -> new ProdPreflightValidator(env).validate()).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("MAIL_PORT");
+    }
+
+    @Test
+    @DisplayName("Не заданный MAIL_FROM — старт валится")
+    void mailFromMissing_fails() {
+        env.withProperty("email.from", "");
+
+        assertThatThrownBy(() -> new ProdPreflightValidator(env).validate()).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("MAIL_FROM");
+    }
+
+    @Test
+    @DisplayName("SMTP_AUTH=true без MAIL_USER — старт валится")
+    void smtpAuthWithoutUser_fails() {
+        env.withProperty("spring.mail.username", "");
+
+        assertThatThrownBy(() -> new ProdPreflightValidator(env).validate()).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("MAIL_USER");
     }
 
     /** Самоподписанный PKCS12 тем же способом, что entrypoint контейнера (keytool есть в JDK тестов). */

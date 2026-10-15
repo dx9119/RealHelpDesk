@@ -13,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.micrometer.common.KeyValue;
 
 /**
- * Тег role (obs.md, шаг 4): конечный набор значений, значение по умолчанию — ANONYMOUS, никаких id и email.
+ * Тег role: конечный набор значений, значение по умолчанию — ANONYMOUS, никаких id и email.
  */
 @DisplayName("Тег role в http.server.requests")
 class HttpServerRequestObservationConventionTest {

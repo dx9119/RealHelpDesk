@@ -31,7 +31,7 @@ public class ProblemJsonAuthenticationEntryPoint implements AuthenticationEntryP
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException)
             throws IOException {
-        // Через GlobalExceptionHandler этот путь не проходит, поэтому пишем сами (audit/toLoggingUpdate.md, A8)
+        // Через GlobalExceptionHandler этот путь не проходит, поэтому пишем сами
         logger.warn("Запрос без аутентификации: {} {}", request.getMethod(), LogSanitizer.uri(request.getRequestURI()));
         problemResponseWriter.write(response, request, HttpStatus.UNAUTHORIZED, "Требуется аутентификация");
     }

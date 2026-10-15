@@ -3,7 +3,7 @@
 **Алерт**: `jdbc_connections_active / jdbc_connections_max > 90%` в течение 2 минут
 (`severity: warning`).
 
-> **Примечание Boot 4**: obs.md предлагал `hikaricp_connections_pending > 0` и
+> **Примечание Boot 4**: `hikaricp_connections_pending > 0` и
 > `hikaricp_connections_timeout_total`. Micrometer в Spring Boot 4.1 экспортирует пул
 > как `jdbc_connections_{active,idle,max,min}` — метрик pending/timeout в скрейпе нет.
 > Насыщение 90% — ранний предвестник; при фактическом исчерпании активные соединения

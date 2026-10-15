@@ -1,4 +1,4 @@
-# Базовый compose: безопасный дефолт рабочего контура (infraReview.md, п. 8–18).
+# Базовый compose: безопасный дефолт рабочего контура.
 # Явный набор файлов (в Makefile):
 #   локально: docker-compose.yaml + docker-compose.override.yaml  (make up)
 #   prod:     docker-compose.yaml + docker-compose.prod.yaml      (make up-prod)
@@ -36,7 +36,7 @@ services:
       - "8443:8443"
       # Управляющий порт actuator (health/info/prometheus) — только loopback:
       # наружу (и в сеть контейнеров) он доступен приложению и Prometheus без
-      # проброса на хост (obs.md, шаг 3).
+      # проброса на хост.
       - "127.0.0.1:8081:8081"
     read_only: true
     tmpfs:

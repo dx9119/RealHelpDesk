@@ -1,4 +1,4 @@
-// Alloy (obs.md, шаг 11): сбор логов приложения из docker json-file → Loki.
+// Alloy: сбор логов приложения из docker json-file → Loki.
 // Наследник Promtail: тянет только контейнер сервиса app (фильтр по compose-метке),
 // чтобы postgres/prometheus/k6 не засоряли индекс. Логи приложения — текстовый паттерн
 // logback-spring.xml c колонками traceId/spanId (шаг 7), поэтому ссылка на трейс в Grafana

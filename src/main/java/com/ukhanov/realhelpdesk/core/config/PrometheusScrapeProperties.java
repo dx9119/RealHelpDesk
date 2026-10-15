@@ -7,7 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * Учётная запись HTTP Basic для скрейпа {@code /actuator/prometheus} на управляющем порту (obs.md, шаг 3).
+ * Учётная запись HTTP Basic для скрейпа {@code /actuator/prometheus} на управляющем порту.
  *
  * <p>
  * Prometheus не умеет ходить за метриками с пользовательским JWT, поэтому метрики закрыты отдельной сервисной учёткой: имя —

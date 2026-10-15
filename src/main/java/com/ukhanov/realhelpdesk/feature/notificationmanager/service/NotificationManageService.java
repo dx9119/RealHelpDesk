@@ -77,7 +77,7 @@ public class NotificationManageService {
     public DeferredResult<ResponseEntity<PageResponse<NotificationResponse>>> waitForNew(long afterId, int timeoutSec, int size) {
         Long userId = currentUserProvider.getCurrentUserId();
         // MDC — thread-local: колбэк вызовет публикатор на своём потоке, поэтому контекст запроса
-        // переносим снимком (audit/toLoggingUpdate.md, §5 п. 4).
+        // переносим снимком.
         Map<String, String> mdcSnapshot = MDC.getCopyOfContextMap();
 
         DeferredResult<ResponseEntity<PageResponse<NotificationResponse>>> deferred = new DeferredResult<>(
@@ -304,7 +304,7 @@ public class NotificationManageService {
                 }
             } catch (Exception e) {
                 // Канал живёт до 30 минут, и строка access-лога появится только при закрытии соединения:
-                // в prod нужно видеть, что подписка завершилась (audit/toLoggingUpdate.md, C8)
+                // в prod нужно видеть, что подписка завершилась
                 logger.info("SSE-канал оповещений закрыт: userId={}, причина={}", userId, e.getMessage());
                 close();
                 emitter.completeWithError(e);

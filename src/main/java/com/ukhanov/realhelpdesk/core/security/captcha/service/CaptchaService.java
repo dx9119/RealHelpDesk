@@ -8,10 +8,10 @@ import javax.imageio.ImageIO;
 
 import org.springframework.stereotype.Service;
 
-import com.google.code.kaptcha.impl.DefaultKaptcha;
 import com.ukhanov.realhelpdesk.core.observability.AuthMetrics;
 import com.ukhanov.realhelpdesk.core.security.captcha.dto.DtoCaptchaProperties;
 import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaException;
+import com.ukhanov.realhelpdesk.core.security.captcha.generator.CaptchaGenerator;
 import com.ukhanov.realhelpdesk.core.security.captcha.utils.CaptchaStorage;
 
 import lombok.RequiredArgsConstructor;
@@ -22,19 +22,19 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class CaptchaService {
 
-    private final DefaultKaptcha captchaProducer;
+    private final CaptchaGenerator captchaGenerator;
     private final DtoCaptchaProperties captchaProperties;
     private final AuthMetrics authMetrics;
 
     public String generateCaptchaText(String capId) {
-        String captchaText = captchaProducer.createText();
+        String captchaText = captchaGenerator.createText();
         CaptchaStorage.put(capId, captchaText);
         logger.debug("Сгенерирована капча, capId={}", capId);
         return captchaText;
     }
 
     public byte[] getImageBytes(String capId) throws IOException {
-        BufferedImage captchaImage = captchaProducer.createImage(generateCaptchaText(capId));
+        BufferedImage captchaImage = captchaGenerator.createImage(generateCaptchaText(capId));
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ImageIO.write(captchaImage, "jpg", baos);
         return baos.toByteArray();

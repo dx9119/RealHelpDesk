@@ -109,9 +109,9 @@ import static ...;               // static — всегда в конце
   - `WARN` — отказ во входе, лимит запросов, отклонённый токен, доступ запрещён (403), конфликт версий, проглоченная ошибка.
   - `INFO` — завершённое бизнес-событие (создан, изменён, удалён, зарегистрирован, письмо отправлено) и ответ HTTP 4xx. Видно в `prod`.
   - `DEBUG` — трассировка шагов и успешные HTTP-запросы. Видно только в `debug`.
-- Логировать путь через `LogSanitizer.uri(...)`: код восстановления пароля и токен подтверждения email идут в пути запроса. Email, имена файлов вложений и телефоны маскировать через `LogSanitizer.email(...)` / `emails(...)` / `fileName(...)` / `phone(...)` — полный адрес и имя файла в логах это ПДн (obs.md, шаг 7).
+- Логировать путь через `LogSanitizer.uri(...)`: код восстановления пароля и токен подтверждения email идут в пути запроса. Email, имена файлов вложений и телефоны маскировать через `LogSanitizer.email(...)` / `emails(...)` / `fileName(...)` / `phone(...)` — полный адрес и имя файла в логах это ПДн.
 - Не дублировать «метод вызван» в сервисе: строку запроса пишет `LoggingFilter`. Query-string не логировать. Исключение логируется один раз на границе (`GlobalExceptionHandler`): 4xx — WARN без стектрейса, 5xx — ERROR со стектрейсом; сервисный лог перед `throw` не повторяет его — только debug.
-- Формат логов: в профиле `debug` — читаемый паттерн (`logback-spring.xml`; в тестах `logback-test.xml`), в остальных профилях — JSON по ECS через `StructuredLogEncoder` (obs.md, шаг 7).
+- Формат логов: в профиле `debug` — читаемый паттерн (`logback-spring.xml`; в тестах `logback-test.xml`), в остальных профилях — JSON по ECS через `StructuredLogEncoder`.
 - MDC (ключи `requestId` / `clientIp` / `uriRequest` / `role`, плюс `traceId` / `spanId` от OTel):
   - ключи брать только из констант `LoggingFilter.REQUEST_ID` / `CLIENT_IP` / `URI_REQUEST` / `ROLE`, не строками — иначе код и паттерн в `logback-spring.xml` разъедутся; `traceId`/`spanId` при включённом OTel кладёт `Slf4JEventListener`;
   - `role` по умолчанию `ANONYMOUS` кладёт `LoggingFilter`, после аутентификации значение перезаписывает `JwtAuthFilter` (без префикса `ROLE_` — как в теге метрики), очистку в `finally` делает `LoggingFilter`;

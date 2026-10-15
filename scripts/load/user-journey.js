@@ -4,7 +4,7 @@
 //   1. сессия: GET /users/profile, при 401 — повторный POST /auth/login
 //   2. портал: ленивое создание POST /portals на первой итерации, далее GET /portals
 //   3. заявка: POST /portals/{id}/tickets → ответ POST .../messages → GET .../messages
-//   4. поиск: GET /tickets?mine=true&search=Load  (горячий путь из n1.md)
+//   4. поиск: GET /tickets?mine=true&search=Load  (горячий путь N+1)
 //   5. уведомления: GET /notifications/unread-count + long polling GET /notifications/wait
 //   6. refresh access: POST /auth/tokens/access каждую 10-ю итерацию
 //

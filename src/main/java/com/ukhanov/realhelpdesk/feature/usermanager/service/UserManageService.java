@@ -157,7 +157,7 @@ public class UserManageService {
         userDomainService.saveUser(user);
 
         // Отзываем все ранее выданные refresh-токены; новый выдастся при следующем входе.
-        // Bulk-UPDATE одним запросом вместо поштучного сохранения (audit/n1.md, #10)
+        // Bulk-UPDATE одним запросом вместо поштучного сохранения
         int revoked = getTokenService.revokeActiveRefreshTokens(user, TokenStatus.PASSWD_CHANGE);
         logger.info("Пароль изменён, отозвано refresh-токенов: {}, userId={}", revoked, user.getId());
         authMetrics.record(AuthMetrics.TYPE_PASSWORD_RESET, AuthMetrics.RESULT_SUCCESS);

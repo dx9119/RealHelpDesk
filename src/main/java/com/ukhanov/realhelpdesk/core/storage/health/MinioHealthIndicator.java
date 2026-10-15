@@ -17,9 +17,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Готовность хранилища вложений: readiness падает, когда MinIO недоступен или бакет пропал (infraReview.md, п. 1). Проверка — bucketExists
- * по одному бакету, без записи файлов; таймаут соединения задан на клиенте (MinioClientConfig), результат кэшируется на несколько секунд,
- * чтобы опрос health не превращался в нагрузку на MinIO (obs.md, шаг 9).
+ * Готовность хранилища вложений: readiness падает, когда MinIO недоступен или бакет пропал. Проверка — bucketExists по одному бакету, без
+ * записи файлов; таймаут соединения задан на клиенте (MinioClientConfig), результат кэшируется на несколько секунд, чтобы опрос health не
+ * превращался в нагрузку на MinIO.
  */
 @Slf4j
 @RequiredArgsConstructor

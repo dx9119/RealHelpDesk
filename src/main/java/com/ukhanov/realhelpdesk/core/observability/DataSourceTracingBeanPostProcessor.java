@@ -15,8 +15,8 @@ import io.opentelemetry.instrumentation.jdbc.datasource.JdbcTelemetry;
 import io.opentelemetry.instrumentation.jdbc.datasource.OpenTelemetryDataSource;
 
 /**
- * Трассировка SQL через opentelemetry-jdbc (obs.md, шаг 5): соединения из пула Hikari оборачиваются в {@link OpenTelemetryDataSource},
- * поэтому каждый JDBC-запрос получает спан {@code db.client.query} с таймингом и санитизированным SQL (параметры в спан не попадают:
+ * Трассировка SQL через opentelemetry-jdbc: соединения из пула Hikari оборачиваются в {@link OpenTelemetryDataSource}, поэтому каждый
+ * JDBC-запрос получает спан {@code db.client.query} с таймингом и санитизированным SQL (параметры в спан не попадают:
  * captureQueryParameters выключен по умолчанию).
  *
  * <p>

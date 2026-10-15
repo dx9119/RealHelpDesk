@@ -85,7 +85,7 @@ ENV JAVA_XMX="345M"
 # Имеет смысл только с mem_limit в infrastructure/docker-compose.yaml.
 ENV JAVA_RAM_PERCENTAGE="75"
 # Логирование GC и safepoint-пауз: всегда в stderr — попадает в `docker logs`
-# без файлов на диске и без ротации (infraReview.md, п. 7)
+# без файлов на диске и без ротации
 ENV JAVA_GC_LOG_OPTS="-Xlog:gc*,safepoint:stderr"
 # Java Flight Recorder по умолчанию выключен (sec.md §7.8); включается ненулевым
 # значением JAVA_JFR_OPTS в stack.env/окружении при необходимости
@@ -104,7 +104,7 @@ ENV JAVA_JMX_OPTS="-Djava.rmi.server.hostname=127.0.0.1 \
     -Dcom.sun.management.jmxremote.rmi.port=5005"
 
 # Приложение работает на 8443 (SERVER_PORT), actuator — на отдельном
-# управляющем порту 8081 (MANAGEMENT_PORT, obs.md, шаг 3)
+# управляющем порту 8081 (MANAGEMENT_PORT)
 EXPOSE 8443
 EXPOSE 8081
 

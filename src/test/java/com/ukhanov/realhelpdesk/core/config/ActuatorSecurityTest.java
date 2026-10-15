@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.micrometer.core.instrument.MeterRegistry;
 
 /**
- * Безопасность и доступность actuator на управляющем порту (obs.md, шаг 3).
+ * Безопасность и доступность actuator на управляющем порту.
  *
  * <p>
  * Приложение поднимается с {@code spring.profiles.active=test} (профиль {@code src/test/resources/application-test.properties}):
@@ -71,7 +71,7 @@ class ActuatorSecurityTest {
         assertThat(response.statusCode()).isEqualTo(200);
         assertThat(response.body()).contains("jvm_memory_used_bytes");
         assertThat(response.body()).contains("application=\"test-app\"").contains("env=\"test\"");
-        // gauge tickets.open регистрируется в контексте и попадает в скрейп (obs.md, шаг 8)
+        // gauge tickets.open регистрируется в контексте и попадает в скрейп
         assertThat(response.body()).contains("tickets_open");
     }
 

@@ -15,7 +15,7 @@ import io.micrometer.common.KeyValues;
 
 /**
  * Добавляет к http.server.requests низкокардинальный тег {@code role} — роль аутентифицированного пользователя (ADMIN/USER/NONE) либо
- * ANONYMOUS (obs.md, шаг 4).
+ * ANONYMOUS.
  *
  * <p>
  * Роль читается из атрибута запроса, а не из {@code SecurityContextHolder}: наблюдение останавливается в

@@ -24,8 +24,8 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 
 /**
- * HTTP-метрики obs.md, шаг 4: uri-шаблон вместо фактического пути, NOT_FOUND для несуществующих маршрутов, тег exception
- * из @ControllerAdvice и тег role. Отдельный контекст не нужен — используется тот же профиль test, что и в ActuatorSecurityTest.
+ * HTTP-метрики: uri-шаблон вместо фактического пути, NOT_FOUND для несуществующих маршрутов, тег exception из @ControllerAdvice и тег role.
+ * Отдельный контекст не нужен — используется тот же профиль test, что и в ActuatorSecurityTest.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "spring.profiles.active=test")
 @DisplayName("http.server.requests: шаблоны uri, шум, exception и роль")
@@ -119,7 +119,7 @@ class HttpObservabilityTest {
     }
 
     @Test
-    @DisplayName("Запросы к одному шаблону с разными ID не растят число уникальных uri (obs.md, шаг 10)")
+    @DisplayName("Запросы к одному шаблону с разными ID не растят число уникальных uri")
     void differentIdsDoNotIncreaseUriCardinality() {
         // GET /api/v1/portals/{portalId}/tickets/{ticketId}: разные ID, ответ 401 не важен —
         // важно, что в метрику попадает шаблон маршрута, а не фактический путь. Первая серия прогревает
@@ -144,7 +144,7 @@ class HttpObservabilityTest {
     }
 
     @Test
-    @DisplayName("Отключённые deny-метрики (disk, jvm.buffer) не появляются в реестре (obs.md, шаг 10)")
+    @DisplayName("Отключённые deny-метрики (disk, jvm.buffer) не появляются в реестре")
     void deniedMetricsAreAbsent() {
         get(serverPort, "/api/v1/health");
 
@@ -155,7 +155,7 @@ class HttpObservabilityTest {
     }
 
     @Test
-    @DisplayName("Пул планировщика измеряется: executor.* с тегом name=taskScheduler (obs.md, шаг 10)")
+    @DisplayName("Пул планировщика измеряется: executor.* с тегом name=taskScheduler")
     void taskSchedulerExecutorIsBound() {
         assertThat(meterRegistry.find("executor.pool.max").tags("name", "taskScheduler").meter())
                 .as("Boot автоматически биндит ThreadPoolTaskScheduler как executor.*{name=taskScheduler}").isNotNull();

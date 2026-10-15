@@ -19,7 +19,7 @@ public class NoHtmlValidator implements ConstraintValidator<NoHtml, String> {
                 + "--|\\/\\*|\\*\\/|DROP\\s|TRUNCATE\\s|EXEC\\s|UNION\\s).*");
         if (!valid) {
             // Имя поля валидатор не получает: какие поля отклонены, пишет WARN в GlobalExceptionHandler.
-            // Содержимое значения не логируем — отклонённая разметка и есть это значение (audit/toLoggingUpdate.md, C6)
+            // Содержимое значения не логируем — отклонённая разметка и есть это значение
             logger.debug("Отклонена HTML/JS/SQL-разметка во входном значении");
         }
 

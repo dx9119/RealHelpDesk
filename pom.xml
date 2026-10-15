@@ -46,7 +46,7 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
-        <!-- Метрики Hibernate (obs.md, шаг 5): hibernate.*-гейджи без hibernate-micrometer не регистрируются —
+        <!-- Метрики Hibernate: hibernate.*-гейджи без hibernate-micrometer не регистрируются —
              HibernateMetricsAutoConfiguration в Boot 4 требует org.hibernate.orm.micrometer.HibernateMetrics с classpath. -->
         <dependency>
             <groupId>org.hibernate.orm</groupId>
@@ -102,13 +102,6 @@
             <version>${minio.version}</version>
         </dependency>
 
-        <!-- Kaptcha -->
-        <dependency>
-            <groupId>com.github.penggle</groupId>
-            <artifactId>kaptcha</artifactId>
-            <version>2.3.2</version>
-        </dependency>
-
         <!-- JWT -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
@@ -129,7 +122,7 @@
         </dependency>
 
         <!-- Observability: health-пробы (liveness/readiness) для оркестрации и
-             метрики Hikari/HTTP/JVM в Prometheus (infraReview.md, п. 1 и 22).
+             метрики Hikari/HTTP/JVM в Prometheus.
              /actuator/health в WHITE_LIST_URLS, /actuator/prometheus остаётся
              за аутентификацией — для внутреннего скрейпа. -->
         <dependency>
@@ -140,14 +133,14 @@
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-prometheus</artifactId>
         </dependency>
-        <!-- Трассировка SQL (obs.md, шаги 5–6): обёртка DataSource даёт спаны db.client.query на каждый
+        <!-- Трассировка SQL: обёртка DataSource даёт спаны db.client.query на каждый
              JDBC-запрос. Версия выровнена с opentelemetry-bom из Spring Boot (см. свойство выше). -->
         <dependency>
             <groupId>io.opentelemetry.instrumentation</groupId>
             <artifactId>opentelemetry-jdbc</artifactId>
             <version>${opentelemetry-instrumentation.version}</version>
         </dependency>
-        <!-- Распределённая трассировка OpenTelemetry (obs.md, шаг 6): стартер тянет micrometer-tracing-bridge-otel,
+        <!-- Распределённая трассировка OpenTelemetry: стартер тянет micrometer-tracing-bridge-otel,
              opentelemetry-sdk/exporter-otlp и авто-конфигурацию sampling/OTLP-endpoint/resource-attributes. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -184,7 +177,7 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- TestObservationRegistry / micrometer-tracing-test (obs.md, шаг 6): проверка наблюдений и тегов -->
+        <!-- TestObservationRegistry / micrometer-tracing-test: проверка наблюдений и тегов -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-opentelemetry-test</artifactId>
@@ -210,7 +203,8 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- GreenMail: in-memory SMTP-сервер для интеграционных тестов реальной отправки email -->
+        <!-- GreenMail: in-memory SMTP-сервер. Только для интеграционных тестов (*IT, failsafe):
+             в проде почта уходит во внешний SMTP (MAIL_HOST), GreenMail в рантайм не попадает. -->
         <dependency>
             <groupId>com.icegreen</groupId>
             <artifactId>greenmail</artifactId>
@@ -279,7 +273,7 @@
                 </configuration>
             </plugin>
 
-            <!-- Liquibase CLI для шардов (infraReview.md, п. 26): init-скрипты Postgres
+            <!-- Liquibase CLI для шардов: init-скрипты Postgres
                  выполняются только на пустом томе, поэтому шарды нужно мигрировать тем же
                  changelog, что и основную БД: make migrate-shard. Версию задаёт Boot parent. -->
             <plugin>
@@ -300,10 +294,15 @@
                     <argLine>
                         -javaagent:${settings.localRepository}/org/mockito/mockito-core/${mockito.version}/mockito-core-${mockito.version}.jar
                     </argLine>
+                    <!-- Интеграционные тесты (*IT) идут только через failsafe: GreenMail (in-memory SMTP)
+                         нужен именно им, юнит-прогон его не поднимает -->
+                    <excludes>
+                        <exclude>**/*IT.java</exclude>
+                    </excludes>
                 </configuration>
             </plugin>
 
-            <!-- Failsafe: integration tests (если будут) + тот же agent -->
+            <!-- Failsafe: интеграционные тесты *IT (реальный SMTP через GreenMail) + тот же agent -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>

@@ -29,8 +29,8 @@ import com.ukhanov.realhelpdesk.domain.ticket.repository.TicketRepository;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Регрессия N+1 из audit/n1.md (§6): количество запросов на типовых путях. Statistics считает JDBC prepared statements — если
- * батч/EntityGraph сломается, цифра вырастет и тест упадёт.
+ * Регрессия N+1: количество запросов на типовых путях. Statistics считает JDBC prepared statements — если батч/EntityGraph сломается, цифра
+ * вырастет и тест упадёт.
  */
 @DataJpaTest(properties = {"spring.jpa.hibernate.ddl-auto=create-drop", "spring.jpa.properties.hibernate.generate_statistics=true"})
 @DisplayName("Количество запросов на горячих путях (N+1 guard)")

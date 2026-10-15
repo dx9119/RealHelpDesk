@@ -59,7 +59,7 @@ public class EmailDeliveryService {
 
     /**
      * То же, но с получателем-пользователем: в prod-логе видно, кому ушло письмо, при этом сам адрес остаётся только в DEBUG (PII в prod не
-     * тащим — audit/toLoggingUpdate.md, B13).
+     * тащим).
      */
     public void sendEmail(String recipient, String subject, String text, NotificationEvent sourceEvent, Long userId)
             throws MessagingException, EmailAccessDeniedException, UnsupportedEncodingException {
@@ -122,7 +122,7 @@ public class EmailDeliveryService {
                 Duration.ofSeconds(limit.windowSeconds()));
 
         // записи в журнале предшествующих отправок уже учтены, поэтому лимит — «не больше requests в окно»
-        // цифры нужны, чтобы объяснить 429 «исчерпан лимит восстановления» (audit/toLoggingUpdate.md, B7)
+        // цифры нужны, чтобы объяснить 429 «исчерпан лимит восстановления»
         logger.debug("Писем по событию {} за окно {} сек: {} (лимит {})", NotificationEvent.RECOVERY_PASSWORD, limit.windowSeconds(), count,
                 limit.requests());
 
@@ -175,7 +175,7 @@ public class EmailDeliveryService {
         for (Long userId : userIds) {
             UserModel user = usersById.get(userId);
             if (user == null) {
-                // Удалённый участник не должен обрывать рассылку остальным (audit/toLoggingUpdate.md, B5)
+                // Удалённый участник не должен обрывать рассылку остальным
                 logger.warn("Письмо не отправлено: получатель {} не найден в БД", userId);
                 continue;
             }

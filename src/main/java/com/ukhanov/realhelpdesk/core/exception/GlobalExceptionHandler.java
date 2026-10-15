@@ -63,7 +63,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler({UsernameNotFoundException.class, BadCredentialsException.class})
     public ResponseEntity<ProblemDetail> handleAuthenticationFailure(Exception ex, HttpServletRequest request) {
-        // Сообщение UsernameNotFoundException содержит email клиента: в лог адрес маскируется (obs.md, шаг 7)
+        // Сообщение UsernameNotFoundException содержит email клиента: в лог адрес маскируется
         logger.warn("Ошибка аутентификации: {}", LogSanitizer.emails(ex.getMessage()));
         markObserved(ex, request);
         return ProblemResponses.entity(HttpStatus.UNAUTHORIZED, ex.getMessage(), request);
@@ -124,7 +124,7 @@ public class GlobalExceptionHandler {
             }
         });
         // Имена полей — в WARN, чтобы видно, какое поле отклонено (@NoHtml, @Size и т.п.);
-        // значения не логируем: отклонённая разметка как раз и есть содержимое поля (audit/toLoggingUpdate.md, C6)
+        // значения не логируем: отклонённая разметка как раз и есть содержимое поля
         logger.warn("Ошибка валидации тела запроса {}: поля {}", LogSanitizer.uri(request.getRequestURI()), errors.keySet());
 
         markObserved(ex, request);

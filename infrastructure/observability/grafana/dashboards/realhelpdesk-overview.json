@@ -12,7 +12,7 @@
       }
     ]
   },
-  "description": "Сводный дашборд RealHelpDesk (obs.md, шаг 12): Service RED, бизнес-метрики, JVM, БД и планировщик. Источник — Prometheus (скрейп управляющего порта 8081). Панели ссылаются на канонические имена из docs/observability/metrics.md.",
+  "description": "Сводный дашборд RealHelpDesk: Service RED, бизнес-метрики, JVM, БД и планировщик. Источник — Prometheus (скрейп управляющего порта 8081). Панели ссылаются на канонические имена из docs/observability/metrics.md.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -49,7 +49,7 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "description": "Доля ответов 5xx за 5 минут. Порог 2% — уровень алерта obs.md шаг 12 (error rate > 2% в течение 5 минут).",
+      "description": "Доля ответов 5xx за 5 минут. Порог 2% — уровень алерта ApiHighErrorRate (error rate > 2% в течение 5 минут).",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -192,7 +192,7 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "description": "Попытки аутентификации (auth.attempts): type=login/refresh, result=success/failure. Рост failure — возможный перебор паролей (алерт obs.md шаг 12).",
+      "description": "Попытки аутентификации (auth.attempts): type=login/refresh, result=success/failure. Рост failure — возможный перебор паролей (алерт AuthFailuresSpike).",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -304,7 +304,7 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "description": "ticket.create: наблюдение создания заявки (таймер, obs.md шаг 4) — p95 грани сервисного слоя.",
+      "description": "ticket.create: наблюдение создания заявки (таймер) — p95 грани сервисного слоя.",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -370,7 +370,7 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "description": "JVM heap: использовано vs максимум. Алерт obs.md шаг 12: heap > 90% в течение 10 минут.",
+      "description": "JVM heap: использовано vs максимум. Алерт JvmHeapHigh: heap > 90% в течение 10 минут.",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "thresholds" },
@@ -452,7 +452,7 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "description": "Пул соединений (jdbc.connections, шаг 5): active/idle против максимума. Алерт obs.md шаг 12: pending > 0 дольше 2 минут (в текущей конфигурации Boot экспортирует active/idle/max/min).",
+      "description": "Пул соединений (jdbc.connections): active/idle против максимума. Алерт DatabasePoolSaturation: насыщение пула (Boot экспортирует active/idle/max/min).",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },

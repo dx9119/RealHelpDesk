@@ -1,4 +1,4 @@
-# Инфраструктура наблюдаемости (obs.md, шаги 10–11)
+# Инфраструктура наблюдаемости
 
 Стек для локальной разработки: метрики, трейсы и логи в одном месте. Все версии образов закреплены в
 `infrastructure/docker-compose.observability.yaml` (без `latest`).
@@ -36,7 +36,7 @@ Prometheus не умеет env-подстановку в конфиге, поэ�
 **RealHelpDesk — Обзор** (`grafana/dashboards/realhelpdesk-overview.json`, uid `realhelpdesk-overview`) —
 сводный дашборд на 23 панели, папка RealHelpDesk, URL: `http://127.0.0.1:3001/d/realhelpdesk-overview`:
 
-- **Service RED**: RPS, доля 5xx (пороги 2%/5% — как в алертах obs.md), p95/p99, RPS и p95 по
+- **Service RED**: RPS, доля 5xx (пороги 2%/5% — как в alerts.yml), p95/p99, RPS и p95 по
   эндпоинтам, распределение статусов.
 - **Бизнес**: попытки аутентификации (failure подсвечивается красным), открытые заявки по статусам,
   скорость создания заявок, TTFR p95, почта (mail.sent + SMTP p95), ticket.create p95, переходы
@@ -67,7 +67,7 @@ severity/summary/description/runbook_url. Runbooks: `docs/runbooks/*.md`. SLO: `
 | AuthFailuresSpike | failure > 6/мин / 5 мин | `docs/runbooks/auth-failures-spike.md` |
 
 > В Boot 4.1 пул экспортируется как `jdbc_connections_*` — метрик `hikaricp_connections_pending/timeout`
-> из obs.md нет; вместо pending используется насыщение пула (см. runbook db-pool-saturation).
+> в скрейпе нет; вместо pending используется насыщение пула (см. runbook db-pool-saturation).
 
 Проверка и перезагрузка правил:
 
