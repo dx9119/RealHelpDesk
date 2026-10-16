@@ -171,7 +171,7 @@ class CaptchaServiceTest {
     }
 
     @Test
-    @DisplayName("solve с неверным nonce — POW_FAILED, провал учитывается в риске")
+    @DisplayName("solve с неверным nonce — POW_FAILED, провалы учитываются в риске до порога эскалации")
     void solve_wrongNonce_powFailed_andRiskRecorded() throws CaptchaException {
         ChallengeResponse challenge = service.challenge(ACTION, IP);
         String wrongNonce = wrongNonce(challenge);
@@ -181,9 +181,12 @@ class CaptchaServiceTest {
 
         verify(authMetrics).record(AuthMetrics.TYPE_CAPTCHA, AuthMetrics.RESULT_FAILURE);
         verify(captchaMetrics).verification(false, CaptchaReason.POW_FAILED, CaptchaMetrics.TYPE_POW);
-        assertThat(riskService.isRisky(IP)).as("первый провал учитывается").isFalse();
-        riskService.recordFailure(IP);
-        assertThat(riskService.isRisky(IP)).isTrue();
+        assertThat(riskService.isRisky(IP)).as("один провал — ещё ниже порога").isFalse();
+
+        // второй провал (cid не сжигается при отказе — тот же challenge решается повторно) доводит риск до порога 2
+        assertThatThrownBy(() -> service.solve(challenge.challengeId(), wrongNonce, null, IP)).isInstanceOf(CaptchaException.class)
+                .extracting(e -> ((CaptchaException) e).getReason()).isEqualTo(CaptchaReason.POW_FAILED);
+        assertThat(riskService.isRisky(IP)).as("два провала — порог достигнут").isTrue();
     }
 
     // ────────────────────────────────────────────────

@@ -4,6 +4,11 @@
 # Требует поднятый стек (make up-load) — включённый
 # TRUST_PROXY_HEADERS даёт каждой VU свой bucket рейт-лимитов.
 #
+# Сидирование проходит полный контракт капчи: POST /captcha/challenge →
+# решение PoW (scripts/load/solve-pow.js, нужен node) → captchaToken в
+# регистрации. Работает и при CAPTCHA_ENABLED=false (fail-open), и при
+# включённой капче — как в рабочем контуре.
+#
 # Параметры (окружение):
 #   POOL_SIZE   — сколько пользователей сидировать (по умолчанию 8, максимум 10:
 #                 лимит регистрации 10/300с на один IP; сидирование шлёт
@@ -34,6 +39,12 @@ if [ "$POOL_SIZE" -gt 10 ]; then
   exit 1
 fi
 
+if ! command -v node >/dev/null 2>&1; then
+  echo "node не найден — сидирование решает PoW-капчу через scripts/load/solve-pow.js." >&2
+  echo "Установите Node.js 18+ (нужен fetch) или запускайте сидирование на машине с node." >&2
+  exit 1
+fi
+
 if [ "${RESET_LIMITS:-0}" = "1" ]; then
   echo "── RESET_LIMITS=1: перезапуск app (обнуление счётчиков рейт-лимитов)"
   $COMPOSE restart app
@@ -48,12 +59,16 @@ fi
 echo "── Сидирование пула: load-pool-$RUN_ID-p{1..$POOL_SIZE}@load.test"
 for i in $(seq 1 "$POOL_SIZE"); do
   email="load-pool-${RUN_ID}-p${i}@load.test"
-  # уникальный XFF на пользователя: сидирование не делит общий bucket регистрации
+  # уникальный XFF на пользователя: сидирование не делит общий bucket
+  # регистрации и рейт-лимитов капчи; captchaToken решается по-настоящему
+  # (challenge → PoW → solve), NODE_TLS — самоподписанный локальный сертификат
+  token=$(NODE_TLS_REJECT_UNAUTHORIZED=0 XFF="10.99.0.${i}" \
+    node scripts/load/solve-pow.js "$BASE" register)
   code=$(curl -sk -o /dev/null -w '%{http_code}' \
     -H 'X-Requested-With: XMLHttpRequest' -H 'Content-Type: application/json' \
     -H "X-Forwarded-For: 10.99.0.${i}" \
     -X POST "$BASE/api/v1/auth/register" \
-    -d "{\"firstName\":\"Load\",\"lastName\":\"Pool${i}\",\"email\":\"$email\",\"password\":\"$PASSWORD\"}")
+    -d "{\"firstName\":\"Load\",\"lastName\":\"Pool${i}\",\"email\":\"$email\",\"password\":\"$PASSWORD\",\"captchaToken\":\"$token\"}")
   echo "  register p$i -> $code"
   if [ "$code" != "201" ] && [ "$code" != "409" ]; then
     echo "Неожиданный код $code (ожидался 201, повторная регистрация — 409)." >&2

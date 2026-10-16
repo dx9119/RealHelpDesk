@@ -7,9 +7,12 @@
 //   4. поиск: GET /tickets?mine=true&search=Load  (горячий путь N+1)
 //   5. уведомления: GET /notifications/unread-count + long polling GET /notifications/wait
 //   6. refresh access: POST /auth/tokens/access каждую 10-ю итерацию
+//   7. капча: каждую 10-ю итерацию POST /captcha/challenge → PoW (k6/crypto)
+//      → POST /captcha/solve — нагрузка на эндпоинты новой капчи; load-стек
+//      с локальным риск-движком: свежий challenge с unique XFF всегда pow
 //
 // Пользователи НЕ регистрируются в сценарии: пул load-pool-{RUN_ID}-pN@load.test
-// сидирует scripts/load/run.sh (регистрация 10/300с на IP + ручная верификация
+// сидирует scripts/load/run.sh (капча решается solve-pow.js, ручная верификация
 // email через psql — порталы создают только верифицированные пользователи).
 //
 // Рейт-лимиты: каждый запрос несёт уникальный X-Forwarded-For по номеру VU,
@@ -26,6 +29,7 @@
 
 import http from 'k6/http';
 import { check, group, sleep } from 'k6';
+import { sha256 } from 'k6/crypto';
 
 const BASE = __ENV.BASE_URL || 'https://localhost:8443';
 const API = `${BASE}/api/v1`;
@@ -185,6 +189,61 @@ function maybeRefreshAccess() {
   }
 }
 
+/** Набрано ли difficulty ведущих нулевых бит SHA-256 (как PowHash на сервере). */
+function meetsDifficulty(hash, difficulty) {
+  const full = difficulty >> 3;
+  const rest = difficulty & 7;
+  for (let i = 0; i < full; i++) {
+    if (hash[i] !== 0) {
+      return false;
+    }
+  }
+  if (rest !== 0 && (hash[full] >> (8 - rest)) !== 0) {
+    return false;
+  }
+  return true;
+}
+
+// Каждая 10-я итерация гоняет полный флоу капчи — нагрузка на /captcha/*;
+// PoW решается в k6/crypto (Go, миллионы хэшей в секунду — доли секунды).
+function maybeExerciseCaptcha() {
+  if (__ITER === 0 || __ITER % 10 !== 0) {
+    return;
+  }
+  const challenge = http.post(
+    `${API}/captcha/challenge`,
+    JSON.stringify({ action: 'email-code' }),
+    tag('captcha_challenge'),
+  );
+  if (!check(challenge, { 'captcha challenge: 200': (r) => r.status === 200 })) {
+    return;
+  }
+  if (challenge.json('type') !== 'pow') {
+    // load-стек: свежий challenge с unique XFF не эскалирует — фиксируем отклонение
+    check(challenge, { 'captcha: в load-стеке ожидается pow-уровень': () => false });
+    return;
+  }
+  const salt = challenge.json('params.salt');
+  const difficulty = challenge.json('params.difficulty');
+
+  let nonce = 0;
+  let solved = null;
+  while (solved === null) {
+    const hash = new Uint8Array(sha256(`${salt}:${nonce}`));
+    if (meetsDifficulty(hash, difficulty)) {
+      solved = String(nonce);
+    }
+    nonce++;
+  }
+
+  const result = http.post(
+    `${API}/captcha/solve`,
+    JSON.stringify({ challengeId: challenge.json('challengeId'), nonce: solved }),
+    tag('captcha_solve'),
+  );
+  check(result, { 'captcha solve: 200': (r) => r.status === 200 });
+}
+
 export default function () {
   if (vuEmail === null) {
     vuEmail = emailForVU();
@@ -197,6 +256,7 @@ export default function () {
     searchTickets();
     notifications();
     maybeRefreshAccess();
+    maybeExerciseCaptcha();
   });
 
   sleep(THINK_TIME);

@@ -28,6 +28,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.icegreen.greenmail.util.GreenMail;
 import com.icegreen.greenmail.util.ServerSetup;
 import com.ukhanov.realhelpdesk.core.security.captcha.dto.ChallengeResponse;
+import com.ukhanov.realhelpdesk.core.security.captcha.utils.PowHash;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -117,18 +118,39 @@ class CaptchaEmojiFlowIT {
 
     /**
      * Два провала подряд доводят риск IP до порога 2. Уровень первого challenge зависит от состояния общего контекста (предыдущий тест мог
-     * оставить IP рискованным) — провал засчитывается и pow_failed, и wrong_answer: любой отказ двигает риск-счётчик.
+     * оставить IP рискованным) — провал засчитывается и pow_failed, и wrong_answer: любой отказ двигает риск-счётчик. Для pow берётся
+     * детерминированное не-решение (nonce "0" на малой сложности мог бы случайно решить задание).
      */
     private void escalateRiskToEmoji() throws Exception {
         for (int i = 0; i < 2; i++) {
             HttpResponse<String> challenge = post("/api/v1/captcha/challenge", "{\"action\":\"" + ACTION_REGISTER + "\"}");
             assertThat(challenge.statusCode()).isEqualTo(200);
-            String jwt = JSON.readTree(challenge.body()).get("challengeId").asText();
+            JsonNode body = JSON.readTree(challenge.body());
+            String jwt = body.get("challengeId").asText();
 
-            HttpResponse<String> failed = post("/api/v1/captcha/solve", "{\"challengeId\":\"" + jwt + "\",\"nonce\":\"0\"}");
+            String solveBody;
+            if (ChallengeResponse.TYPE_EMOJI.equals(body.get("type").asText())) {
+                // эмодзи-задание: пустой ответ никогда не верный
+                solveBody = "{\"challengeId\":\"" + jwt + "\"}";
+            } else {
+                String nonce = nonceThatDoesNotSolve(body.get("params").get("salt").asText(), body.get("params").get("difficulty").asInt());
+                solveBody = "{\"challengeId\":\"" + jwt + "\",\"nonce\":\"" + nonce + "\"}";
+            }
+            HttpResponse<String> failed = post("/api/v1/captcha/solve", solveBody);
             assertThat(failed.statusCode()).as("детерминированное не-решение отклоняется").isEqualTo(400);
             assertThat(code(failed)).as("провал капчи на любом уровне двигает риск").isIn("pow_failed", "wrong_answer");
         }
+    }
+
+    /** Не-решение подбирается детерминированно — без шанса случайно набрать нули (как в CaptchaFlowIT). */
+    private String nonceThatDoesNotSolve(String salt, int difficulty) {
+        for (long i = 0; i < 1_000_000L; i++) {
+            String candidate = Long.toString(i);
+            if (!PowHash.meets(salt, candidate, difficulty)) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException("не-решение не найдено");
     }
 
     private EmojiChallenge emojiChallenge(String action) throws Exception {
