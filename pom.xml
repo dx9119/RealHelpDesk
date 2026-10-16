@@ -102,6 +102,13 @@
             <version>${minio.version}</version>
         </dependency>
 
+        <!-- Caffeine: хранилище одноразовых id капчи (максимальный размер + TTL,
+             версия управляется BOM Spring Boot) -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
+
         <!-- JWT -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>

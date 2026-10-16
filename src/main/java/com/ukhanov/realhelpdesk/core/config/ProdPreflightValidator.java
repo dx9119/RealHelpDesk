@@ -46,6 +46,9 @@ public class ProdPreflightValidator {
     /** Незаданная env-подстановка остаётся в Environment строкой вида {@code ${MAIL_HOST}} — отправлять письма ей нельзя. */
     private static final String UNRESOLVED_PLACEHOLDER = "${";
 
+    /** Префикс dev-значения капчи-секрета из .env.example: в рабочем контуре такое значение — дыра. */
+    static final String DEV_SECRET_PREFIX = "dev-only";
+
     private final Environment env;
 
     @PostConstruct
@@ -55,6 +58,7 @@ public class ProdPreflightValidator {
         if (!"true".equalsIgnoreCase(env.getProperty("captcha.enabled"))) {
             violations.add("captcha.enabled=false — в рабочем контуре капча должна быть включена");
         }
+        checkCaptchaSecret(violations);
 
         String sameSite = env.getProperty("jwt.cookie.same-site", "");
         String cookieDomain = env.getProperty("jwt.cookie.domain", "");
@@ -107,6 +111,22 @@ public class ProdPreflightValidator {
 
         if ("true".equalsIgnoreCase(property("spring.mail.properties.mail.smtp.auth")) && property("spring.mail.username").isBlank()) {
             violations.add("SMTP_AUTH=true, но spring.mail.username (MAIL_USER) пуст — аутентификация на SMTP упадёт");
+        }
+    }
+
+    /**
+     * HMAC-секрет подписи PoW-токенов: задан, не короче 32 байт (минимум HMAC-SHA256) и не является dev-значением из инструкций локального
+     * запуска — иначе подпись капчи можно подделать, предъявив свой токен.
+     */
+    private void checkCaptchaSecret(List<String> violations) {
+        String secret = property("captcha.hmac-secret");
+        if (isUnset(secret)) {
+            violations.add("captcha.hmac-secret (CAPTCHA_HMAC_SECRET) не задан — подпись PoW-токенов капчи невозможна");
+        } else if (secret.getBytes(java.nio.charset.StandardCharsets.UTF_8).length < 32) {
+            violations.add("captcha.hmac-secret короче 32 байт — секрет подписи капчи слишком слабый");
+        } else if (secret.startsWith(DEV_SECRET_PREFIX)) {
+            violations.add(
+                    "captcha.hmac-secret содержит dev-значение (" + DEV_SECRET_PREFIX + "…) — сгенерируйте свой: openssl rand -base64 32");
         }
     }
 

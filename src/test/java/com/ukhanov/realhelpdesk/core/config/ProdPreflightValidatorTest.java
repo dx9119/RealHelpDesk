@@ -14,6 +14,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @DisplayName("Prod-preflight: старт рабочего контура валится на отладочной конфигурации")
 class ProdPreflightValidatorTest {
 
+    /** Хватает и для 32-байтного минимума HMAC-SHA256. */
+    private static final String VALID_CAPTCHA_SECRET = "secure-captcha-hmac-secret-0123456789abcdef";
+
     @TempDir
     Path tempDir;
 
@@ -22,13 +25,13 @@ class ProdPreflightValidatorTest {
     @BeforeEach
     void setUp() {
         // Безопасная база: каждый тест подменяет один ключ
-        env = new MockEnvironment().withProperty("captcha.enabled", "true").withProperty("jwt.cookie.same-site", "Lax")
-                .withProperty("jwt.cookie.domain", "").withProperty("cors.allowed-origins", "https://example.com")
-                .withProperty("spring.liquibase.enabled", "true").withProperty("server.ssl.key-alias", "tomcat")
-                .withProperty("server.ssl.key-store-password", "changeit").withProperty("server.ssl.key-store-type", "PKCS12")
-                .withProperty("spring.mail.host", "smtp.example.com").withProperty("spring.mail.port", "587")
-                .withProperty("spring.mail.username", "user@example.com").withProperty("spring.mail.properties.mail.smtp.auth", "true")
-                .withProperty("email.from", "noreply@example.com");
+        env = new MockEnvironment().withProperty("captcha.enabled", "true").withProperty("captcha.hmac-secret", VALID_CAPTCHA_SECRET)
+                .withProperty("jwt.cookie.same-site", "Lax").withProperty("jwt.cookie.domain", "")
+                .withProperty("cors.allowed-origins", "https://example.com").withProperty("spring.liquibase.enabled", "true")
+                .withProperty("server.ssl.key-alias", "tomcat").withProperty("server.ssl.key-store-password", "changeit")
+                .withProperty("server.ssl.key-store-type", "PKCS12").withProperty("spring.mail.host", "smtp.example.com")
+                .withProperty("spring.mail.port", "587").withProperty("spring.mail.username", "user@example.com")
+                .withProperty("spring.mail.properties.mail.smtp.auth", "true").withProperty("email.from", "noreply@example.com");
     }
 
     @Test
@@ -46,6 +49,34 @@ class ProdPreflightValidatorTest {
 
         assertThatThrownBy(() -> new ProdPreflightValidator(env).validate()).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("captcha.enabled=false");
+    }
+
+    @Test
+    @DisplayName("Не заданный HMAC-секрет капчи — старт валится")
+    void captchaSecretMissing_fails() {
+        env.withProperty("captcha.hmac-secret", "").withProperty("server.ssl.key-store", "file:" + keystore("CN=example.com"));
+
+        assertThatThrownBy(() -> new ProdPreflightValidator(env).validate()).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("CAPTCHA_HMAC_SECRET");
+    }
+
+    @Test
+    @DisplayName("HMAC-секрет капчи короче 32 байт — старт валится")
+    void captchaSecretTooShort_fails() {
+        env.withProperty("captcha.hmac-secret", "short-secret").withProperty("server.ssl.key-store", "file:" + keystore("CN=example.com"));
+
+        assertThatThrownBy(() -> new ProdPreflightValidator(env).validate()).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("короче 32 байт");
+    }
+
+    @Test
+    @DisplayName("Dev-значение HMAC-секрета капчи (dev-only…) — старт валится")
+    void captchaSecretDevValue_fails() {
+        env.withProperty("captcha.hmac-secret", "dev-only-local-captcha-hmac-secret-0123456789").withProperty("server.ssl.key-store",
+                "file:" + keystore("CN=example.com"));
+
+        assertThatThrownBy(() -> new ProdPreflightValidator(env).validate()).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("dev-значение");
     }
 
     @Test

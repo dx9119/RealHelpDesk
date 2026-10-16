@@ -1,0 +1,161 @@
+package com.ukhanov.realhelpdesk.core.security.captcha.service;
+
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Date;
+
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+import com.ukhanov.realhelpdesk.core.security.captcha.config.CaptchaProperties;
+import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaException;
+import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaReason;
+import com.ukhanov.realhelpdesk.core.security.captcha.service.CaptchaTokenService.CaptchaTokenClaims;
+import com.ukhanov.realhelpdesk.core.security.captcha.service.CaptchaTokenService.ChallengeClaims;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import io.jsonwebtoken.Jwts;
+
+@DisplayName("Токены капчи: подпись, разбор и отказы по типу/действию/сроку")
+class CaptchaTokenServiceTest {
+
+    private CaptchaTokenService service;
+    private SecretKey key;
+
+    @BeforeEach
+    void setUp() {
+        key = new SecretKeySpec("test-only-captcha-hmac-secret-0123456789abcdef".getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+        CaptchaProperties properties = properties();
+        service = new CaptchaTokenService(key, properties);
+    }
+
+    @Test
+    @DisplayName("challenge: выпускается и разбирается с теми же id, солью, сложностью и действием")
+    void challenge_roundTrip() throws CaptchaException {
+        Instant before = Instant.now().minusSeconds(5);
+        String token = service.issueChallenge(CaptchaTokenService.ACTION_REGISTER, "cid123", "salt456");
+        ChallengeClaims claims = service.parseChallenge(token);
+
+        assertThat(claims.challengeId()).isEqualTo("cid123");
+        assertThat(claims.salt()).isEqualTo("salt456");
+        assertThat(claims.difficulty()).isEqualTo(18);
+        assertThat(claims.action()).isEqualTo("register");
+        assertThat(claims.issuedAt()).isBetween(before, Instant.now().plusSeconds(5));
+    }
+
+    @Test
+    @DisplayName("captcha-токен: несёт своё действие, jti и время выдачи challenge")
+    void captchaToken_roundTrip() throws CaptchaException {
+        // JWT сериализует даты с точностью до секунд — сравниваем с такой же точностью
+        Instant challengeIssuedAt = Instant.now().minusSeconds(30).truncatedTo(ChronoUnit.SECONDS);
+        String token = service.issueCaptchaToken(CaptchaTokenService.ACTION_EMAIL_CODE, challengeIssuedAt);
+        CaptchaTokenClaims claims = service.parseCaptchaToken(token, CaptchaTokenService.ACTION_EMAIL_CODE);
+
+        assertThat(claims.jti()).hasSize(32);
+        assertThat(claims.challengeIssuedAt()).isEqualTo(challengeIssuedAt);
+    }
+
+    @Test
+    @DisplayName("Подделанный токен (битая подпись) — INVALID")
+    void tamperedToken_invalid() {
+        String token = service.issueCaptchaToken(CaptchaTokenService.ACTION_REGISTER, Instant.now());
+        String tampered = token.substring(0, token.length() - 2) + "aa";
+
+        assertReason(() -> service.parseCaptchaToken(tampered, CaptchaTokenService.ACTION_REGISTER), CaptchaReason.INVALID);
+    }
+
+    @Test
+    @DisplayName("Пустой или отсутствующий токен — MISSING_TOKEN")
+    void missingToken_reason() {
+        assertReason(() -> service.parseCaptchaToken(null, CaptchaTokenService.ACTION_REGISTER), CaptchaReason.MISSING_TOKEN);
+        assertReason(() -> service.parseCaptchaToken("   ", CaptchaTokenService.ACTION_REGISTER), CaptchaReason.MISSING_TOKEN);
+        assertReason(() -> service.parseChallenge(null), CaptchaReason.MISSING_TOKEN);
+    }
+
+    @Test
+    @DisplayName("Токен-задание вместо captcha-токена (и наоборот) — WRONG_TYPE")
+    void wrongType_reason() {
+        String challenge = service.issueChallenge(CaptchaTokenService.ACTION_REGISTER, "cid", "salt");
+        String captcha = service.issueCaptchaToken(CaptchaTokenService.ACTION_REGISTER, Instant.now());
+
+        assertReason(() -> service.parseCaptchaToken(challenge, CaptchaTokenService.ACTION_REGISTER), CaptchaReason.WRONG_TYPE);
+        assertReason(() -> service.parseChallenge(captcha), CaptchaReason.WRONG_TYPE);
+    }
+
+    @Test
+    @DisplayName("Токен одного действия предъявлен на другое — WRONG_ACTION")
+    void wrongAction_reason() {
+        String token = service.issueCaptchaToken(CaptchaTokenService.ACTION_REGISTER, Instant.now());
+
+        assertReason(() -> service.parseCaptchaToken(token, CaptchaTokenService.ACTION_EMAIL_CODE), CaptchaReason.WRONG_ACTION);
+    }
+
+    @Test
+    @DisplayName("Истёкший токен — EXPIRED (свой же секрет, срок в прошлом)")
+    void expiredToken_reason() {
+        Instant past = Instant.now().minusSeconds(60);
+        String expired = Jwts.builder().claim("typ", CaptchaTokenService.TYPE_CAPTCHA).claim("act", CaptchaTokenService.ACTION_REGISTER)
+                .id("jti00000000000000000000000000000").claim("ciat", Date.from(past)).issuedAt(Date.from(past))
+                .expiration(Date.from(past.plusSeconds(30))).signWith(key).compact();
+
+        assertReason(() -> service.parseCaptchaToken(expired, CaptchaTokenService.ACTION_REGISTER), CaptchaReason.EXPIRED);
+    }
+
+    @Test
+    @DisplayName("Неизвестное действие в выпуске — IllegalArgumentException, а не тихий токен")
+    void unknownAction_throws() {
+        assertThatThrownBy(() -> service.issueChallenge("other", "cid", "salt")).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("other");
+    }
+
+    @Test
+    @DisplayName("Невалидные числовые свойства — старт падает с понятной ошибкой")
+    void constructor_validatesProperties() {
+        CaptchaProperties tooEasy = properties();
+        tooEasy.setPowDifficulty(0);
+        assertThatThrownBy(() -> new CaptchaTokenService(key, tooEasy)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("pow-difficulty");
+
+        CaptchaProperties longTtl = properties();
+        longTtl.setTokenTtlSeconds(1);
+        assertThatThrownBy(() -> new CaptchaTokenService(key, longTtl)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("token-ttl-seconds");
+
+        CaptchaProperties negativeMinFill = properties();
+        negativeMinFill.setMinFillSeconds(-1);
+        assertThatThrownBy(() -> new CaptchaTokenService(key, negativeMinFill)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("min-fill-seconds");
+
+        CaptchaProperties missing = properties();
+        missing.setChallengeTtlSeconds(null);
+        assertThatThrownBy(() -> new CaptchaTokenService(key, missing)).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("challenge-ttl-seconds");
+    }
+
+    private CaptchaProperties properties() {
+        CaptchaProperties properties = new CaptchaProperties();
+        properties.setEnabled(true);
+        properties.setPowDifficulty(18);
+        properties.setChallengeTtlSeconds(300);
+        properties.setTokenTtlSeconds(300);
+        properties.setMinFillSeconds(0);
+        return properties;
+    }
+
+    private void assertReason(ThrowingRunnable action, CaptchaReason expected) {
+        assertThatThrownBy(action::run).isInstanceOf(CaptchaException.class).extracting(e -> ((CaptchaException) e).getReason())
+                .isEqualTo(expected);
+    }
+
+    @FunctionalInterface
+    private interface ThrowingRunnable {
+        void run() throws Throwable;
+    }
+}
