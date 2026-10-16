@@ -88,7 +88,7 @@ ENV JAVA_RAM_PERCENTAGE="75"
 # без файлов на диске и без ротации
 ENV JAVA_GC_LOG_OPTS="-Xlog:gc*,safepoint:stderr"
 # Java Flight Recorder по умолчанию выключен (sec.md §7.8); включается ненулевым
-# значением JAVA_JFR_OPTS в stack.env/окружении при необходимости
+# значением JAVA_JFR_OPTS в infrastructure/.env/окружении при необходимости
 ENV JAVA_JFR_OPTS=""
 # Ошибка JVM в файл + heap dump при OOM + немедленный выход (важно для контейнеров)
 ENV JAVA_ERROR_FILE_OPTS="-XX:ErrorFile=/tmp/java_error.log"

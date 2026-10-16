@@ -1,7 +1,7 @@
 # Инфраструктура наблюдаемости
 
 Стек для локальной разработки: метрики, трейсы и логи в одном месте. Все версии образов закреплены в
-`infrastructure/docker-compose.observability.yaml` (без `latest`).
+`infrastructure/docker-compose.yaml` (профиль `monitoring`, без `latest`).
 
 ## Состав
 
@@ -22,8 +22,8 @@ make obs-down  # остановить (тома целы)
 make obs-open  # открыть Grafana в браузере
 ```
 
-Креды скрейпа (`METRICS_USER` из `scripts/docker/stack.env`, `METRICS_PASSWORD` из
-`infrastructure/.env`) приходят в контейнер alloy env-файлами; `config.alloy`
+Креды скрейпа (`METRICS_USER` и `METRICS_PASSWORD` из `infrastructure/.env`)
+приходят в контейнер alloy env-файлом; `config.alloy`
 читает их через `sys.env()` для basic_auth при скрейпе `app:8081` — на хосте
 файлов с секретами не остаётся.
 
@@ -92,12 +92,13 @@ curl -s localhost:9090/prometheus/api/v1/alerts
 Grafana ◀── datasources: mimir (метрики), tempo (трейсы), loki (логи)
 ```
 
-В оверлее приложение получает `OTLP_TRACING_ENDPOINT=http://otel-collector:4318/v1/traces`; без оверлея
-(обычный `make up`) endpoint — `localhost:4317` (gRPC) из `stack.env`, экспорта трейсов нет (соединение
-отклоняется, приложение работает). Load-оверлей (`docker-compose.load.yaml`) дублирует тот же endpoint:
-`make up-load`/`make load-smoke` пересоздают app, и без дубля OTLP-env откатился бы на `localhost:4317`,
-сломав экспорт трейсов при запущенном obs-стеке. В комбинации «obs + load» endpoint'ы совпадают —
-порядок подключения compose-файлов не влияет.
+Без наблюдаемости (обычный `make up`) endpoint — `localhost:4317` (дефолт
+compose-интерполяции), экспорта трейсов нет (соединение отклоняется, приложение
+работает). `make obs-up` и `make up-load`/`make load-smoke` передают
+`OTLP_TRACING_ENDPOINT=http://otel-collector:4318/v1/traces` инлайном, поэтому
+в комбинации «obs + load» endpoint'ы совпадают — экспорт трейсов не ломается
+при пересоздании app ни одной из команд. Постоянный адрес collector'а для всех
+запусков — `OTLP_TRACING_ENDPOINT` в `infrastructure/.env`.
 
 ## Как найти трейс по traceId из лога
 
@@ -115,7 +116,7 @@ Grafana ◀── datasources: mimir (метрики), tempo (трейсы), lok
 
 ## Трассировка: сэмплинг
 
-- Локально доля запросов задаётся `TRACING_SAMPLING_PROBABILITY` (`stack.env`, по умолчанию 1.0).
+- Локально доля запросов задаётся `TRACING_SAMPLING_PROBABILITY` (`infrastructure/.env`, по умолчанию 1.0).
 - В `otel-collector/config-prod.yaml` — пример прод-конфига с хвостовым сэмплингом: ошибки и трейсы
   дольше 1 s сохраняются целиком, остальное — 10%. Подключается монтированием файла поверх
   `config.yaml` в prod-оверлее.

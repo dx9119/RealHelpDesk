@@ -9,13 +9,15 @@ E2E_DIR ?= scripts
 # Ревизия git для LABEL образа (org.opencontainers.image.revision)
 GIT_SHA ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
 
-# Наборы compose-файлов: база всегда, дальше — только своя.
-# Явные -f отключают автоподхват docker-compose.override.yaml — рабочий стек
-# из override никогда не собирается.
-COMPOSE_DEV ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml
-COMPOSE_PROD ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.prod.yaml
-COMPOSE_LOAD ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml -f infrastructure/docker-compose.load.yaml
-COMPOSE_OBSERVABILITY ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml -f infrastructure/docker-compose.observability.yaml
+# Единый compose-файл + профили (infra/dev/app/monitoring/load — см. шапку
+# infrastructure/docker-compose.yaml). Наборы профилей передаются явно:
+# compose не сам включает профили зависимостей (depends_on на сервис с
+# непривязанным профилем — ошибка валидации).
+COMPOSE ?= docker compose -f infrastructure/docker-compose.yaml
+PROFILES_DEV ?= --profile infra --profile dev --profile app
+PROFILES_PROD ?= --profile infra --profile app
+PROFILES_OBS ?= $(PROFILES_DEV) --profile monitoring
+PROFILES_ALL ?= --profile infra --profile dev --profile app --profile monitoring --profile load
 
 .DEFAULT_GOAL := help
 
@@ -61,7 +63,7 @@ run: ## Запустить приложение локально (spring-boot:ru
 	$(MVN) spring-boot:run
 
 dev-run: env ## Dev-среда: compose up в foreground (логи всех сервисов, Ctrl+C — стоп)
-	$(COMPOSE_DEV) up --build
+	$(COMPOSE) $(PROFILES_DEV) up --build
 
 dev-test: ## Dev-среда: mvn verify + e2e-сценарии (нужен поднятый стек: dev-run/up)
 	$(MVN) verify
@@ -69,60 +71,66 @@ dev-test: ## Dev-среда: mvn verify + e2e-сценарии (нужен по�
 
 ## --- Docker ---
 
-env: ## Создать infrastructure/.env из infrastructure/.env.example, если его нет
+env: ## Создать infrastructure/.env из шаблона; существующему дописать недостающие ключи
 	@test -f infrastructure/.env || (cp infrastructure/.env.example infrastructure/.env && echo "Создан infrastructure/.env — заполните секреты")
+	@missing=$$(grep -E '^[A-Z_]+=' infrastructure/.env.example | cut -d= -f1 | while read k; do grep -qE "^$$k=" infrastructure/.env || echo $$k; done); \
+	if [ -n "$$missing" ]; then \
+	  echo "Дописываю в infrastructure/.env недостающие ключи: $$(echo $$missing | tr '\n' ' ')"; \
+	  for k in $$missing; do grep -E "^$$k=" infrastructure/.env.example >> infrastructure/.env; done; \
+	fi
 
 docker-build: ## Собрать docker-образ приложения (с меткой GIT_SHA)
-	$(COMPOSE_DEV) build --build-arg GIT_SHA=$(GIT_SHA)
+	$(COMPOSE) $(PROFILES_DEV) build --build-arg GIT_SHA=$(GIT_SHA)
 
-up: env ## Поднять локальный стек (сборка образа, в фоне)
-	$(COMPOSE_DEV) up --build -d
+up: env ## Поднять локальный стек (профили infra+dev+app, сборка образа, в фоне)
+	$(COMPOSE) $(PROFILES_DEV) up --build -d
 
-up-prod: env ## Поднять рабочий стек (без override; заполните stack.prod.env)
-	$(COMPOSE_PROD) up --build -d
+up-prod: env ## Поднять рабочий стек (профили infra+app; настройки — секция «Рабочий контур» в .env)
+	$(COMPOSE) $(PROFILES_PROD) up --build -d
 
-down: ## Остановить локальный стек
-	$(COMPOSE_DEV) down
+down: ## Остановить стек (все профили)
+	$(COMPOSE) $(PROFILES_ALL) down
 
 down-volumes: ## Остановить стек и удалить тома (данные БД/MinIO)
-	$(COMPOSE_DEV) down -v
+	$(COMPOSE) $(PROFILES_ALL) down -v
 
 ## --- Наблюдаемость (подробности: docs/observability/overview.md) ---
 
-obs-up: env ## Поднять стек + наблюдаемость (Grafana: http://localhost:3001, Mimir: :9090)
-	$(COMPOSE_OBSERVABILITY) up --build -d --remove-orphans
+obs-up: env ## Поднять стек + наблюдаемость (профили +monitoring; Grafana :3001, Mimir :9090)
+	OTLP_TRACING_ENDPOINT=http://otel-collector:4318/v1/traces $(COMPOSE) $(PROFILES_OBS) up --build -d --remove-orphans
 
-obs-down: ## Остановить стек с наблюдаемостью (томы целы)
-	$(COMPOSE_OBSERVABILITY) down
+obs-down: ## Остановить стек с наблюдаемостью (все профили, томы целы)
+	$(COMPOSE) $(PROFILES_ALL) down
 
 obs-open: ## Открыть Grafana в браузере (нужен obs-up; порт GRAFANA_PORT, дефолт 3001)
 	@xdg-open http://localhost:3001 >/dev/null 2>&1 || open http://localhost:3001 >/dev/null 2>&1 || echo "Grafana: http://localhost:3001"
 
 obs-reload: ## Перечитать правила алертов Mimir (нужен obs-up; mimir/rules/anonymous/realhelpdesk.yml)
-	$(COMPOSE_OBSERVABILITY) restart mimir && echo "Mimir перезапущен — правила перечитаны"
+	$(COMPOSE) $(PROFILES_OBS) restart mimir && echo "Mimir перезапущен — правила перечитаны"
 
 obs-alerts: ## Текущие состояния алертов Mimir (нужен obs-up)
 	curl -s localhost:9090/prometheus/api/v1/alerts | grep -oE '"alertname":"[^"]+"|"state":"[^"]+"' | paste - - || echo "Mimir недоступен"
 
 logs: ## Логи приложения (follow)
-	$(COMPOSE_DEV) logs -f app
+	$(COMPOSE) $(PROFILES_ALL) logs -f app
 
-ps: ## Статус контейнеров
-	$(COMPOSE_DEV) ps
+ps: ## Статус контейнеров (все профили)
+	$(COMPOSE) $(PROFILES_ALL) ps
 
 restart: ## Перезапустить только приложение
-	$(COMPOSE_DEV) restart app
+	$(COMPOSE) $(PROFILES_ALL) restart app
 
 shell: ## Shell внутри контейнера app
-	$(COMPOSE_DEV) exec app sh
+	$(COMPOSE) $(PROFILES_ALL) exec app sh
 
 check-image: docker-build ## Проверки образа: секреты, ФС, jar
 	./scripts/docker/check-image.sh $(IMAGE)
 
 ## --- Нагрузочное тестирование (k6, scripts/load/) ---
 
-up-load: env ## Поднять стек с load-оверлеем (TRUST_PROXY_HEADERS=true, только локально)
-	$(COMPOSE_LOAD) up --build -d
+up-load: env ## Поднять стек для нагрузки (TRUST_PROXY_HEADERS=true инлайном; только локально)
+	TRUST_PROXY_HEADERS=true OTLP_TRACING_ENDPOINT=http://otel-collector:4318/v1/traces \
+	$(COMPOSE) $(PROFILES_DEV) up --build -d
 
 load: up-load ## Нагрузочный user journey: TARGET_VUS=10 DURATION=5m POOL_SIZE=8 (env)
 	bash scripts/load/run.sh
@@ -130,7 +138,7 @@ load: up-load ## Нагрузочный user journey: TARGET_VUS=10 DURATION=5m 
 load-smoke: up-load ## Короткий smoke-прогон user journey (2 VU, 1 минута)
 	TARGET_VUS=2 DURATION=1m bash scripts/load/run.sh
 
-## --- Миграции схемы (Liquibase с хоста; порты БД проброшены на 127.0.0.1) ---
+## --- Миграции схемы (Liquibase с хоста; порт 127.0.0.1:5432 публикует db-gateway) ---
 # Миграции также применяет само приложение при старте (DB_MIGRATIONS_ENABLED).
 # Цели ниже — для чистого/ручного прогона без контейнера приложения.
 

@@ -194,7 +194,7 @@ check 404 "$(status -b "$TMP/owner.jar" -X POST "$BASE/api/v1/portals/$PORTAL3/o
 
 # ── журнал писем: события передачи ──────────────────
 step "Журнал email_log: события PORTAL_TRANSFER_*"
-EVENTS=$(docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml exec -T postgres psql -U user -d desk -tAc \
+EVENTS=$(docker compose -f infrastructure/docker-compose.yaml --profile infra exec -T postgres psql -U user -d desk -tAc \
   "SELECT DISTINCT notification_event FROM email_log WHERE notification_event LIKE 'PORTAL_TRANSFER%' ORDER BY 1")
 echo "  events=$EVENTS"
 check_contains "PORTAL_TRANSFER_REQUESTED" "$EVENTS" "email_log: REQUESTED"

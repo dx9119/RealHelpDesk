@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Запуск нагрузочного user journey (k6): сидирование пула пользователей + прогон.
 #
-# Требует поднятый стек с load-оверлеем (make up-load) — включённый
+# Требует поднятый стек (make up-load) — включённый
 # TRUST_PROXY_HEADERS даёт каждой VU свой bucket рейт-лимитов.
 #
 # Параметры (окружение):
@@ -26,7 +26,7 @@ TARGET_VUS=${TARGET_VUS:-10}
 DURATION=${DURATION:-5m}
 PASSWORD=${PASSWORD:-Password123!}
 BASE=${BASE:-https://localhost:8443}
-COMPOSE="docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml -f infrastructure/docker-compose.load.yaml"
+COMPOSE="docker compose -f infrastructure/docker-compose.yaml --profile infra --profile dev --profile app --profile load"
 
 if [ "$POOL_SIZE" -gt 10 ]; then
   echo "POOL_SIZE=$POOL_SIZE > 10: лимит регистрации 10/300с на IP, пул не засеивается за один проход." >&2
@@ -67,7 +67,7 @@ $COMPOSE exec -T postgres psql -U "${POSTGRES_USER:-user}" -d "${POSTGRES_DB:-de
   -c "update users set is_email_verified=true where email like 'load-pool-${RUN_ID}-%@load.test';"
 
 echo "── k6: user journey (VU=$TARGET_VUS, duration=$DURATION, pool=$POOL_SIZE, run=$RUN_ID)"
-$COMPOSE run --rm \
+$COMPOSE run --rm --no-deps \
   -e RUN_ID="$RUN_ID" \
   -e POOL_SIZE="$POOL_SIZE" \
   -e TARGET_VUS="$TARGET_VUS" \

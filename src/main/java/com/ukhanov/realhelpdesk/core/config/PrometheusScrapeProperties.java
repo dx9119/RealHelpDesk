@@ -11,8 +11,8 @@ import lombok.Setter;
  *
  * <p>
  * Скрейп (alloy → Mimir) не ходит за метриками с пользовательским JWT, поэтому метрики закрыты отдельной сервисной учёткой: имя —
- * {@code METRICS_USER} (scripts/docker/stack.env), пароль — {@code METRICS_PASSWORD} (секрет из infrastructure/.env, в репозиторий не
- * попадает). Пустой пароль означает, что никто не пройдёт аутентификацию — скрейп закрыт, а не открыт.
+ * {@code METRICS_USER} (infrastructure/.env), пароль — {@code METRICS_PASSWORD} (секрет из infrastructure/.env, в репозиторий не попадает).
+ * Пустой пароль означает, что никто не пройдёт аутентификацию — скрейп закрыт, а не открыт.
  * </p>
  *
  * <p>

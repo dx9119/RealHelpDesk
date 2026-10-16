@@ -54,7 +54,8 @@ com.ukhanov.realhelpdesk
 API — `https://localhost:8443`. Вспомогательные сервисы dev-среды (в рабочем
 контуре их нет): smtp4dev — тестовый почтовый ящик (`http://localhost:3000`,
 зачем он нужен — в разделе «Почта»), PostgreSQL (`127.0.0.1:5432`), MinIO
-(`127.0.0.1:9000`). Полный список команд — `make help`.
+(`127.0.0.1:9000`) — оба порта публикует `db-gateway` (профиль `dev`), сама БД
+наружу не проброшена. Полный список команд — `make help`.
 
 ## Конфигурация
 
@@ -66,18 +67,22 @@ API — `https://localhost:8443`. Вспомогательные сервисы 
 
 | Файл | Что там |
 |---|---|
-| `scripts/docker/stack.env` | Все несекретные значения с безопасными дефолтами рабочего контура: рейт-лимиты, клиентский IP, капча, сроки JWT, почта, MinIO, порты, домены. Приложение получает его через `env_file`; правится без пересборки образа. Локальные отличия — `stack.local.env` (подключается override-файлом compose после базового), продовые — `stack.prod.env` (файл-шаблон для деплоя) |
-| `infrastructure/.env` | Секреты: `JWT_SECRET`, `DB_PASSWORD`, `KEY_STORE_PASS`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`. Шаблон — `infrastructure/.env.example`, в git не попадает |
-| `services.app.environment` в `infrastructure/docker-compose.yaml` | Передача секретов из `.env` в контейнер (`${VAR:?}` — пустой или отсутствующий секрет валит запуск) |
+| `infrastructure/.env.example` | Шаблон единственного env-файла: все несекретные значения с безопасными дефолтами (рейт-лимиты, клиентский IP, капча, сроки JWT, почта, MinIO, домены) и пустые строки секретов. Локальные значения активны по умолчанию; различия рабочего контура — секция «Рабочий контур» (закомментирована) |
+| `infrastructure/.env` | Рабочий файл (в git не попадает): создаётся `make env` из шаблона (существующий дополняется недостающими ключами). Служит одновременно `env_file` приложения и источником `${VAR}`-интерполяции compose. Секреты: `JWT_SECRET`, `DB_PASSWORD`, `KEY_STORE_PASS`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD` |
+| `services.app.environment` в `infrastructure/docker-compose.yaml` | Секреты из `.env` (`${VAR:?}` — пустой или отсутствующий секрет валит запуск) и динамические ключи с дефолтами (`OTLP_TRACING_ENDPOINT`, `TRUST_PROXY_HEADERS`, `CLIENT_IP_FORWARDED_INDEX`) |
 
 Каждая переменная схемы объявлена ровно в одном из этих мест — парность
-сверяет `ApplicationConfigSchemaTest` (`make test`).
+сверяет `ApplicationConfigSchemaTest` (`make test`). Один compose-файл
+(`infrastructure/docker-compose.yaml`) делится профилями
+`infra`/`dev`/`app`/`monitoring`/`load` — наборы задаёт Makefile, различия
+сред живут в `.env`, а не в отдельных compose-файлах.
 
 ### Клиентский IP
 
 Логи (MDC `clientIp`) и ключ рейт-лимита получают адрес посетителя из одного
-резолвера (`ClientIpResolver`), настройки — `client-ip.*` в
-`scripts/docker/stack.env`:
+резолвера (`ClientIpResolver`), настройки — в `infrastructure/.env`
+(`CLIENT_IP_HEADERS`; `TRUST_PROXY_HEADERS` и `CLIENT_IP_FORWARDED_INDEX`
+задаёт compose-интерполяция с дефолтами `false`/`0`):
 
 | Переменная | Назначение |
 |---|---|
@@ -87,8 +92,9 @@ API — `https://localhost:8443`. Вспомогательные сервисы 
 
 ### Профили
 
-Профиль задаётся `SPRING_PROFILES_ACTIVE`: дефолт в `stack.env` — `prod`
-(рабочий контур), локальная разработка включает `debug` в `stack.local.env`.
+Профиль задаётся `SPRING_PROFILES_ACTIVE`: по умолчанию в шаблоне
+`infrastructure/.env.example` — `debug` (локальная разработка), рабочий
+контур — `prod` (секция «Рабочий контур» в `infrastructure/.env`).
 Профили меняют уровни логирования; `prod` дополнительно закрепляет инварианты
 (SQL-трассировка выключена, миграции включены, тексты исключений скрыты),
 а `ProdPreflightValidator` останавливает старт рабочего контура с
@@ -98,14 +104,14 @@ API — `https://localhost:8443`. Вспомогательные сервисы 
 | Профиль | Файл | Что включает |
 |---|---|---|
 | `debug` | `application-debug.properties` | Локальная отладка: DEBUG по приложению, SQL-логи Hibernate без значений параметров |
-| `prod` (по умолчанию) | `application-prod.properties` | Рабочий контур: INFO/WARN, пошаговая трассировка и SQL выключены, инварианты рабочего контура |
+| `prod` (рабочий контур) | `application-prod.properties` | Рабочий контур: INFO/WARN, пошаговая трассировка и SQL выключены, инварианты рабочего контура |
 
 ### Почта
 
 Почта уходит во внешний SMTP-сервер: встроенного SMTP нет. В dev-среде при
 этом работает smtp4dev — тестовый SMTP-сервис (контейнер `smtp`, UI на
-`http://localhost:3000`), который поднимается только dev-оверлеем
-`infrastructure/docker-compose.override.yaml`; в рабочем контуре его нет.
+`http://localhost:3000`), который поднимается только профилем `dev`
+(`make up`); в рабочем контуре (`make up-prod`, профили `infra`+`app`) его нет.
 
 **Зачем в проекте smtp4dev.** Регистрация, подтверждение email и восстановление
 пароля отправляют письма с кодами, а в dev/e2e их надо прочитать — иначе
@@ -115,14 +121,15 @@ API — `https://localhost:8443`. Вспомогательные сервисы 
 сброса и подтверждения именно оттуда. Роли распределены так: в рабочем контуре
 почтой занимается внешний SMTP-сервер, в интеграционных тестах (`mvn verify`) —
 GreenMail, smtp4dev — только dev-среда и e2e-сценарии на ней: он не входит ни
-в prod-compose, ни в образ приложения.
+в профили рабочего контура, ни в образ приложения.
 
-Настройки — `spring.mail.*` из `scripts/docker/stack.env` (для деплоя —
-`stack.prod.env`), пароль — секрет `MAIL_PASSWORD` в `infrastructure/.env`:
+Настройки — `spring.mail.*` в `infrastructure/.env` (шаблон: локальные
+значения активны, рабочий SMTP — секция «Рабочий контур»), пароль — секрет
+`MAIL_PASSWORD` там же:
 
 | Переменная | Назначение |
 |---|---|
-| `MAIL_PROTOCOL` / `MAIL_HOST` / `MAIL_PORT` | Транспорт и адрес SMTP-сервера. В прод-шаблоне — внешний хост, порт `587`, `SMTP_STARTTLS=true` |
+| `MAIL_PROTOCOL` / `MAIL_HOST` / `MAIL_PORT` | Транспорт и адрес SMTP-сервера. В секции «Рабочий контур» — внешний хост, порт `587`, `SMTP_STARTTLS=true` |
 | `MAIL_USER` / `MAIL_PASSWORD` | Учётная запись SMTP. `MAIL_PASSWORD` — секрет в `infrastructure/.env`; локальному smtp4dev пароль не нужен (тогда `SMTP_AUTH=false`) |
 | `SMTP_AUTH` / `SMTP_STARTTLS` | Аутентификация и STARTTLS; `SMTP_AUTH=true` без `MAIL_USER` — ошибка preflight'а |
 | `MAIL_FROM` | Отправитель писем (`email.from`), например `noreply@example.com` |
@@ -190,7 +197,7 @@ TypeScript-типы для фронта).
 ## Рейт-лимиты
 
 Счётчик ведётся по IP и эндпоинту; при превышении — `429` с `Retry-After`.
-Пороги заданы в `scripts/docker/stack.env` (`RATE_LIMIT_<KEY>_REQUESTS` /
+Пороги заданы в `infrastructure/.env` (`RATE_LIMIT_<KEY>_REQUESTS` /
 `RATE_LIMIT_<KEY>_WINDOW_SECONDS`).
 
 | Ключ | Эндпоинт | Лимит |
@@ -208,8 +215,8 @@ TypeScript-типы для фронта).
 | `email-recovery` | письма восстановления (на адрес) | 3 / 24 ч |
 
 Новый лимит — аннотация `@RateLimit(key = "...")` на методе контроллера плюс
-два порога в `scripts/docker/stack.env`. Счётчики хранятся в памяти и сбрасываются при
-рестарте. За прокси задайте `TRUST_PROXY_HEADERS=true` в `scripts/docker/stack.env`
+два порога в `infrastructure/.env`. Счётчики хранятся в памяти и сбрасываются при
+рестарте. За прокси задайте `TRUST_PROXY_HEADERS=true` в `infrastructure/.env`
 (см. «Клиентский IP»), иначе все запросы будут считаться с одного IP.
 
 ## Наблюдаемость
@@ -290,21 +297,23 @@ E2E-сценарии идут по живому стеку (`make up`) — вс�
   `run.sh` (регистрация + psql-верификация email — портал создаёт только
   `isEmailVerified=true`). VU распределяют пользователей по кругу
   (`VU1 → p1, VU2 → p2, …`), общий лимит регистрации не превышается.
-- **Рейт-лимиты** — `make up-load` включает `TRUST_PROXY_HEADERS=true`
-  (оверлей `infrastructure/docker-compose.load.yaml`): каждая k6-VU шлёт
+- **Рейт-лимиты** — `make up-load` передаёт `TRUST_PROXY_HEADERS=true`
+  инлайном: каждая k6-VU шлёт
   уникальный `X-Forwarded-For` и получает свой bucket рейт-лимитов. Без
   этого профиля все VU делят один `127.0.0.1` и логин упирается в лимит
   10/300с. Включать **только локально** — за таким профилем нет прокси.
-- **Совместимость с наблюдаемостью** — load-оверлей дублирует
-  `OTLP_TRACING_ENDPOINT` на collector: `up-load`/`load-smoke` пересоздают
-  app, и без этого ключа экспорт трейсов откатился бы на `localhost:4317`
-  из `stack.env`, сломав связку с запущенным obs-стеком (`make obs-up`).
+- **Совместимость с наблюдаемостью** — `up-load`/`load-smoke` передают
+  `OTLP_TRACING_ENDPOINT` на collector инлайном: app пересоздаётся, и без
+  этого ключа экспорт трейсов откатился бы на `localhost:4317`
+  (дефолт compose-интерполяции), сломав связку с запущенным obs-стеком
+  (`make obs-up`).
   Прогон метрик/трейсов во время load-теста: поднимите `make obs-up`,
   затем `make load-smoke` — смотрите Grafana и `make obs-alerts`.
 - **Cookie jar** — явная per-VU jar (k6 сбрасывает встроенную между
   итерациями): access-token из логина живёт между витками, re-login
   происходит только по 401.
-- **Капча** выключена в локальном стеке (`stack.local.env`) — иначе
+- **Капча** выключена локально (`CAPTCHA_ENABLED=false` в
+  `infrastructure/.env`, дефолт шаблона) — иначе
   регистрация/логин под нагрузкой не пройдут.
 
 **Пороги** (падают с nonzero exit — прогон считается проваленным):

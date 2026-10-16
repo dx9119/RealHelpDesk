@@ -50,15 +50,16 @@ jobs:
           cache: maven
       - name: Секреты CI (временные, только для запуска)
         run: |
-          cat > infrastructure/.env <<EOF
-          JWT_SECRET=$(openssl rand -base64 32)
-          DB_PASSWORD=$(openssl rand -base64 32)
-          MAIL_PASSWORD=
-          KEY_STORE_PASS=$(openssl rand -hex 8)
-          MINIO_ROOT_USER=rhd-ci
-          MINIO_ROOT_PASSWORD=$(openssl rand -base64 32)
-          METRICS_PASSWORD=$(openssl rand -base64 32)
-          EOF
+          cp infrastructure/.env.example infrastructure/.env
+          sed -i \
+            -e "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -base64 32)|" \
+            -e "s|^DB_PASSWORD=.*|DB_PASSWORD=$(openssl rand -base64 32)|" \
+            -e "s|^KEY_STORE_PASS=.*|KEY_STORE_PASS=$(openssl rand -hex 8)|" \
+            -e "s|^MINIO_ROOT_USER=.*|MINIO_ROOT_USER=rhd-ci|" \
+            -e "s|^MINIO_ROOT_PASSWORD=.*|MINIO_ROOT_PASSWORD=$(openssl rand -base64 32)|" \
+            -e "s|^METRICS_PASSWORD=.*|METRICS_PASSWORD=$(openssl rand -base64 32)|" \
+            infrastructure/.env
+          # MAIL_PASSWORD остаётся пустым: локальному smtp4dev пароль не нужен
       - name: Поднять стек
         run: make up
       - name: Дождаться готовности приложения
@@ -69,8 +70,8 @@ jobs:
       - name: Логи стека (при падении)
         if: failure()
         run: |
-          docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml ps || true
-          docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml logs --no-color || true
+          docker compose -f infrastructure/docker-compose.yaml --profile infra --profile dev --profile app ps || true
+          docker compose -f infrastructure/docker-compose.yaml --profile infra --profile dev --profile app logs --no-color || true
       - name: Остановить стек
         if: always()
         run: make down

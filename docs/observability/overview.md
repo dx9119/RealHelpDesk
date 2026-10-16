@@ -91,9 +91,9 @@ severity/summary/description/runbook_url; их оценивает ruler Mimir). 
 # синтаксис правил (promtool из образа, без локальной установки)
 docker run --rm -v $PWD/infrastructure/observability/mimir/rules/anonymous/realhelpdesk.yml:/alerts.yml:ro \
   --entrypoint promtool prom/prometheus:v3.15.0 check rules /alerts.yml
-# перечитать правила после правок (рестарт контейнера) — или make obs-reload
-docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml \
-  -f infrastructure/docker-compose.observability.yaml restart mimir
+# перечитать правила после правок — или make obs-reload
+docker compose -f infrastructure/docker-compose.yaml \
+  --profile infra --profile dev --profile app --profile monitoring restart mimir
 # текущие состояния алертов — или make obs-alerts
 curl -s localhost:9090/prometheus/api/v1/alerts
 ```
