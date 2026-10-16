@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
+import java.util.List;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -47,25 +48,76 @@ class CaptchaTokenServiceTest {
         assertThat(claims.salt()).isEqualTo("salt456");
         assertThat(claims.difficulty()).isEqualTo(18);
         assertThat(claims.action()).isEqualTo("register");
+        assertThat(claims.level()).isEqualTo(CaptchaTokenService.LEVEL_POW);
         assertThat(claims.issuedAt()).isBetween(before, Instant.now().plusSeconds(5));
     }
 
     @Test
-    @DisplayName("captcha-токен: несёт своё действие, jti и время выдачи challenge")
+    @DisplayName("emoji-challenge: выпускается и разбирается с теми же id, заданием, глифами и HMAC ответа")
+    void emojiChallenge_roundTrip() throws CaptchaException {
+        Instant before = Instant.now().minusSeconds(5);
+        List<String> cells = List.of("🚗", "🐱", "🍎", "🍕", "💡", "🌳", "🐶", "📱", "🌻");
+        String answerHash = service.answerHash("cid-emoji", List.of(0, 2));
+        String token = service.issueEmojiChallenge(CaptchaTokenService.ACTION_REGISTER, "cid-emoji", "Выберите фрукты", cells, answerHash);
+
+        ChallengeClaims claims = service.parseChallenge(token);
+
+        assertThat(claims.challengeId()).isEqualTo("cid-emoji");
+        assertThat(claims.level()).isEqualTo(CaptchaTokenService.LEVEL_EMOJI);
+        assertThat(claims.prompt()).isEqualTo("Выберите фрукты");
+        assertThat(claims.cells()).isEqualTo(cells);
+        assertThat(claims.answerHash()).isEqualTo(answerHash);
+        assertThat(claims.salt()).isNull();
+        assertThat(claims.difficulty()).isNull();
+        assertThat(claims.issuedAt()).isBetween(before, Instant.now().plusSeconds(5));
+    }
+
+    @Test
+    @DisplayName("answerHash: одинаковый набор индексов в разном порядке даёт один HMAC, другой набор — другой")
+    void answerHash_orderInsensitiveDifferentAnswerDiffers() {
+        String first = service.answerHash("cid", List.of(0, 2, 5));
+        String shuffled = service.answerHash("cid", List.of(5, 0, 2));
+        String other = service.answerHash("cid", List.of(0, 2, 6));
+        String otherCid = service.answerHash("cid2", List.of(0, 2, 5));
+
+        assertThat(first).isEqualTo(shuffled).hasSize(64).matches("[0-9a-f]{64}");
+        assertThat(other).isNotEqualTo(first);
+        assertThat(otherCid).isNotEqualTo(first);
+    }
+
+    @Test
+    @DisplayName("emoji-challenge без задания или глифов — IllegalArgumentException")
+    void emojiChallenge_invalidArgs_throws() {
+        assertThatThrownBy(() -> service.issueEmojiChallenge(CaptchaTokenService.ACTION_REGISTER, "cid", "  ", List.of("🚗", "🐱"), "hash"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.issueEmojiChallenge(CaptchaTokenService.ACTION_REGISTER, "cid", "prompt", List.of("🚗"), "hash"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("captcha-токен: несёт своё действие, jti, источник решения и время выдачи challenge")
     void captchaToken_roundTrip() throws CaptchaException {
         // JWT сериализует даты с точностью до секунд — сравниваем с такой же точностью
         Instant challengeIssuedAt = Instant.now().minusSeconds(30).truncatedTo(ChronoUnit.SECONDS);
-        String token = service.issueCaptchaToken(CaptchaTokenService.ACTION_EMAIL_CODE, challengeIssuedAt);
+        String token = service.issueCaptchaToken(CaptchaTokenService.ACTION_EMAIL_CODE, challengeIssuedAt, CaptchaTokenService.LEVEL_EMOJI);
         CaptchaTokenClaims claims = service.parseCaptchaToken(token, CaptchaTokenService.ACTION_EMAIL_CODE);
 
         assertThat(claims.jti()).hasSize(32);
         assertThat(claims.challengeIssuedAt()).isEqualTo(challengeIssuedAt);
+        assertThat(claims.source()).isEqualTo(CaptchaTokenService.LEVEL_EMOJI);
+    }
+
+    @Test
+    @DisplayName("captcha-токен с неизвестным источником — IllegalArgumentException")
+    void captchaToken_unknownSource_throws() {
+        assertThatThrownBy(() -> service.issueCaptchaToken(CaptchaTokenService.ACTION_REGISTER, Instant.now(), "provider"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("provider");
     }
 
     @Test
     @DisplayName("Подделанный токен (битая подпись) — INVALID")
     void tamperedToken_invalid() {
-        String token = service.issueCaptchaToken(CaptchaTokenService.ACTION_REGISTER, Instant.now());
+        String token = service.issueCaptchaToken(CaptchaTokenService.ACTION_REGISTER, Instant.now(), CaptchaTokenService.LEVEL_POW);
         String tampered = token.substring(0, token.length() - 2) + "aa";
 
         assertReason(() -> service.parseCaptchaToken(tampered, CaptchaTokenService.ACTION_REGISTER), CaptchaReason.INVALID);
@@ -83,7 +135,7 @@ class CaptchaTokenServiceTest {
     @DisplayName("Токен-задание вместо captcha-токена (и наоборот) — WRONG_TYPE")
     void wrongType_reason() {
         String challenge = service.issueChallenge(CaptchaTokenService.ACTION_REGISTER, "cid", "salt");
-        String captcha = service.issueCaptchaToken(CaptchaTokenService.ACTION_REGISTER, Instant.now());
+        String captcha = service.issueCaptchaToken(CaptchaTokenService.ACTION_REGISTER, Instant.now(), CaptchaTokenService.LEVEL_POW);
 
         assertReason(() -> service.parseCaptchaToken(challenge, CaptchaTokenService.ACTION_REGISTER), CaptchaReason.WRONG_TYPE);
         assertReason(() -> service.parseChallenge(captcha), CaptchaReason.WRONG_TYPE);
@@ -92,7 +144,7 @@ class CaptchaTokenServiceTest {
     @Test
     @DisplayName("Токен одного действия предъявлен на другое — WRONG_ACTION")
     void wrongAction_reason() {
-        String token = service.issueCaptchaToken(CaptchaTokenService.ACTION_REGISTER, Instant.now());
+        String token = service.issueCaptchaToken(CaptchaTokenService.ACTION_REGISTER, Instant.now(), CaptchaTokenService.LEVEL_POW);
 
         assertReason(() -> service.parseCaptchaToken(token, CaptchaTokenService.ACTION_EMAIL_CODE), CaptchaReason.WRONG_ACTION);
     }
@@ -102,8 +154,8 @@ class CaptchaTokenServiceTest {
     void expiredToken_reason() {
         Instant past = Instant.now().minusSeconds(60);
         String expired = Jwts.builder().claim("typ", CaptchaTokenService.TYPE_CAPTCHA).claim("act", CaptchaTokenService.ACTION_REGISTER)
-                .id("jti00000000000000000000000000000").claim("ciat", Date.from(past)).issuedAt(Date.from(past))
-                .expiration(Date.from(past.plusSeconds(30))).signWith(key).compact();
+                .id("jti00000000000000000000000000000").claim("src", CaptchaTokenService.LEVEL_POW).claim("ciat", Date.from(past))
+                .issuedAt(Date.from(past)).expiration(Date.from(past.plusSeconds(30))).signWith(key).compact();
 
         assertReason(() -> service.parseCaptchaToken(expired, CaptchaTokenService.ACTION_REGISTER), CaptchaReason.EXPIRED);
     }

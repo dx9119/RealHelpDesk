@@ -34,4 +34,13 @@ public class CaptchaProperties {
 
     /** Минимальное время от выдачи challenge до отправки формы, секунды (0 — проверка отключена). */
     private Integer minFillSeconds;
+
+    /** Эскалация на эмодзи-уровень включена (true): рискованные IP получают эмодзи-задание вместо PoW (kill-switch — false). */
+    private Boolean emojiEnabled;
+
+    /** Сколько провалов капчи подряд у одного IP, после которых выдаётся эмодзи-задание (1..1000). */
+    private Integer riskFailureThreshold;
+
+    /** Окно (секунды) учитываемых провалов капчи на IP; счётчик сбрасывается по истечении окна или после успешной проверки (10..86400). */
+    private Integer riskFailureWindowSeconds;
 }

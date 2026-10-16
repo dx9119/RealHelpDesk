@@ -14,7 +14,9 @@ import org.springframework.mail.MailSendException;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import com.ukhanov.realhelpdesk.core.config.ClientIpProperties;
 import com.ukhanov.realhelpdesk.core.exception.GlobalExceptionHandler;
+import com.ukhanov.realhelpdesk.core.http.ClientIpResolver;
 import com.ukhanov.realhelpdesk.core.mail.dto.EmailInfoResponse;
 import com.ukhanov.realhelpdesk.core.mail.exception.EmailAccessDeniedException;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
@@ -55,8 +57,8 @@ class EmailPolicyControllerTest {
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new EmailPolicyController(emailDeliveryService, emailPolicyService, captchaService))
-                .setControllerAdvice(new GlobalExceptionHandler()).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(new EmailPolicyController(emailDeliveryService, emailPolicyService, captchaService,
+                new ClientIpResolver(new ClientIpProperties()))).setControllerAdvice(new GlobalExceptionHandler()).build();
     }
 
     // ────────────────────────────────────────────────
@@ -134,7 +136,7 @@ class EmailPolicyControllerTest {
     void sendConfirmCode_returnsAccepted() throws Exception {
         mockMvc.perform(post("/api/v1/email/codes").header("X-Captcha-Token", "jwt-token")).andExpect(status().isAccepted());
 
-        verify(captchaService).verify("jwt-token", CaptchaTokenService.ACTION_EMAIL_CODE);
+        verify(captchaService).verify("jwt-token", CaptchaTokenService.ACTION_EMAIL_CODE, "127.0.0.1");
         verify(emailDeliveryService).sendConfirmCode();
     }
 
@@ -142,7 +144,7 @@ class EmailPolicyControllerTest {
     @DisplayName("Капча не пройдена → 400 с code, письмо не отправляется")
     void sendConfirmCode_captchaFailed_returnsBadRequest() throws Exception {
         doThrow(new CaptchaException("Провал прохождения капчи", CaptchaReason.POW_FAILED)).when(captchaService).verify(any(),
-                eq(CaptchaTokenService.ACTION_EMAIL_CODE));
+                eq(CaptchaTokenService.ACTION_EMAIL_CODE), any());
 
         mockMvc.perform(post("/api/v1/email/codes").header("X-Captcha-Token", "bad")).andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value("Провал прохождения капчи")).andExpect(jsonPath("$.code").value("pow_failed"));
@@ -183,7 +185,7 @@ class EmailPolicyControllerTest {
     void sendConfirmCode_withoutCaptchaHeader_stillCallsService() throws Exception {
         mockMvc.perform(post("/api/v1/email/codes")).andExpect(status().isAccepted());
 
-        verify(captchaService).verify(null, CaptchaTokenService.ACTION_EMAIL_CODE);
+        verify(captchaService).verify(null, CaptchaTokenService.ACTION_EMAIL_CODE, "127.0.0.1");
         verify(emailDeliveryService).sendConfirmCode();
     }
 

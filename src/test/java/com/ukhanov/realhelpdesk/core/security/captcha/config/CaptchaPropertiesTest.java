@@ -24,6 +24,21 @@ class CaptchaPropertiesTest {
     }
 
     @Test
+    @DisplayName("Ключи риск-движка и эмодзи-эскалации биндятся из конфигурации")
+    void bindsRiskEngine() {
+        MockEnvironment environment = new MockEnvironment();
+        environment.setProperty("captcha.emoji-enabled", "true");
+        environment.setProperty("captcha.risk-failure-threshold", "5");
+        environment.setProperty("captcha.risk-failure-window-seconds", "600");
+
+        CaptchaProperties properties = bind(environment);
+
+        assertThat(properties.getEmojiEnabled()).isTrue();
+        assertThat(properties.getRiskFailureThreshold()).isEqualTo(5);
+        assertThat(properties.getRiskFailureWindowSeconds()).isEqualTo(600);
+    }
+
+    @Test
     @DisplayName("Без captcha.* биндинг не срабатывает")
     void emptyEnvironment_isNotBound() {
         BindResult<CaptchaProperties> result = Binder.get(new MockEnvironment()).bind("captcha", Bindable.of(CaptchaProperties.class));

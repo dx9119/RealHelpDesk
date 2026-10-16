@@ -123,11 +123,11 @@ class RegistrationServiceTest {
     @DisplayName("Непройденная капча: пользователь не создаётся, письма не уходят")
     void processRegistration_captchaFailed_noUserCreated() throws Exception {
         doThrow(new CaptchaException("Провал прохождения капчи", CaptchaReason.POW_FAILED)).when(captchaService).verifyRegistration(any(),
-                any());
+                any(), any());
 
-        assertThatThrownBy(() -> service.processRegistration(request())).isInstanceOf(CaptchaException.class);
+        assertThatThrownBy(() -> service.processRegistration(request(), "127.0.0.1")).isInstanceOf(CaptchaException.class);
 
-        verify(captchaService).verifyRegistration(null, null);
+        verify(captchaService).verifyRegistration(null, null, "127.0.0.1");
         verifyNoInteractions(userDomainService, emailDeliveryService, getTokenService);
     }
 
@@ -135,12 +135,12 @@ class RegistrationServiceTest {
     @DisplayName("Honeypot-поле из запроса уходит в проверку капчи")
     void processRegistration_passesHoneypotToCaptcha() throws Exception {
         doThrow(new CaptchaException("Провал прохождения капчи", CaptchaReason.HONEYPOT)).when(captchaService).verifyRegistration(any(),
-                eq("bot-filled"));
+                eq("bot-filled"), any());
 
         RegisterRequest withHoneypot = new RegisterRequest("Имя", "Фамилия", "token-123", "bot-filled", EMAIL, PASSWORD, null, null);
-        assertThatThrownBy(() -> service.processRegistration(withHoneypot)).isInstanceOf(CaptchaException.class);
+        assertThatThrownBy(() -> service.processRegistration(withHoneypot, "127.0.0.1")).isInstanceOf(CaptchaException.class);
 
-        verify(captchaService).verifyRegistration("token-123", "bot-filled");
+        verify(captchaService).verifyRegistration("token-123", "bot-filled", "127.0.0.1");
         verifyNoInteractions(userDomainService, emailDeliveryService, getTokenService);
     }
 

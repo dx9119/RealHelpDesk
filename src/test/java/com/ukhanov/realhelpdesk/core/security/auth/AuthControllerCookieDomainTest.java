@@ -13,7 +13,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import com.ukhanov.realhelpdesk.core.config.ClientIpProperties;
 import com.ukhanov.realhelpdesk.core.config.JwtProperties;
+import com.ukhanov.realhelpdesk.core.http.ClientIpResolver;
 import com.ukhanov.realhelpdesk.core.security.auth.login.service.LoginService;
 import com.ukhanov.realhelpdesk.core.security.auth.logout.service.LogoutService;
 import com.ukhanov.realhelpdesk.core.security.auth.refresh.service.RefreshService;
@@ -53,7 +55,7 @@ class AuthControllerCookieDomainTest {
     void setUp() {
         jwtProperties = new JwtProperties();
         mockMvc = MockMvcBuilders.standaloneSetup(new AuthController(registrationService, loginService, logoutService, getTokenService,
-                refreshService, jwtProperties, userManageService)).build();
+                refreshService, jwtProperties, userManageService, new ClientIpResolver(new ClientIpProperties()))).build();
     }
 
     @Test

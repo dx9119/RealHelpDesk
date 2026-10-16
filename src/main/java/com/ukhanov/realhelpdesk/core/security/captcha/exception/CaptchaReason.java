@@ -25,7 +25,9 @@ public enum CaptchaReason {
     /** Proof-of-Work не решён: хэш не набрал нужное число нулевых бит. */
     POW_FAILED("pow_failed"),
     /** Заполнено honeypot-поле, невидимое человеку. */
-    HONEYPOT("honeypot");
+    HONEYPOT("honeypot"),
+    /** Неверно решено эмодзи-задание: не тот набор ячеек или пустой ответ. */
+    WRONG_ANSWER("wrong_answer");
 
     private final String code;
 

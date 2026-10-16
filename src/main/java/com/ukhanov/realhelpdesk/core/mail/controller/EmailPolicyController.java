@@ -3,6 +3,7 @@ package com.ukhanov.realhelpdesk.core.mail.controller;
 import java.io.UnsupportedEncodingException;
 
 import jakarta.mail.MessagingException;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ukhanov.realhelpdesk.core.http.ClientIpResolver;
 import com.ukhanov.realhelpdesk.core.mail.dto.EmailInfoResponse;
 import com.ukhanov.realhelpdesk.core.mail.exception.EmailAccessDeniedException;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
@@ -33,6 +35,7 @@ public class EmailPolicyController {
     private final EmailDeliveryService emailDeliveryService;
     private final EmailPolicyService emailPolicyService;
     private final CaptchaService captchaService;
+    private final ClientIpResolver clientIpResolver;
 
     @PostMapping("/confirmations/{token}")
     public ResponseEntity<Void> confirmEmail(@PathVariable Long token) throws EmailAccessDeniedException {
@@ -54,9 +57,9 @@ public class EmailPolicyController {
 
     @PostMapping("/codes")
     @RateLimit(key = "email-code")
-    public ResponseEntity<Void> sendConfirmCode(@RequestHeader(value = "X-Captcha-Token", required = false) String captchaToken)
-            throws MessagingException, CaptchaException, UnsupportedEncodingException {
-        captchaService.verify(captchaToken, CaptchaTokenService.ACTION_EMAIL_CODE);
+    public ResponseEntity<Void> sendConfirmCode(@RequestHeader(value = "X-Captcha-Token", required = false) String captchaToken,
+            HttpServletRequest httpRequest) throws MessagingException, CaptchaException, UnsupportedEncodingException {
+        captchaService.verify(captchaToken, CaptchaTokenService.ACTION_EMAIL_CODE, clientIpResolver.resolve(httpRequest));
         emailDeliveryService.sendConfirmCode();
         return ResponseEntity.accepted().build();
     }
