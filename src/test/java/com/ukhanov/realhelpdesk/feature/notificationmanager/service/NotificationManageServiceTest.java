@@ -18,6 +18,8 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.context.request.async.DeferredResult;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitterCapture;
 
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.pagination.dto.PageResponse;
@@ -42,6 +44,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -351,5 +354,128 @@ class NotificationManageServiceTest {
         service.waitForNew(99L, 25, 5);
 
         verify(notificationRepository).findByRecipientIdAndIdGreaterThanOrderByIdAsc(eq(USER_ID), eq(99L), eq(PageRequest.of(0, 5)));
+    }
+
+    // ────────────────────────────────────────────────
+    // SSE-канал и общий с long polling механизм
+    // ────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("stream: первый пакет — комментарий connected, подписка в реестре ожидающих")
+    void subscribe_connectedCommentAndRegisters() {
+        when(notificationRepository.findByRecipientIdAndIdGreaterThanOrderByIdAsc(eq(USER_ID), eq(0L), any(PageRequest.class)))
+                .thenReturn(List.of());
+
+        SseEmitter emitter = service.subscribe(0L, 10);
+        SseEmitterCapture.Capture capture = SseEmitterCapture.attach(emitter);
+
+        assertThat(capture.payloads()).hasSize(1);
+        assertThat(capture.payloads().get(0)).isInstanceOf(String.class).asString().contains("connected");
+        verify(waitRegistry).register(eq(USER_ID), any(Runnable.class));
+        verify(waitRegistry, never()).unregister(anyLong(), any(Runnable.class));
+    }
+
+    @Test
+    @DisplayName("stream: при подключении сразу отдаётся backfill всего новее курсора (event: notification)")
+    void subscribe_backfillsExistingRows() {
+        NotificationModel model = new NotificationModel(USER_ID, NotificationEvent.NEW_TICKET, 11L, null, "З");
+        model.setId(7L);
+        when(notificationRepository.findByRecipientIdAndIdGreaterThanOrderByIdAsc(eq(USER_ID), eq(0L), any(PageRequest.class)))
+                .thenReturn(List.of(model));
+
+        SseEmitter emitter = service.subscribe(0L, 10);
+        SseEmitterCapture.Capture capture = SseEmitterCapture.attach(emitter);
+
+        assertThat(capture.payloads()).anyMatch(payload -> payload instanceof String text && text.contains("event:notification"));
+        List<NotificationResponse> sent = capture.payloads().stream().filter(NotificationResponse.class::isInstance)
+                .map(NotificationResponse.class::cast).toList();
+        assertThat(sent).hasSize(1);
+        assertThat(sent.getFirst().event()).isEqualTo(NotificationEvent.NEW_TICKET);
+        // канал пережил backfill: подписка осталась висеть до закрытия/таймаута
+        verify(waitRegistry, never()).unregister(anyLong(), any(Runnable.class));
+    }
+
+    @Test
+    @DisplayName("stream: wake отдаёт новые строки и заново ставит подписку в реестр (wake снимает ожидающих один раз)")
+    void subscribe_wakePushesAndReregisters() {
+        NotificationModel model = new NotificationModel(USER_ID, NotificationEvent.NEW_TICKET, 11L, null, "З");
+        model.setId(7L);
+        when(notificationRepository.findByRecipientIdAndIdGreaterThanOrderByIdAsc(eq(USER_ID), eq(0L), any(PageRequest.class)))
+                .thenReturn(List.of()).thenReturn(List.of(model));
+
+        SseEmitter emitter = service.subscribe(0L, 10);
+        SseEmitterCapture.Capture capture = SseEmitterCapture.attach(emitter);
+
+        ArgumentCaptor<Runnable> wakeCaptor = ArgumentCaptor.forClass(Runnable.class);
+        verify(waitRegistry).register(eq(USER_ID), wakeCaptor.capture());
+
+        // имитация: публикатор будит подписчика
+        wakeCaptor.getValue().run();
+
+        verify(waitRegistry, times(2)).register(eq(USER_ID), any(Runnable.class));
+        assertThat(capture.payloads().stream().filter(NotificationResponse.class::isInstance)).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("stream: закрытие канала снимает подписку с реестра")
+    void subscribe_completionUnregisters() {
+        when(notificationRepository.findByRecipientIdAndIdGreaterThanOrderByIdAsc(eq(USER_ID), eq(0L), any(PageRequest.class)))
+                .thenReturn(List.of());
+
+        SseEmitter emitter = service.subscribe(0L, 10);
+        SseEmitterCapture.attach(emitter);
+
+        emitter.complete();
+
+        verify(waitRegistry).unregister(eq(USER_ID), any(Runnable.class));
+    }
+
+    @Test
+    @DisplayName("stream: таймаут канала снимает подписку с реестра")
+    void subscribe_timeoutUnregisters() {
+        when(notificationRepository.findByRecipientIdAndIdGreaterThanOrderByIdAsc(eq(USER_ID), eq(0L), any(PageRequest.class)))
+                .thenReturn(List.of());
+
+        SseEmitter emitter = service.subscribe(0L, 10);
+        SseEmitterCapture.Capture capture = SseEmitterCapture.attach(emitter);
+
+        capture.fireTimeout();
+
+        verify(waitRegistry).unregister(eq(USER_ID), any(Runnable.class));
+    }
+
+    @Test
+    @DisplayName("Фолбэк: одно wake будит и long polling, и SSE из одного реестра ожидающих")
+    void fallback_wakeDrivesBothChannels() {
+        NotificationWaitRegistry realRegistry = new NotificationWaitRegistry();
+        NotificationManageService sharedService = new NotificationManageService(notificationRepository, preferencesRepository,
+                currentUserProvider, new PaginationAdapter(), realRegistry, Mappers.getMapper(NotificationMapper.class));
+        NotificationModel model = new NotificationModel(USER_ID, NotificationEvent.NEW_TICKET, 11L, null, "З");
+        model.setId(7L);
+        // порядок выборок: backfill подписки и немедленная проверка wait — пусто; после wake — строки обоим
+        when(notificationRepository.findByRecipientIdAndIdGreaterThanOrderByIdAsc(eq(USER_ID), eq(0L), any(PageRequest.class)))
+                .thenReturn(List.of(), List.of(), List.of(model), List.of(model));
+
+        SseEmitter emitter = sharedService.subscribe(0L, 10);
+        SseEmitterCapture.attach(emitter);
+        assertThat(realRegistry.waiterCount(USER_ID)).isEqualTo(1);
+
+        DeferredResult<ResponseEntity<PageResponse<NotificationResponse>>> deferred = sharedService.waitForNew(0L, 25, 10);
+        assertThat(deferred.hasResult()).isFalse();
+        assertThat(realRegistry.waiterCount(USER_ID)).isEqualTo(2);
+
+        // публикатор: пишет в БД и будит всех ожидающих пользователя после коммита
+        realRegistry.wake(USER_ID);
+
+        // long polling получил строки, SSE заново встал в реестр до закрытия канала
+        assertThat(deferred.hasResult()).isTrue();
+        @SuppressWarnings("unchecked")
+        ResponseEntity<PageResponse<NotificationResponse>> entity = (ResponseEntity<PageResponse<NotificationResponse>>) deferred
+                .getResult();
+        assertThat(entity.getBody().content()).hasSize(1);
+        assertThat(realRegistry.waiterCount(USER_ID)).isEqualTo(1);
+
+        emitter.complete();
+        assertThat(realRegistry.waiterCount(USER_ID)).isZero();
     }
 }

@@ -11,12 +11,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.MethodValidationPostProcessor;
 import org.springframework.web.context.request.async.DeferredResult;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import com.ukhanov.realhelpdesk.core.exception.GlobalExceptionHandler;
 import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
@@ -34,10 +37,13 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -157,6 +163,39 @@ class NotificationControllerTest {
     @DisplayName("GET /wait?timeoutSec=99 → 400 (значение вне 1..30)")
     void waitForNew_timeoutOutOfRange_badRequest() throws Exception {
         mockMvc.perform(get("/api/v1/notifications/wait").param("timeoutSec", "99")).andExpect(status().isBadRequest());
+    }
+
+    // ────────────────────────────────────────────────
+    // SSE-канал (основной канал, long polling — фолбэк)
+    // ────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("GET /stream → async 200 text/event-stream, no-store, делегирует в сервис")
+    void stream_ok() throws Exception {
+        SseEmitter emitter = new SseEmitter();
+        // подготовительный пакет: без него заголовки ответа уходят только при первом оповещении
+        emitter.send(SseEmitter.event().comment("connected"));
+        when(mockNotificationManageService.subscribe(0L, 10)).thenReturn(emitter);
+
+        mockMvc.perform(get("/api/v1/notifications/stream")).andExpect(request().asyncStarted()).andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"))
+                .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_EVENT_STREAM));
+
+        verify(mockNotificationManageService).subscribe(0L, 10);
+    }
+
+    @Test
+    @DisplayName("GET /stream?afterId=-1 → 400 (значение вне диапазона), в сервис не уходим")
+    void stream_afterIdNegative_badRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/notifications/stream").param("afterId", "-1")).andExpect(status().isBadRequest());
+
+        verifyNoInteractions(mockNotificationManageService);
+    }
+
+    @Test
+    @DisplayName("GET /stream?size=51 → 400 (значение вне 1..50)")
+    void stream_sizeOutOfRange_badRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/notifications/stream").param("size", "51")).andExpect(status().isBadRequest());
     }
 
     // ────────────────────────────────────────────────

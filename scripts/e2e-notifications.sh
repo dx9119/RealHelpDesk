@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# E2E: in-app оповещения (long polling, прочтение, настройки, повторы).
+# E2E: in-app оповещения (SSE, long polling, прочтение, настройки, повторы).
 #
 # Проверяет: доверенный получает NEW_TICKET по long polling, пока владелец
 # создаёт заявку; автор действия не получает уведомления о собственном
-# действии; смена статуса уведомляет владельца; событие, отключённое в
+# действии; SSE-канал открывается комментарием connected и при подключении
+# отдаёт backfill уже накопленных оповещений; после коммита новой заявки
+# ожидающие будятся — уведомление приходит и по long polling, и по SSE;
+# смена статуса уведомляет владельца; событие, отключённое в
 # настройках, не приходит (пустой long polling отвечает 200 с content=[]
 # по таймауту); чужое уведомление не читается (404); неизвестное событие
 # в настройках — 400; без токена — 401.
@@ -71,6 +74,20 @@ wait_new() {
   done
   echo 0
 }
+# ждёт появления паттерна в файле: $1 файл, $2 паттерн, $3 итераций по 1 сек.
+# Печатает 1, если появилось, иначе 0.
+await_grep() {
+  local file=$1 pattern=$2 tries=${3:-5} i=0
+  while [ "$i" -lt "$tries" ]; do
+    if grep -q "$pattern" "$file" 2>/dev/null; then
+      echo 1
+      return
+    fi
+    sleep 1
+    i=$((i + 1))
+  done
+  echo 0
+}
 # полный набор событий каталога in-app (для PUT preferences)
 ALL_EVENTS='["NEW_TICKET","NEW_MESSAGE","NEW_SYSTEM_MESSAGE","CHANGE_TICKET","TICKET_DELETED","NEW_PORTAL","PORTAL_DELETED"]'
 
@@ -123,6 +140,15 @@ step "Автор действия не получает уведомления �
 check "$(unread "$JAR_A")" "0" "у A непрочитанных нет (сам создал заявку)"
 check "$(unread "$JAR_B")" "1" "у B одно непрочитанное"
 
+step "B открывает SSE-канал: connected и backfill накопленного NEW_TICKET"
+curl -sk -N -m 10 -H 'X-Requested-With: XMLHttpRequest' -b "$JAR_B" \
+  "$BASE/notifications/stream?afterId=0" > "$TMP/sse-backfill.txt" 2>/dev/null &
+SSE_PID=$!
+check "$(await_grep "$TMP/sse-backfill.txt" 'connected' 5)" "1" "SSE открылся комментарием connected"
+check "$(await_grep "$TMP/sse-backfill.txt" '"event":"NEW_TICKET"' 5)" "1" "backfill при подключении отдал NEW_TICKET по SSE"
+kill "$SSE_PID" 2>/dev/null || true
+wait "$SSE_PID" 2>/dev/null || true
+
 step "B читает всё, владелец получает CHANGE_TICKET от действия B"
 check "$(code -b "$JAR_B" -X PUT "$BASE/notifications/read-all")" "204" "B отметил всё прочитанным"
 check "$(unread "$JAR_B")" "0" "у B снова 0"
@@ -160,10 +186,18 @@ else
 fi
 check "$(unread "$JAR_B")" "0" "у B по-прежнему 0 непрочитанных"
 
-step "B создаёт заявку — A (владелец) получает NEW_TICKET"
+step "B создаёт заявку — A (владелец) получает NEW_TICKET по long polling и SSE"
+A_AFTER=$(last_id "$JAR_A")
+curl -sk -N -m 10 -H 'X-Requested-With: XMLHttpRequest' -b "$JAR_A" \
+  "$BASE/notifications/stream?afterId=${A_AFTER:-0}" > "$TMP/sse-wake.txt" 2>/dev/null &
+SSE_PID=$!
+sleep 1
 check "$(code -b "$JAR_B" -X POST "$BASE/portals/$PORTAL/tickets" -H 'Content-Type: application/json' \
   --data-binary "$(body '{"title":"Заявка от B","body":"от доверенного"}')")" "201" "B создал заявку"
+check "$(await_grep "$TMP/sse-wake.txt" '"event":"NEW_TICKET"' 5)" "1" "A получил NEW_TICKET по SSE (будка после коммита)"
 check "$(unread "$JAR_A")" "1" "у A непрочитанное NEW_TICKET"
+kill "$SSE_PID" 2>/dev/null || true
+wait "$SSE_PID" 2>/dev/null || true
 
 step "Повторы: настройки по умолчанию у пользователя без строки"
 PREFS=$(curl -sk -H 'X-Requested-With: XMLHttpRequest' -b "$JAR_A" "$BASE/notifications/preferences")
