@@ -9,7 +9,7 @@ REST API системы управления заявками предостав
 
 - Регистрация, авторизация, аутентификация, верификация email, восстановление пароля.
 - Порталы: создание, редактирование, удаление; публичный доступ и доступ по
-  списку доаверенных пользователей.
+  списку доверенных пользователей.
 - Заявки: создание, статусы, приоритеты, удаление, поиск по заявкам.
 - Формирование сообщений, прикрепление к заявке файловых вложений (MinIO, отдача с поддержкой HTTP `Range` для не стабильных сетей).
 - Передача права владения порталом с подтверждением и полной историей состояний портала.
@@ -31,53 +31,146 @@ REST API системы управления заявками предостав
 
 ## Архитектура
 
+Полная структура пакетов (`src/main/java/com/ukhanov/realhelpdesk`):
+
 ```
 com.ukhanov.realhelpdesk
-├── core      — конфигурация (Security/CORS), фильтры, JWT, пользователи,
-│               почта, пагинация, рейт-лимиты, капча, контроль доступа, storage
-├── domain    — JPA-сущности, репозитории и доменные сервисы
-└── feature   — контроллеры и сервисы по областям: порталы, заявки, сообщения,
-                вложения, пользователи, оповещения
+├── core                          — общее для всех областей
+│   ├── annotation                — @NoHtml: запрет HTML-разметки в строках
+│   ├── config                    — Security/CORS/JWT, ClientIp, actuator, ProdPreflightValidator
+│   ├── controller                — GET /api/v1/health
+│   ├── exception                 — ApiException и GlobalExceptionHandler → RFC 7807 problem+json
+│   ├── filter                    — JwtAuthFilter, CsrfProtectionFilter, LoggingFilter (MDC clientIp)
+│   ├── http                      — ClientIpResolver, ETag, Range
+│   ├── log                       — LogSanitizer
+│   ├── mail                      — письма: config, controller, dto, exception, health, model, repository, service
+│   ├── observability             — метрики и трассировка (Micrometer, OpenTelemetry)
+│   ├── pagination                — единый контракт page/size/sortBy/order → PageResponse
+│   ├── security
+│   │   ├── accesscontrol         — AccessValidationService, TicketAccessValidationService
+│   │   ├── auth                  — register/login/logout/refresh/tokens: JWT в http-only cookies
+│   │   ├── captcha               — Proof-of-Work + эмодзи-эскалация, риск-движок по IP
+│   │   ├── handler               — 401/403 в problem+json
+│   │   ├── limiter               — квоты пользователя
+│   │   ├── ratelimit             — аннотация @RateLimit и счётчики по IP
+│   │   └── user                  — CurrentUserProvider, UserModel, роли и статусы
+│   └── storage                   — MinIO: бакет, отдача с HTTP Range, health
+├── domain                        — JPA-сущности, репозитории и доменные правила
+│   ├── portal                    — портал: владелец, allowedUserIds, публичность (model, repository, service)
+│   ├── ticket                    — заявки: статусы, приоритеты, политика TicketAccessStatus (model, repository, service)
+│   ├── message                   — сообщения заявок (model, repository, service)
+│   ├── attachment                — метаданные вложений (model, repository, service)
+│   └── notification              — строки in-app оповещений и настройки пользователя (model, repository)
+└── feature                       — REST-слой по областям; в каждом модуле:
+    │                             controller, dto, exception, mapper, service
+    ├── portalmanager             — порталы, настройки, история, передача владения
+    ├── ticketmanager             — заявки: создание, поиск, статусы, приоритеты
+    ├── messagemanager            — чтение и отправка сообщений
+    ├── attachmentmanager         — загрузка и отдача вложений
+    ├── notificationmanager       — оповещения: SSE, long polling, настройки и повторы
+    └── usermanager               — профиль и пароли пользователей
 ```
 
-Правила доступа к порталам и заявкам проверяются через `@PreAuthorize`
-(`AccessValidationService`, `TicketAccessValidationService`). Ошибки
-централизованно преобразуются в RFC 7807-подобные ответы `GlobalExceptionHandler`.
+Ошибки HTTP-слоя централизованно преобразуются в RFC 7807-подобные ответы
+`GlobalExceptionHandler`. Правила доступа к порталам и заявкам — в разделе
+[«Правила доступа к порталам и заявкам»](#правила-доступа-к-порталам-и-заявкам).
 
 ## Быстрый старт
 
-Проект рассчитан на запуск в Docker (переменные окружения обязательны).
+Проект запускается в Docker; Java 21 и Maven нужны только для разработки
+(тесты и сборка). Понадобятся Docker с Compose v2 и GNU Make —
+`make help` печатает список всех команд.
 
-| Шаг | Команда | Что делает |
-|---|---|---|
-| 1 | `cp infrastructure/.env.example infrastructure/.env` | Шаблон секретов: заполните `JWT_SECRET`, `DB_PASSWORD`, `KEY_STORE_PASS`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` |
-| 2 | `make up` | Сборка образа и запуск всего стека в фоне (`docker compose up --build -d`) |
-| 3 | `make dev-run` | Dev-среда в foreground: логи всех сервисов, `Ctrl+C` — стоп |
+1. **Создать файл настроек.** Первый раз:
 
-API — `https://localhost:8443`. Вспомогательные сервисы dev-среды (в рабочем
-контуре их нет): smtp4dev — тестовый почтовый ящик (`http://localhost:3000`,
-зачем он нужен — в разделе «Почта»), PostgreSQL (`127.0.0.1:5432`), MinIO
-(`127.0.0.1:9000`) — оба порта публикует `db-gateway` (профиль `dev`), сама БД
-наружу не проброшена. Полный список команд — `make help`.
+   ```bash
+   cp infrastructure/.env.example infrastructure/.env
+   ```
+
+   Или сразу `make env`: создаст файл из шаблона, а существующему допишет
+   недостающие ключи.
+
+2. **Заполнить секреты** в `infrastructure/.env` — это пустые строки шаблона,
+   без них стек не поднимется:
+
+   | Секрет | Чем заполнить |
+   |---|---|
+   | `JWT_SECRET` | случайная строка от 32 символов |
+   | `CAPTCHA_HMAC_SECRET` | случайная строка от 32 символов |
+   | `DB_PASSWORD` | любой пароль PostgreSQL |
+   | `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` | учётная запись MinIO |
+   | `METRICS_PASSWORD` | любой непустой пароль сервисной учётки скрейпа |
+
+   `KEY_STORE_PASS` в шаблоне уже имеет локальное значение, `MAIL_PASSWORD`
+   нужен только для внешнего SMTP (раздел «Почта»). Все остальные настройки
+   уже содержат рабочие дефолты для локальной разработки.
+
+3. **Поднять стек** — на выбор:
+
+   - `make up` — в фоне: сборка образа и запуск всего
+     (`docker compose up --build -d`, профили `infra`+`dev`+`app`);
+   - `make dev-run` — в foreground: логи всех сервисов одним потоком,
+     `Ctrl+C` — остановка.
+
+4. **Проверить, что работает:**
+
+   - `curl -sk https://localhost:8443/api/v1/health` → `200` — приложение живо;
+   - `https://localhost:8443/swagger-ui.html` — Swagger UI
+     (машинная спека — `GET /v3/api-docs`);
+   - dev-сервисы (в рабочем контуре их нет): smtp4dev — тестовый почтовый
+     ящик на `http://localhost:3000` (письма с кодами, зачем — раздел
+     «Почта»), PostgreSQL `127.0.0.1:5432` и MinIO `127.0.0.1:9000` — порты
+     публикует `db-gateway` профилем `dev`, сама БД наружу не проброшена.
+
+5. **Попробовать API** через Swagger: зарегистрируйте пользователя и
+   подтвердите email — письмо с кодом придёт в smtp4dev. Пока email не
+   подтверждён, создание портала отвечает `403`.
+
+6. **Работать с кодом:**
+
+   - `make test` / `make verify` — юнит- и интеграционные тесты
+     (поднятый стек не нужен);
+   - `make format` / `make check` — форматирование и проверки стиля;
+   - `make e2e-*` — e2e-сценарии на поднятом стеке
+     (например, `make e2e-notifications`), `make e2e-all` — все сразу;
+   - `make logs` — логи приложения, `make ps` — статус контейнеров,
+     `make restart` — перезапуск приложения, `make down` — остановить стек
+     (тома с данными сохраняются, `make down-volumes` — удалить).
 
 ## Конфигурация
 
-Схема приложения (`src/main/resources/application.properties`,
-`application-domains.properties`) содержит только обязательные `${VAR}` без
-дефолтов: отсутствующая переменная валит старт с
-`Could not resolve placeholder '<VAR>'` — тихих подстановок нет. Значения
-живут в трёх местах:
+**Как это устроено.** Приложение не хранит значений в коде: каждая настройка —
+это переменная окружения, обязательная и без дефолта. В
+`src/main/resources/application.properties` и `application-domains.properties`
+записана только «схема» — строки вида `${VAR}` без значения. Если переменная
+не задана, приложение не стартует и прямо называет причину
+(`Could not resolve placeholder '<VAR>'`), а не молча работает на чужих
+значениях.
 
-| Файл | Что там |
-|---|---|
-| `infrastructure/.env.example` | Шаблон единственного env-файла: все несекретные значения с безопасными дефолтами (рейт-лимиты, клиентский IP, капча, сроки JWT, почта, MinIO, домены) и пустые строки секретов. Локальные значения активны по умолчанию; различия рабочего контура — секция «Рабочий контур» (закомментирована) |
-| `infrastructure/.env` | Рабочий файл (в git не попадает): создаётся `make env` из шаблона (существующий дополняется недостающими ключами). Служит одновременно `env_file` приложения и источником `${VAR}`-интерполяции compose. Секреты: `JWT_SECRET`, `DB_PASSWORD`, `KEY_STORE_PASS`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD` |
-| `services.app.environment` в `infrastructure/docker-compose.yaml` | Секреты из `.env` (`${VAR:?}` — пустой или отсутствующий секрет валит запуск) и динамические ключи с дефолтами (`OTLP_TRACING_ENDPOINT`, `TRUST_PROXY_HEADERS`, `CLIENT_IP_FORWARDED_INDEX`) |
+**Где живут значения** — три места:
 
-Каждая переменная схемы объявлена ровно в одном из этих мест — парность
-сверяет `ApplicationConfigSchemaTest` (`make test`). Один compose-файл
-(`infrastructure/docker-compose.yaml`) делится профилями
-`infra`/`dev`/`app`/`monitoring`/`load` — наборы задаёт Makefile, различия
+| Файл | Что это | Когда трогать |
+|---|---|---|
+| `infrastructure/.env.example` | Шаблон из git: все несекретные переменные с рабочими дефолтами для локальной разработки (рейт-лимиты, капча, сроки JWT, почта, MinIO, домены) и пустые строки секретов-напоминаний. Закомментированная секция «Рабочий контур» — значения для продакшена | Менять дефолт для всех разработчиков, добавлять новую несекретную переменную |
+| `infrastructure/.env` | Ваш рабочий файл, в git не попадает. `make env` создаёт его из шаблона, существующему дописывает недостающие ключи. Его читают и compose (интерполяция `${VAR}`), и приложение (`env_file`) | Локальные значения и секреты: `JWT_SECRET`, `DB_PASSWORD`, `KEY_STORE_PASS`, `CAPTCHA_HMAC_SECRET`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `METRICS_PASSWORD`, `MAIL_PASSWORD` |
+| `services.app.environment` в `infrastructure/docker-compose.yaml` | Мост compose → приложение: секреты подставляются как `${VAR:?}` — пустой или отсутствующий секрет валит запуск; сюда же вынесены динамические ключи с дефолтами (`OTLP_TRACING_ENDPOINT`, `TRUST_PROXY_HEADERS`, `CLIENT_IP_FORWARDED_INDEX`) | Добавлять новую секретную переменную |
+
+**Как поменять настройку:**
+
+1. Найдите `${VAR}` в `src/main/resources/application.properties`
+   (или `application-domains.properties`).
+2. Задайте значение: в `infrastructure/.env` — для себя локально;
+   в `infrastructure/.env.example` — постоянный общий дефолт;
+   в `services.app.environment` compose — новый секрет.
+3. Примените: `make restart`.
+
+Каждая переменная схемы объявлена ровно в одном месте —
+`.env.example` (несекретные) или `services.app.environment` compose
+(секреты и динамические ключи); парность сверяет `ApplicationConfigSchemaTest`
+(`make test`).
+
+Один compose-файл (`infrastructure/docker-compose.yaml`) делится профилями
+`infra`/`dev`/`app`/`monitoring`/`load` — набор задаёт Makefile, различия
 сред живут в `.env`, а не в отдельных compose-файлах.
 
 ### Клиентский IP
@@ -219,6 +312,90 @@ Cookie уходят в том числе кросс-сайтово (`SameSite=No
 Сроки: `CAPTCHA_CHALLENGE_TTL_SECONDS` / `CAPTCHA_TOKEN_TTL_SECONDS`
 (по умолчанию 300 c). Внешние провайдеры (Turnstile/SmartCaptcha/hCaptcha)
 из реализации исключены оконательно — см. [`docs/capcha.md`](docs/capcha.md).
+
+## Правила доступа к порталам и заявкам
+
+Все проверки выполняются на сервере в момент обработки запроса: на методах
+контроллеров стоит `@PreAuthorize`, который вызывает бин
+`AccessValidationService` (порталы) или `TicketAccessValidationService`
+(заявки, сообщения, вложения). Отказ — `403` в формате problem+json
+(`GlobalExceptionHandler`), отсутствующая или чужая сущность — `404`.
+Списки и массовые операции дополнительно фильтруются в сервисах: чужие
+записи в ответ просто не попадают.
+
+### Уровни доступа к порталу
+
+| Уровень | Кто это | Как получает |
+|---|---|---|
+| Владелец | один пользователь портала | создал портал или подтвердил передачу владения |
+| Доверенный | пользователи списка `allowedUserIds` | добавлен владельцем: `PUT /{portalId}/settings/users` |
+| Публичный | любой вошедший пользователь | владелец открыл портал: `PUT /{portalId}/settings/visibility` (`isPublic=true`) |
+
+Публичный уровень даёт только права на чтение и создание заявок — прав
+управления порталом он не даёт.
+
+### Порталы: операции по уровням
+
+| Операция | Владелец | Доверенный | Публичный |
+|---|:-:|:-:|:-:|
+| Просмотр портала `GET /{portalId}`; списки доступных `/accessible`, `/ids`, `/info` | ✓ | ✓ | ✓ |
+| Создание и просмотр заявок, чтение и отправка сообщений, вложения (по политике заявки — ниже) | ✓ | ✓ | ✓ |
+| Редактирование `PUT`/`PATCH /{portalId}`, история `GET /{portalId}/history`, настройки `GET /{portalId}/settings` | ✓ | ✓ | — |
+| Видимость `GET`/`PUT /{portalId}/settings/visibility`, участники `PUT /{portalId}/settings/users` | ✓ | — | — |
+| Удаление `POST /portals/bulk-delete`, передача владения | ✓ | — | — |
+
+Дополнительно:
+
+- `GET /portals` отдаёт только свои порталы (где пользователь — владелец);
+  `/accessible`, `/ids`, `/info` — все доступные, включая публичные.
+- Новый портал создаёт любой вошедший пользователь (`POST /portals`), но
+  только с **подтверждённым email** — иначе `403` «Подтвердите ваш адрес
+  электронной почты».
+- Удаление только массовое (`POST /portals/bulk-delete`): каждый портал
+  удаляется своим владельцем, чужие пропускаются; в ответе — сколько
+  удалено и какие id.
+
+### Заявки: две политики доступа
+
+Политику выбирает автор при создании заявки (`ticketAccessStatus` в запросе;
+по умолчанию — `CREATOR_AND_PORTAL_USERS`):
+
+| Политика | Кто читает заявку, её сообщения и вложения |
+|---|---|
+| `ALL_USERS` | все, кому доступен портал (включая публичного) |
+| `CREATOR_AND_PORTAL_USERS` | владелец портала, доверенные и автор заявки |
+
+Инвариант: заявка должна принадлежать порталу из URL — иначе `404`, даже
+если id заявки известен (проверка `belongsToPortal`: владелец случайного
+портала не откроет чужую заявку).
+
+| Операция | Проверка | Кто может |
+|---|---|---|
+| Чтение заявки, сообщений, вложений (`GET ...`) | `hasTicketAccess` | по политике заявки (таблица выше) |
+| Отправка сообщения, загрузка вложения (`POST ...`) | `hasTicketAccess` | тот же круг, что и чтение |
+| Статус, приоритет, удаление заявки (`PUT .../status`, `PUT .../priority`, `DELETE ...`) | `hasTicketChange` | владелец портала, доверенные или автор заявки |
+
+### Передача владения
+
+- Инициирует (`POST /{portalId}/owner-transfer`) и отзывает
+  (`POST /{portalId}/owner-transfer/cancel`) — только владелец;
+- активный запрос видят только инициатор и предлагаемый владелец
+  (`GET /{portalId}/owner-transfer`; чужим — `404`, чтобы не раскрывать
+  факт передачи);
+- подтверждает и отклоняет предлагаемый (`.../confirm`, `.../reject`):
+  подтверждение требует пароля и активной учётной записи нового владельца,
+  решение и причина фиксируются в истории портала и в оповещениях;
+- после подтверждения прежний владелец, если запрос заложен с
+  `keepOldOwner`, остаётся доверенным пользователем портала.
+
+### Что проверяется до прав доступа
+
+- Аутентификация: `JwtAuthFilter` отклоняет запрос без валидного JWT ещё
+  до `@PreAuthorize` — см. [«Аутентификация»](#аутентификация).
+- CSRF: изменяющие запросы обязаны нести заголовок `X-Requested-With` —
+  см. [«Защита от CSRF»](#защита-от-csrf).
+- Капча: регистрация и повторная отправка кода на email проходят проверку
+  PoW/эмодзи — см. [«Капча»](#капча-proof-of-work--эмодзи-эскалация).
 
 ## Оповещения: SSE и long polling
 
