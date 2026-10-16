@@ -32,7 +32,9 @@ trap 'rm -rf "$TMP"' EXIT
 JAR_A="$TMP/owner.jar"
 JAR_B="$TMP/guest.jar"
 BODY="$TMP/body.txt"
-PSQL="docker exec realhelpdesk_postgres psql -U user -d desk -tA -c"
+# docker compose exec вместо docker exec <container>: имя контейнера compose
+# генерирует сам (<проект>-postgres-1) и меняется с переименованием проекта
+PSQL="docker compose -f infrastructure/docker-compose.yaml --profile infra exec -T postgres psql -U user -d desk -tA -c"
 RUN=$(date +%s)
 OWNER_EMAIL="notify-owner-$RUN@test.local"
 GUEST_EMAIL="notify-guest-$RUN@test.local"
