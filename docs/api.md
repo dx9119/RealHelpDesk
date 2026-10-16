@@ -25,16 +25,17 @@ Cookie-аутентификация: токены в `HttpOnly; Secure` cookie (
 | Метод и путь | Назначение |
 |---|---|
 | `GET /health` | Проверка живости (`{ status, timestamp }`) |
-| `POST /captcha/challenge` | Тело `{ action: "register" \| "email-code" }` → `{ challengeId, type: "pow", params: { salt, difficulty }, expiresAt }`. `challengeId` — подписанный challenge (JWT), соль/сложность дублируются для клиента. Лимит 30/60 c |
-| `POST /captcha/solve` | Тело `{ challengeId, nonce }` → `{ captchaToken }`; `nonce` решает PoW: ведущие нулевые биты `SHA-256("salt:nonce")` ≥ `difficulty`. Лимит 30/60 c |
-| `GET /captcha/widget.js` | Клиентский виджет: `await window.RealHelpCaptcha.getToken(action)` → `captchaToken` (Proof-of-Work в Web Worker) |
+| `POST /captcha/challenge` | Тело `{ action: "register" \| "email-code" }` → `{ challengeId, type: "pow" \| "emoji", params, expiresAt }`. `challengeId` — подписанный challenge (JWT). Уровень выбирает сервер: `pow` — `params: { salt, difficulty }`; `emoji` (эскалация рискованных IP, `CAPTCHA_EMOJI_ENABLED=true`) — `params: { prompt, cells[9] }`. Лимит 30/60 c |
+| `POST /captcha/solve` | Тело `{ challengeId, nonce }` для pow (ведущие нулевые биты `SHA-256("salt:nonce")` ≥ `difficulty`) или `{ challengeId, answer: [индексы ячеек] }` для emoji → `{ captchaToken }`. Лимит 30/60 c |
+| `GET /captcha/widget.js` | Клиентский виджет: `await window.RealHelpCaptcha.getToken(action)` → `captchaToken` (PoW в Web Worker; эмодзи-оверлей при эскалации, отмена — reject `code='cancelled'`) |
 
 Провал капчи — `400` problem+json с полем `code`: `missing_token` (токен не
 передан), `invalid` (подпись/формат), `expired` (истёк challenge или токен),
 `replayed` (уже использован), `wrong_type` (предъявлен не тот тип токена),
 `wrong_action` (токен другого действия), `too_fast` (форма отправлена раньше
-`CAPTCHA_MIN_FILL_SECONDS`), `pow_failed` (PoW не решён), `honeypot`
-(заполнено невидимое поле `website`).
+`CAPTCHA_MIN_FILL_SECONDS`), `pow_failed` (PoW не решён), `wrong_answer`
+(эмодзи-задание решено неверно), `honeypot` (заполнено невидимое поле
+`website`).
 
 ## Аутентификация (`/auth`)
 

@@ -182,16 +182,15 @@ Cookie уходят в том числе кросс-сайтово (`SameSite=No
 отклоняет CORS (allow-list `CORS_ALLOWED_ORIGINS`). Для односайтового фронта
 дополнительно достаточно `JWT_COOKIE_SAMESITE=Lax`.
 
-### Капча (Proof-of-Work)
+### Капча (Proof-of-Work + эмодзи-эскалация)
 
 Локально выключена (`CAPTCHA_ENABLED=false` — дефолт шаблона), в рабочем
 контуре включена обязательно (prod-preflight валит старт без неё). Вместо
-картинки с текстом (устойчивой к OCR/LLM) — невидимый для человека
-Proof-of-Work:
+картинки с текстом (устойчивой к OCR/LLM) — двухуровневая схема:
 
-1. `POST /api/v1/captcha/challenge { action }` отдаёт подписанное задание
-   (соль + сложность `CAPTCHA_POW_DIFFICULTY`, по умолчанию 18 — доли
-   секунды на телефоне);
+1. `POST /api/v1/captcha/challenge { action }` отдаёт подписанное задание:
+   базовый уровень — PoW (соль + сложность `CAPTCHA_POW_DIFFICULTY`, по
+   умолчанию 18 — доли секунды на телефоне);
 2. клиент подбирает `nonce`: ведущие нулевые биты `SHA-256("salt:nonce")`
    ≥ сложности — виджет `GET /captcha/widget.js` делает это в Web Worker,
    `await window.RealHelpCaptcha.getToken(action)` возвращает `captchaToken`;
@@ -199,16 +198,24 @@ Proof-of-Work:
    он и предъявляется на регистрацию (поле `captchaToken`) или в заголовке
    `X-Captcha-Token` на `POST /email/codes`.
 
+**Эскалация по риску** (локальный риск-движок, без внешних провайдеров):
+провалы капчи считаются по IP за окно (`CAPTCHA_RISK_FAILURE_THRESHOLD=5`
+за `CAPTCHA_RISK_FAILURE_WINDOW_SECONDS=600`); набравший порог получает
+вместо PoW эмодзи-задание — сетка 3×3 глифов и выбор ячеек в оверлее
+виджета (`prompt`/`cells` в challenge, ответ — HMAC в подписи, kill-switch
+`CAPTCHA_EMOJI_ENABLED=false`). Успех сбрасывает счётчик IP.
+
 Защита от автоматики: подписи HMAC (`CAPTCHA_HMAC_SECRET` — секрет в
 `infrastructure/.env`, минимум 32 символа), одноразовость challenge и токена,
 минимальное время заполнения формы (`CAPTCHA_MIN_FILL_SECONDS`, 0 локально /
 3 в рабочем контуре) и honeypot-поле `website` (его заполнение = `honeypot`
 в ответе). При отказе в проблеме-JSON поле `code` — `pow_failed`,
-`replayed`, `too_fast`, `honeypot` и т.д. (полный список — `docs/api.md`).
-Метрики: `captcha.challenge.issued` и `captcha.verification{reason}`.
+`wrong_answer`, `replayed`, `too_fast`, `honeypot` и т.д. (полный список —
+`docs/api.md`). Метрики: `captcha.challenge.issued{type}` и
+`captcha.verification{type,result,reason}` (`type` — доля эскалации).
 Сроки: `CAPTCHA_CHALLENGE_TTL_SECONDS` / `CAPTCHA_TOKEN_TTL_SECONDS`
-(по умолчанию 300 c). Эмодзи-уровень эскалации и внешние провайдеры — по
-плану в [`docs/capcha.md`](docs/capcha.md).
+(по умолчанию 300 c). Внешние провайдеры (Turnstile/SmartCaptcha/hCaptcha)
+из реализации исключены оконательно — см. [`docs/capcha.md`](docs/capcha.md).
 
 ## API
 
