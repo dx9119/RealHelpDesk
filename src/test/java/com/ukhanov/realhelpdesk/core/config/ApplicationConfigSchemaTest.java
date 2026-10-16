@@ -95,11 +95,11 @@ class ApplicationConfigSchemaTest {
 
     /**
      * Ключи {@code services.app.environment} и {@code scripts/docker/stack.env}, которых нет в схеме приложения. {@code JAVA_} — JVM-флаги,
-     * переопределяющие {@code ENV} образа (sec.md §7.8); {@code INFRA} — инфраструктурные переменные compose (БД и прокси), которые нужны
+     * переопределяющие {@code ENV} образа (sec.md §7.8); {@code INFRA} — инфраструктурные переменные compose (БД), которые нужны
      * контейнерам, но не приложению.
      */
     private static final String NON_SCHEMA_ENV_PREFIX = "JAVA_";
-    private static final Set<String> NON_SCHEMA_ENV_KEYS = Set.of("POSTGRES_USER", "POSTGRES_DB", "SHARD_DB", "SHARD_DB_USER", "PORT");
+    private static final Set<String> NON_SCHEMA_ENV_KEYS = Set.of("POSTGRES_USER", "POSTGRES_DB", "PORT");
 
     @Test
     @DisplayName("application*.properties — чистая схема: только обязательные ${VAR}, без дефолтов и литералов")

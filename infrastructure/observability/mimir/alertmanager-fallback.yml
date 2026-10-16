@@ -1,0 +1,12 @@
+# Fallback-конфиг встроенного Alertmanager монолита Mimir (tenant anonymous,
+# storage пуст — без этого файла /alertmanager отвечает 412 not configured).
+# Уведомления наружу не отправляются: локальный стенд, как и раньше.
+route:
+  receiver: default
+  group_by: ['alertname', 'job']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: default

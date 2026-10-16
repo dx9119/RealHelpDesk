@@ -1,7 +1,7 @@
 # Runbook: AppUnreachable
 
 **Алерт**: `up{job="realhelpdesk"} == 0` в течение 2 минут (`severity: critical`) —
-Prometheus не может проскрейпить управляющий порт приложения.
+скрейп (alloy → Mimir) не может прочитать управляющий порт приложения.
 
 > **Примечание**: в текущем стенде отдельного
 > scrape-цела для `/actuator/health/readiness` нет — health-группы доступны на

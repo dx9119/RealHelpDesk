@@ -2,9 +2,8 @@
 # Явный набор файлов (в Makefile):
 #   локально: docker-compose.yaml + docker-compose.override.yaml  (make up)
 #   prod:     docker-compose.yaml + docker-compose.prod.yaml      (make up-prod)
-#   шардинг:  + docker-compose.sharding.yaml                      (make up-sharding)
-# Без -f docker сам подхватит override-файл (только локально!) — prod и шардинг
-# всегда запускаются через make с явным набором.
+# Без -f docker сам подхватит override-файл (только локально!) — prod
+# всегда запускается через make с явным набором.
 #
 # База не содержит smtp: локальный smtp4dev лежит в override, рабочий SMTP
 # приложение берёт из stack.env/stack.prod.env (MAIL_HOST). Секреты — только
@@ -35,8 +34,8 @@ services:
     ports:
       - "8443:8443"
       # Управляющий порт actuator (health/info/prometheus) — только loopback:
-      # наружу (и в сеть контейнеров) он доступен приложению и Prometheus без
-      # проброса на хост.
+      # наружу (и в сеть контейнеров) он доступен приложению и скрейпу (alloy)
+      # без проброса на хост.
       - "127.0.0.1:8081:8081"
     read_only: true
     tmpfs:
@@ -137,6 +136,4 @@ services:
 
 volumes:
   postgres_data:
-  postgres_shard_0_data:
-  postgres_shard_1_data:
   minio_data:

@@ -45,7 +45,7 @@
 5. **Тест.** `BusinessMetricsTest` (SimpleMeterRegistry): имя, тип, теги, пропуск null/некорректных
    входов; для инкремента на вызове — тест сервиса.
 6. **Документация.** Строка в таблицу [metrics.md](metrics.md).
-7. **Критичный путь?** Алерт в `infrastructure/observability/prometheus/alerts.yml` + runbook в
+7. **Критичный путь?** Алерт в `infrastructure/observability/mimir/rules/anonymous/realhelpdesk.yml` + runbook в
    `docs/runbooks/` + панель на дашборде `realhelpdesk-overview`.
 
 ## Правила кардинальности
@@ -73,8 +73,8 @@
 
 ## Как работать с алертами
 
-Правила — `infrastructure/observability/prometheus/alerts.yml` (8 алертов в 5 группах, каждому —
-severity/summary/description/runbook_url). SLO — [slo.md](slo.md).
+Правила — `infrastructure/observability/mimir/rules/anonymous/realhelpdesk.yml` (8 алертов в 5 группах, каждому —
+severity/summary/description/runbook_url; их оценивает ruler Mimir). SLO — [slo.md](slo.md).
 
 | Алерт | Порог | Runbook |
 |---|---|---|
@@ -89,12 +89,13 @@ severity/summary/description/runbook_url). SLO — [slo.md](slo.md).
 
 ```bash
 # синтаксис правил (promtool из образа, без локальной установки)
-docker run --rm -v $PWD/infrastructure/observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro \
-  --entrypoint promtool prom/prometheus:v3.15.0 check rules /etc/prometheus/alerts.yml
-# горячая перезагрузка (web.enable-lifecycle включён) — или make obs-reload
-curl -X POST localhost:9090/-/reload
+docker run --rm -v $PWD/infrastructure/observability/mimir/rules/anonymous/realhelpdesk.yml:/alerts.yml:ro \
+  --entrypoint promtool prom/prometheus:v3.15.0 check rules /alerts.yml
+# перечитать правила после правок (рестарт контейнера) — или make obs-reload
+docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml \
+  -f infrastructure/docker-compose.observability.yaml restart mimir
 # текущие состояния алертов — или make obs-alerts
-curl -s localhost:9090/api/v1/alerts
+curl -s localhost:9090/prometheus/api/v1/alerts
 ```
 
 Алгоритм: сработал алерт → открыть runbook → выполнить диагностические шаги → устранить причину →
@@ -108,13 +109,13 @@ curl -s localhost:9090/api/v1/alerts
   SLO-бакеты TTFR/решения, gauge открытых заявок; защита кардинальности (155 → 56 семейств).
 - Observation-конвенции HTTP, трейсы сервисного слоя (`ticket.*`, `mail.send`, `attachment.*`),
   Micrometer Tracing + OTel-мост, маскирование ПДн в логах, колонки `traceId`/`spanId`.
-- Полный стек `make obs-up`: Prometheus, Grafana, Tempo, OTel Collector, Loki, Alloy; сводный
+- Полный стек `make obs-up`: Mimir, Grafana, Tempo, OTel Collector, Loki, Alloy; сводный
   дашборд «RealHelpDesk — Обзор» (23 панели); 8 алертов, 8 runbooks, 3 SLO.
 - Тесты: `HttpObservabilityTest`, `DbObservabilityTest`, `ObservabilityConfigurationTest`,
   `ActuatorSecurityTest`, `LogCorrelationAndMaskingTest`, `ObservabilityContextTest`,
   `TracingSmokeIT`; всего 569 (`mvn verify`), юнит-часть — 544 (`mvn test`).
 - Финальные испытания на живом стеке: load-smoke k6 (317 запросов, 100% checks, все пороги
-  в допуске), бизнес-метрики в Prometheus после трафика, сквозная цепочка
+  в допуске), бизнес-метрики в Mimir (Prometheus-совместимый API) после трафика, сквозная цепочка
   лог → Loki → Tempo по traceId (6 спанов на запрос), 8/8 правил алертов загружены.
 
 ### Что осознанно не внедрено
@@ -150,5 +151,5 @@ curl -s localhost:9090/api/v1/alerts
    для flame graphs на инцидентах высокой латентности.
 4. **Burn-rate алерты по SLO** — многоволновые (fast/slow burn) вместо простых порогов
    `ApiHighLatencyP99`; recording rules для error budget.
-5. **Аннотации деплоев** — Grafana annotations по Prometheus-запросу или метрике `process.uptime`
+5. **Аннотации деплоев** — Grafana annotations по запросу к Mimir или метрике `process.uptime`
    (рестарт = deploy) для корреляции регрессий с релизами.

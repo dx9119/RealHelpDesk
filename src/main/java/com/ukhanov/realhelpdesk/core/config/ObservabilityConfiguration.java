@@ -25,7 +25,7 @@ import io.micrometer.observation.ObservationPredicate;
  * <p>
  * В Boot 4 свойства {@code management.observations.http.server.requests.ignore-patterns} больше нет, поэтому исключения задаются
  * {@link ObservationPredicate}: бин подхватывается {@code ObservationRegistryPostProcessor} и гасит наблюдение целиком — ни метрики, ни
- * спана. То же относится и к управляющему порту: пробы health и скрейп Prometheus не должны раздувать список uri.
+ * спана. То же относится и к управляющему порту: пробы health и скрейп метрик не должны раздувать список uri.
  * </p>
  *
  * <p>

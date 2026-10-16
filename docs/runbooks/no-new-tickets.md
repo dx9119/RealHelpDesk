@@ -9,7 +9,7 @@
 Это «тихая» деградация: ошибки могут быть только на фронтенде/шлюзе, API жив.
 
 > Часовой пояс: `hour()`/`day_of_week()` — UTC. 9–18 UTC ≈ 12–21 MSK. Для другого
-> пояса поправьте выражение в `infrastructure/observability/prometheus/alerts.yml`.
+> пояса поправьте выражение в `infrastructure/observability/mimir/rules/anonymous/realhelpdesk.yml`.
 
 ## Диагностика
 

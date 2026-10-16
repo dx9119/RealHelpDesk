@@ -67,7 +67,7 @@ API — `https://localhost:8443`. Вспомогательные сервисы 
 | Файл | Что там |
 |---|---|
 | `scripts/docker/stack.env` | Все несекретные значения с безопасными дефолтами рабочего контура: рейт-лимиты, клиентский IP, капча, сроки JWT, почта, MinIO, порты, домены. Приложение получает его через `env_file`; правится без пересборки образа. Локальные отличия — `stack.local.env` (подключается override-файлом compose после базового), продовые — `stack.prod.env` (файл-шаблон для деплоя) |
-| `infrastructure/.env` | Секреты: `JWT_SECRET`, `DB_PASSWORD`, `KEY_STORE_PASS`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`, `SHARDINGSPHERE_*`. Шаблон — `infrastructure/.env.example`, в git не попадает |
+| `infrastructure/.env` | Секреты: `JWT_SECRET`, `DB_PASSWORD`, `KEY_STORE_PASS`, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`. Шаблон — `infrastructure/.env.example`, в git не попадает |
 | `services.app.environment` в `infrastructure/docker-compose.yaml` | Передача секретов из `.env` в контейнер (`${VAR:?}` — пустой или отсутствующий секрет валит запуск) |
 
 Каждая переменная схемы объявлена ровно в одном из этих мест — парность
@@ -140,15 +140,6 @@ GreenMail, smtp4dev — только dev-среда и e2e-сценарии на
 письма, кэш 5 с); она сознательно вне readiness — недоступная почта не
 останавливает приём заявок, письма уходят после восстановления.
 
-### Шардинг PostgreSQL
-
-Шардирование через ShardingSphere-Proxy (`127.0.0.1:3307`) по умолчанию не
-поднимается: сервисы лежат в отдельном `infrastructure/docker-compose.sharding.yaml`.
-Включение: `make up-sharding` (явный набор compose-файлов, override
-подключается тоже явно). Пароли прокси — `SHARDINGSPHERE_*`
-в `infrastructure/.env`, шаблоны — `infrastructure/shardingsphere/conf/`.
-Миграции на шарды с хоста: `make migrate-shard`.
-
 ### Миграции
 
 Структуру БД создаёт и обновляет Liquibase при старте; Hibernate только сверяет
@@ -173,7 +164,7 @@ JWT передаётся в http-only cookie (`accessToken`), refresh-токен
 | 3 | `DELETE /api/v1/auth/session` | Логаут, отзыв access и refresh |
 
 Настройки cookie: `jwt.cookie.same-site` (`JWT_COOKIE_SAMESITE`) и
-`jwt.cookie.domain` (`JWT_COOKIE_DOMAIN`). Детали аудита — [`docs/jwt-audit.md`](docs/jwt-audit.md).
+`jwt.cookie.domain` (`JWT_COOKIE_DOMAIN`).
 
 ### Защита от CSRF
 
@@ -223,21 +214,22 @@ TypeScript-типы для фронта).
 
 ## Наблюдаемость
 
-Метрики (Micrometer → Prometheus), трейсы (OTel → Tempo) и логи с
-`traceId`/`spanId` (→ Loki через Alloy). Стек поднимается вместе с приложением:
+Метрики (Micrometer → экспозиция Prometheus-формата, хранение в Mimir), трейсы
+(OTel → Tempo) и логи с `traceId`/`spanId` (→ Loki через Alloy). Стек поднимается
+вместе с приложением:
 
 | Команда | Что делает |
 |---|---|
-| `make obs-up` | Стек + Prometheus (`127.0.0.1:9090`) + Grafana (`127.0.0.1:3001`) + Tempo/Loki/Collector |
+| `make obs-up` | Стек + Mimir (`127.0.0.1:9090`, Prometheus-совместимый API) + Grafana (`127.0.0.1:3001`) + Tempo/Loki/Collector |
 | `make obs-down` | Остановить наблюдаемость (тома целы) |
 | `make obs-open` | Открыть Grafana в браузере |
-| `make obs-reload` | Горячая перезагрузка правил алертов Prometheus |
+| `make obs-reload` | Перечитать правила алертов Mimir (рестарт контейнера) |
 | `make obs-alerts` | Текущие состояния алертов |
 
 Метрики на management-порту 8081 (`/actuator/prometheus`, HTTP Basic). Сводный
 дашборд — Grafana → RealHelpDesk → Обзор; алерты (8 шт.) имеют runbooks в
 `docs/runbooks/`. Как добавить метрику, правила кардинальности и отладка по
-traceId — `docs/observability/README.md`; каталог бизнес-метрик —
+traceId — `docs/observability/overview.md`; каталог бизнес-метрик —
 `docs/observability/metrics.md`; SLO — `docs/observability/slo.md`.
 
 ## Тесты и проверки

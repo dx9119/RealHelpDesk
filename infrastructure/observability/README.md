@@ -7,27 +7,28 @@
 
 | Сервис | Версия | Назначение | Порт (хост) |
 |---|---|---|---|
-| Prometheus | v3.15.0 | Скрейп `app:8081/actuator/prometheus` по HTTP Basic | 127.0.0.1:9090 |
+| Mimir | 2.16.0 | Хранение метрик, Prometheus-совместимый API (`/prometheus`), ruler алертов | 127.0.0.1:9090 |
 | Grafana | 12.4.13 | UI: метрики, трейсы, логи; datasources через provisioning | 127.0.0.1:3001 |
 | Tempo | 2.8.0 | Хранилище трейсов (OTLP-in, filesystem) | — (внутр. сеть) |
 | OTel Collector | 0.162.0 | Приём OTLP от приложения → batch → Tempo | — |
 | Loki | 3.5.0 | Хранилище логов (single-binary, filesystem) | — |
-| Alloy | v1.12.2 | Сбор логов приложения из docker json-file → Loki | — |
+| Alloy | v1.12.2 | Сбор логов приложения из docker json-file → Loki; скрейп метрик app:8081 → remote_write в Mimir | — |
 
 ## Запуск
 
 ```bash
-make obs-up    # стек приложения + наблюдаемость (секреты скрейпа генерируются из .env)
+make obs-up    # стек приложения + наблюдаемость
 make obs-down  # остановить (тома целы)
 make obs-open  # открыть Grafana в браузере
 ```
 
-`obs-up` перед `compose up` генерирует `observability/prometheus/secrets/metrics_{user,password}`
-из `scripts/docker/stack.env` (METRICS_USER) и `infrastructure/.env` (METRICS_PASSWORD) —
-Prometheus не умеет env-подстановку в конфиге, поэтому креды идут файлами.
+Креды скрейпа (`METRICS_USER` из `scripts/docker/stack.env`, `METRICS_PASSWORD` из
+`infrastructure/.env`) приходят в контейнер alloy env-файлами; `config.alloy`
+читает их через `sys.env()` для basic_auth при скрейпе `app:8081` — на хосте
+файлов с секретами не остаётся.
 
 Логин Grafana: `GRAFANA_ADMIN_USER`/`GRAFANA_ADMIN_PASSWORD` из `infrastructure/.env`
-(по умолчанию admin/admin — задайте свой перед использованием). Datasources (Prometheus, Tempo, Loki)
+(по умолчанию admin/admin — задайте свой перед использованием). Datasources (Mimir, Tempo, Loki)
 подключаются автоматически через `grafana/provisioning/`; дашборды лежат в `grafana/dashboards/`
 и провижинятся в папку RealHelpDesk.
 
@@ -36,7 +37,7 @@ Prometheus не умеет env-подстановку в конфиге, поэ�
 **RealHelpDesk — Обзор** (`grafana/dashboards/realhelpdesk-overview.json`, uid `realhelpdesk-overview`) —
 сводный дашборд на 23 панели, папка RealHelpDesk, URL: `http://127.0.0.1:3001/d/realhelpdesk-overview`:
 
-- **Service RED**: RPS, доля 5xx (пороги 2%/5% — как в alerts.yml), p95/p99, RPS и p95 по
+- **Service RED**: RPS, доля 5xx (пороги 2%/5% — как в правилах алертов), p95/p99, RPS и p95 по
   эндпоинтам, распределение статусов.
 - **Бизнес**: попытки аутентификации (failure подсвечивается красным), открытые заявки по статусам,
   скорость создания заявок, TTFR p95, почта (mail.sent + SMTP p95), ticket.create p95, переходы
@@ -51,8 +52,9 @@ Prometheus не умеет env-подстановку в конфиге, поэ�
 
 ## Алерты
 
-Правила — `prometheus/prometheus.yml` → `rule_files: alerts.yml` (монтируется compose'ом).
-8 алертов в 5 группах (api, database, jvm, availability, security); каждому —
+Правила — `mimir/rules/anonymous/realhelpdesk.yml` (Prometheus-формат, монтируется ruler'у Mimir
+read-only; раскладка local store `<dir>/<tenant>/<файл>`, tenant = `anonymous`). 8 алертов в 5 группах
+(api, database, jvm, availability, security); каждому —
 severity/summary/description/runbook_url. Runbooks: `docs/runbooks/*.md`. SLO: `docs/observability/slo.md`.
 
 | Алерт | Порог | Runbook |
@@ -73,12 +75,12 @@ severity/summary/description/runbook_url. Runbooks: `docs/runbooks/*.md`. SLO: `
 
 ```bash
 # синтаксис (promtool из образа, без локальной установки)
-docker run --rm -v $PWD/infrastructure/observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro \
-  --entrypoint promtool prom/prometheus:v3.15.0 check rules /etc/prometheus/alerts.yml
-# горячая перезагрузка (web.enable-lifecycle включён)
-curl -X POST localhost:9090/-/reload
-# текущие состояния алертов
-curl -s localhost:9090/api/v1/alerts
+docker run --rm -v $PWD/infrastructure/observability/mimir/rules/anonymous/realhelpdesk.yml:/alerts.yml:ro \
+  --entrypoint promtool prom/prometheus:v3.15.0 check rules /alerts.yml
+# перечитать правила после правок (рестарт контейнера) — или make obs-reload
+make obs-reload
+# текущие состояния алертов — или make obs-alerts
+curl -s localhost:9090/prometheus/api/v1/alerts
 ```
 
 ## Потоки данных
@@ -86,8 +88,8 @@ curl -s localhost:9090/api/v1/alerts
 ```
 приложение ──OTLP (traces)──▶ otel-collector ──▶ tempo
 приложение ──stdout json──▶ alloy ──▶ loki
-приложение ──HTTP Basic──▶ prometheus (метрики, management-порт 8081)
-Grafana ◀── datasources: prometheus (метрики), tempo (трейсы), loki (логи)
+приложение ──HTTP Basic (метрики, management-порт 8081)──▶ alloy ──remote_write──▶ mimir
+Grafana ◀── datasources: mimir (метрики), tempo (трейсы), loki (логи)
 ```
 
 В оверлее приложение получает `OTLP_TRACING_ENDPOINT=http://otel-collector:4318/v1/traces`; без оверлея
@@ -108,7 +110,7 @@ Grafana ◀── datasources: prometheus (метрики), tempo (трейсы)
    появится ссылка **TraceID** (derived-поле provisioning'а) → переход к трейсу.
 4. Из трейса в Loki — кнопка «Logs for this span» (tracesToLogs настроен на тот же traceId).
 
-Связка метрики → трейс: в Tempo включён serviceMap (через Prometheus); exemplars в скрейпе
+Связка метрики → трейс: в Tempo включён serviceMap (через Mimir); exemplars в скрейпе
 не включены — переход «метрика → конкретный trace» пока недоступен (см. «Известные ограничения»).
 
 ## Трассировка: сэмплинг
@@ -127,14 +129,14 @@ Grafana ◀── datasources: prometheus (метрики), tempo (трейсы)
   регуляркой по колонке traceId; при смене паттерна логов поправить `grafana/provisioning/datasources/datasources.yaml`.
 - **Alloy ходит в docker.sock от root** — локальный dev-стенд; в проде заменить на Alloy с
   read-only сокетом и без root.
-- **Retention**: Tempo 48 h (`tempo/tempo.yaml`), Loki 7 d (`loki/loki.yaml`), Prometheus без
-  retention-флага (2 недели дефолтом).
+- **Retention**: Tempo 48 h (`tempo/tempo.yaml`), Loki 7 d (`loki/loki.yaml`), Mimir 15 d
+  (`mimir/mimir.yaml`, compactor; как дефолт прежнего Prometheus).
 
 ## Полезные проверки
 
 ```bash
-# скрейп Prometheus: up=1 и бизнес-метрики
-curl -s localhost:9090/api/v1/query?query=up
+# скрейп дошёл в Mimir: up=1 и бизнес-метрики (Prometheus-совместимый API)
+curl -s 'localhost:9090/prometheus/api/v1/query?query=up'
 # трейсы в Tempo
 curl -s http://localhost:3200/ready
 # Loki готов

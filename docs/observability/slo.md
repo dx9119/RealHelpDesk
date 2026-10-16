@@ -1,7 +1,7 @@
 # SLO RealHelpDesk
 
 SLO — цели по SLI, измеряемым метриками из `docs/observability/metrics.md`.
-Окно ошибок: скользящие 30 дней. Алерты на бюджет ошибок: `infrastructure/observability/prometheus/alerts.yml`.
+Окно ошибок: скользящие 30 дней. Алерты на бюджет ошибок: `infrastructure/observability/mimir/rules/anonymous/realhelpdesk.yml`.
 
 ## SLO 1. Доступность API
 

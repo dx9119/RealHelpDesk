@@ -1,8 +1,14 @@
-// Alloy: сбор логов приложения из docker json-file → Loki.
-// Наследник Promtail: тянет только контейнер сервиса app (фильтр по compose-метке),
-// чтобы postgres/prometheus/k6 не засоряли индекс. Логи приложения — текстовый паттерн
+// Alloy: сбор логов приложения из docker json-file → Loki
+// и скрейп метрик приложения → remote_write в Mimir.
+//
+// Логи: наследник Promtail — тянет только контейнер сервиса app (фильтр по compose-метке),
+// чтобы postgres/mimir/k6 не засоряли индекс. Логи приложения — текстовый паттерн
 // logback-spring.xml c колонками traceId/spanId (шаг 7), поэтому ссылка на трейс в Grafana
 // строится регуляркой по 32-символьному traceId.
+//
+// Метрики: скрейпит управляющий порт приложения (management.server.port, HTTP Basic
+// сервисной учёткой METRICS_USER/METRICS_PASSWORD — те же креды, что проверяются
+// в ActuatorSecurityTest) и шлёт remote_write в distributor Mimir.
 //
 // Важно: discovery.docker отдаёт метки вида __meta_docker_* — без relabel_rules они не
 // становятся stream-метками Loki (логи приходят как unknown_service без container).
@@ -46,5 +52,31 @@ loki.source.docker "containers" {
 loki.write "default" {
   endpoint {
     url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+// Скрейп метрик: один target — app:8081 (управляющий порт в той же сети compose).
+prometheus.scrape "app" {
+  targets = [{
+    "__address__"      = "app:8081",
+    "__metrics_path__" = "/actuator/prometheus",
+  }]
+  scrape_interval = "15s"
+  scrape_timeout  = "10s"
+  // Метка job — как у прежнего Prometheus (job_name: realhelpdesk): алерт
+  // AppUnreachable (up{job="realhelpdesk"} == 0) и runbook фильтруются по ней.
+  job_name = "realhelpdesk"
+
+  basic_auth {
+    username = sys.env("METRICS_USER")
+    password = sys.env("METRICS_PASSWORD")
+  }
+
+  forward_to = [prometheus.remote_write.mimir.receiver]
+}
+
+prometheus.remote_write "mimir" {
+  endpoint {
+    url = "http://mimir:8090/api/v1/push"
   }
 }

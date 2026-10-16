@@ -1,9 +1,10 @@
-# Правила алертов Prometheus.
+# Правила алертов (Prometheus-формат) для ruler'а Mimir.
 #
 # Каждый алерт: severity, summary, description, runbook_url → docs/runbooks/<name>.md.
 # Имена метрик — канонические из docs/observability/metrics.md (Boot 4:
 # jdbc_connections_* вместо hikaricp_*, см. runbook db-pool-saturation).
-# Подключение: rule_files в prometheus.yml, монтирование в compose.
+# Подключение: mimir.yaml → ruler.storage.local.directory=/etc/mimir/rules
+# (каталог rules монтируется compose'ом read-only).
 # Проверка: promtool check rules (см. infrastructure/observability/README.md).
 
 groups:

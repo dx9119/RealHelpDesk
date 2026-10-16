@@ -1,0 +1,92 @@
+# Mimir (monolithic): хранение метрик + Prometheus-совместимый API + ruler
+# с правилами алертов. В локальном obs-стенде заменяет Prometheus.
+#
+# Скрейп делает alloy: prometheus.scrape app:8081/actuator/prometheus по HTTP Basic
+# (METRICS_USER/METRICS_PASSWORD — те же креды, что проверяет ActuatorSecurityTest)
+# и шлёт remote_write в distributor Mimir (/api/v1/push). Запросы Grafana и curl
+# идут в Prometheus-совместимый префикс /prometheus.
+#
+# Однопользовательский локальный стенд: multitenancy_enabled=false, хранилище —
+# filesystem на томе compose; секретов конфиг не содержит.
+
+# all + alertmanager: в target=all модуль alertmanager не входит (в modules.go
+# ветка All его не содержит) — добавляем явно, иначе /alertmanager отдаёт 404.
+target: all,alertmanager
+
+multitenancy_enabled: false
+
+server:
+  http_listen_port: 8090
+  grpc_listen_port: 9095
+  log_level: info
+
+# Телеметрия Mimir наружу — выключена (локальный стенд).
+usage_stats:
+  enabled: false
+
+# Hash ring на memberlist: без внешнего KV (Consul/etcd), одного узла хватает.
+memberlist:
+  join_members:
+    - localhost:7946
+
+# Монолит на одном инстансе: кворум для RF=3 невозможен, чиним replication_factor.
+ingester:
+  ring:
+    replication_factor: 1
+
+# Блочное хранилище на локальной ФС (том mimir_data).
+blocks_storage:
+  backend: filesystem
+  filesystem:
+    dir: /data/parquet
+  tsdb:
+    dir: /data/tsdb
+
+compactor:
+  data_dir: /data/compactor
+  # Короткие блоки: сырые данные быстро доступны через querier.
+  block_ranges: [10m]
+
+# Ruler: Prometheus-формат правил из rules/anonymous/realhelpdesk.yml
+# (раскладка local store: <dir>/<tenant>/<файл>; tenant=anonymous при
+# multitenancy_enabled=false). Монтируется read-only, backend local.
+# Оценка каждые 15 s — как у прежнего Prometheus.
+ruler:
+  enable_api: true
+  rule_path: /data/rules
+  evaluation_interval: 15s
+  # Встроенный alertmanager монолита слушает на том же HTTP-порту (8090)
+  # по префиксу /alertmanager (см. alertmanager.external-url ниже).
+  alertmanager_url: http://localhost:8090/alertmanager
+
+ruler_storage:
+  backend: local
+  local:
+    directory: /etc/mimir/rules
+
+# Alertmanager монолита: принимает алерты ruler'а; уведомления наружу не
+# настроены — локальный стенд, как и раньше (без отдельного Alertmanager).
+alertmanager:
+  enable_api: true
+  data_dir: /data/am-state
+  # Публичный URL — хостовый маппинг (127.0.0.1:9090), не внутренний 8090:
+  # ссылки в UI/уведомлениях должны открываться с хоста.
+  external_url: http://localhost:9090/alertmanager
+  # Fallback-конфиг: storage пуст, без него /alertmanager отдаёт 412
+  # «the Alertmanager is not configured». Уведомления не отправляются.
+  fallback_config_file: /etc/mimir/alertmanager-fallback.yml
+  # Монолит на одном инстансе: кворум для RF=3 невозможен (как у ingester/ruler).
+  sharding_ring:
+    replication_factor: 1
+    kvstore:
+      store: memberlist
+
+alertmanager_storage:
+  backend: filesystem
+  filesystem:
+    dir: /data/am-store
+
+limits:
+  # Retention — 15 d, как дефолт Prometheus, чтобы поведение стенда не менялось
+  # (per-tenant limit; retention = min(compactor.blocks_retention_period, этот limit)).
+  compactor_blocks_retention_period: 15d

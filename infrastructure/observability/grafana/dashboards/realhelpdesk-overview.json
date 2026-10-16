@@ -22,7 +22,7 @@
   ],
   "panels": [
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mimir" },
       "description": "Суммарный rate HTTP-запросов к приложению (5 минут).",
       "fieldConfig": {
         "defaults": {
@@ -43,12 +43,12 @@
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "textMode": "auto"
       },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "sum(rate(http_server_requests_seconds_count[5m]))", "legendFormat": "запросы", "refId": "A" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "sum(rate(http_server_requests_seconds_count[5m]))", "legendFormat": "запросы", "refId": "A" } ],
       "title": "Запросы, RPS",
       "type": "stat"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mimir" },
       "description": "Доля ответов 5xx за 5 минут. Порог 2% — уровень алерта ApiHighErrorRate (error rate > 2% в течение 5 минут).",
       "fieldConfig": {
         "defaults": {
@@ -71,12 +71,12 @@
         "showThresholdLabels": false,
         "showThresholdMarkers": true
       },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "100 * sum(rate(http_server_requests_seconds_count{status=~\"5..\"}[5m])) / clamp_min(sum(rate(http_server_requests_seconds_count[5m])), 0.001)", "legendFormat": "5xx", "refId": "A" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "100 * sum(rate(http_server_requests_seconds_count{status=~\"5..\"}[5m])) / clamp_min(sum(rate(http_server_requests_seconds_count[5m])), 0.001)", "legendFormat": "5xx", "refId": "A" } ],
       "title": "Ошибки 5xx, %",
       "type": "gauge"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mimir" },
       "description": "95-й перцентиль времени ответа по гистограмме http.server.requests (5 минут).",
       "fieldConfig": {
         "defaults": {
@@ -97,12 +97,12 @@
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "textMode": "auto"
       },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket[5m])))", "legendFormat": "p95", "refId": "A" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket[5m])))", "legendFormat": "p95", "refId": "A" } ],
       "title": "Латентность p95",
       "type": "stat"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mimir" },
       "description": "99-й перцентиль времени ответа (5 минут).",
       "fieldConfig": {
         "defaults": {
@@ -123,12 +123,12 @@
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "textMode": "auto"
       },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket[5m])))", "legendFormat": "p99", "refId": "A" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket[5m])))", "legendFormat": "p99", "refId": "A" } ],
       "title": "Латентность p99",
       "type": "stat"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mimir" },
       "description": "Rate запросов по uri-шаблонам (без NOT_FOUND/UNKNOWN — шум маршрутизатора отсекается).",
       "fieldConfig": {
         "defaults": {
@@ -143,12 +143,12 @@
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 5 },
       "id": 5,
       "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "topk(8, sum by (uri) (rate(http_server_requests_seconds_count{uri!~\"NOT_FOUND|UNKNOWN\"}[5m])))", "legendFormat": "{{uri}}", "refId": "A" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "topk(8, sum by (uri) (rate(http_server_requests_seconds_count{uri!~\"NOT_FOUND|UNKNOWN\"}[5m])))", "legendFormat": "{{uri}}", "refId": "A" } ],
       "title": "RPS по эндпоинтам",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mimir" },
       "description": "p95 времени ответа по самым нагруженным uri-шаблонам.",
       "fieldConfig": {
         "defaults": {
@@ -163,12 +163,12 @@
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 5 },
       "id": 6,
       "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "topk(6, histogram_quantile(0.95, sum by (le, uri) (rate(http_server_requests_seconds_bucket{uri!~\"NOT_FOUND|UNKNOWN\"}[5m]))))", "legendFormat": "{{uri}}", "refId": "A" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "topk(6, histogram_quantile(0.95, sum by (le, uri) (rate(http_server_requests_seconds_bucket{uri!~\"NOT_FOUND|UNKNOWN\"}[5m]))))", "legendFormat": "{{uri}}", "refId": "A" } ],
       "title": "p95 по эндпоинтам",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mimir" },
       "description": "Распределение ответов по классам статусов: 2xx/4xx/5xx.",
       "fieldConfig": {
         "defaults": {
@@ -186,12 +186,12 @@
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 5 },
       "id": 7,
       "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "sum by (status) (rate(http_server_requests_seconds_count[5m]))", "legendFormat": "{{status}}", "refId": "A" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "sum by (status) (rate(http_server_requests_seconds_count[5m]))", "legendFormat": "{{status}}", "refId": "A" } ],
       "title": "Статусы ответов",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mimir" },
       "description": "Попытки аутентификации (auth.attempts): type=login/refresh, result=success/failure. Рост failure — возможный перебор паролей (алерт AuthFailuresSpike).",
       "fieldConfig": {
         "defaults": {
@@ -206,12 +206,12 @@
       "gridPos": { "h": 7, "w": 8, "x": 0, "y": 13 },
       "id": 8,
       "options": { "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "sum by (type, result) (rate(auth_attempts_total[5m]))", "legendFormat": "{{type}} {{result}}", "refId": "A" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "sum by (type, result) (rate(auth_attempts_total[5m]))", "legendFormat": "{{type}} {{result}}", "refId": "A" } ],
       "title": "Аутентификация: попытки",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mimir" },
       "description": "tickets.open: открытые заявки по статусам (gauge, обновляется раз в 30 секунд — TicketsOpenGauge).",
       "fieldConfig": {
         "defaults": {
@@ -226,12 +226,12 @@
       "gridPos": { "h": 7, "w": 8, "x": 8, "y": 13 },
       "id": 9,
       "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "sum by (status) (tickets_open)", "legendFormat": "{{status}}", "refId": "A" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "sum by (status) (tickets_open)", "legendFormat": "{{status}}", "refId": "A" } ],
       "title": "Открытые заявки по статусам",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mimir" },
       "description": "tickets.created: скорость создания заявок (15 минут, окно шире — события редкие).",
       "fieldConfig": {
         "defaults": {
@@ -252,12 +252,12 @@
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "textMode": "auto"
       },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "60 * sum(rate(tickets_total[15m]))", "legendFormat": "создано/мин", "refId": "A" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "60 * sum(rate(tickets_total[15m]))", "legendFormat": "создано/мин", "refId": "A" } ],
       "title": "Заявки создано /мин",
       "type": "stat"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mimir" },
       "description": "tickets.time.to.first.response: 95-й перцентиль времени до первого ответа (окно 6 часов — заявки редкие).",
       "fieldConfig": {
         "defaults": {
@@ -278,12 +278,12 @@
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "textMode": "auto"
       },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "histogram_quantile(0.95, sum by (le) (rate(tickets_time_to_first_response_seconds_bucket[6h])))", "legendFormat": "p95", "refId": "A" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "histogram_quantile(0.95, sum by (le) (rate(tickets_time_to_first_response_seconds_bucket[6h])))", "legendFormat": "p95", "refId": "A" } ],
       "title": "TTFR p95",
       "type": "stat"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mimir" },
       "description": "Почта: mail.sent по result (success/failure) и mail.send (таймер SMTP). Рост failure — SMTP недоступен или стоп-лист.",
       "fieldConfig": {
         "defaults": {
@@ -298,12 +298,12 @@
       "gridPos": { "h": 7, "w": 8, "x": 0, "y": 20 },
       "id": 12,
       "options": { "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "sum by (result) (rate(mail_sent_total[5m]))", "legendFormat": "mail {{result}}", "refId": "A" }, { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "histogram_quantile(0.95, sum by (le) (rate(mail_send_seconds_bucket[5m])))", "legendFormat": "SMTP p95", "refId": "B" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "sum by (result) (rate(mail_sent_total[5m]))", "legendFormat": "mail {{result}}", "refId": "A" }, { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "histogram_quantile(0.95, sum by (le) (rate(mail_send_seconds_bucket[5m])))", "legendFormat": "SMTP p95", "refId": "B" } ],
       "title": "Письма: отправка и латентность SMTP",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mimir" },
       "description": "ticket.create: наблюдение создания заявки (таймер) — p95 грани сервисного слоя.",
       "fieldConfig": {
         "defaults": {
@@ -324,12 +324,12 @@
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "textMode": "auto"
       },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "histogram_quantile(0.95, sum by (le) (rate(ticket_create_seconds_bucket[15m])))", "legendFormat": "p95", "refId": "A" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "histogram_quantile(0.95, sum by (le) (rate(ticket_create_seconds_bucket[15m])))", "legendFormat": "p95", "refId": "A" } ],
       "title": "ticket.create p95",
       "type": "stat"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mimir" },
       "description": "Переходы статусов заявок (tickets.status.transitions) по from→to.",
       "fieldConfig": {
         "defaults": {
@@ -344,12 +344,12 @@
       "gridPos": { "h": 7, "w": 4, "x": 12, "y": 20 },
       "id": 14,
       "options": { "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "sum by (from, to) (rate(tickets_status_transitions_total[15m]))", "legendFormat": "{{from}} → {{to}}", "refId": "A" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "sum by (from, to) (rate(tickets_status_transitions_total[15m]))", "legendFormat": "{{from}} → {{to}}", "refId": "A" } ],
       "title": "Переходы статусов",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mimir" },
       "description": "Логи по уровням (logback.events): всплеск ERROR/WARN виден без ухода в Loki.",
       "fieldConfig": {
         "defaults": {
@@ -364,12 +364,12 @@
       "gridPos": { "h": 7, "w": 8, "x": 16, "y": 20 },
       "id": 15,
       "options": { "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "sum by (level) (rate(logback_events_total[5m]))", "legendFormat": "{{level}}", "refId": "A" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "sum by (level) (rate(logback_events_total[5m]))", "legendFormat": "{{level}}", "refId": "A" } ],
       "title": "Логи по уровням",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mimir" },
       "description": "JVM heap: использовано vs максимум. Алерт JvmHeapHigh: heap > 90% в течение 10 минут.",
       "fieldConfig": {
         "defaults": {
@@ -384,12 +384,12 @@
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 27 },
       "id": 16,
       "options": { "legend": { "calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "sum(jvm_memory_used_bytes{area=\"heap\"})", "legendFormat": "used", "refId": "A" }, { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "sum(jvm_memory_max_bytes{area=\"heap\"})", "legendFormat": "max", "refId": "B" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "sum(jvm_memory_used_bytes{area=\"heap\"})", "legendFormat": "used", "refId": "A" }, { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "sum(jvm_memory_max_bytes{area=\"heap\"})", "legendFormat": "max", "refId": "B" } ],
       "title": "JVM heap",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mimir" },
       "description": "GC: суммарная длительность пауз (секунд в секунду) и число пауз. Доля GC-времени — кандидат в алерты (шаг 12).",
       "fieldConfig": {
         "defaults": {
@@ -404,12 +404,12 @@
       "gridPos": { "h": 8, "w": 4, "x": 8, "y": 27 },
       "id": 17,
       "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "sum(rate(jvm_gc_pause_seconds_sum[5m]))", "legendFormat": "GC с/с", "refId": "A" }, { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "sum(rate(jvm_gc_pause_seconds_count[5m]))", "legendFormat": "пауз/с", "refId": "B" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "sum(rate(jvm_gc_pause_seconds_sum[5m]))", "legendFormat": "GC с/с", "refId": "A" }, { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "sum(rate(jvm_gc_pause_seconds_count[5m]))", "legendFormat": "пауз/с", "refId": "B" } ],
       "title": "GC паузы",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mimir" },
       "description": "Потоки JVM: live/daemon/peak. Рост live без потолка — утечка потоков.",
       "fieldConfig": {
         "defaults": {
@@ -424,12 +424,12 @@
       "gridPos": { "h": 8, "w": 4, "x": 12, "y": 27 },
       "id": 18,
       "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "jvm_threads_live_threads", "legendFormat": "live", "refId": "A" }, { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "jvm_threads_daemon_threads", "legendFormat": "daemon", "refId": "B" }, { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "jvm_threads_peak_threads", "legendFormat": "peak", "refId": "C" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "jvm_threads_live_threads", "legendFormat": "live", "refId": "A" }, { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "jvm_threads_daemon_threads", "legendFormat": "daemon", "refId": "B" }, { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "jvm_threads_peak_threads", "legendFormat": "peak", "refId": "C" } ],
       "title": "Потоки JVM",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mimir" },
       "description": "CPU процесса (Java) и системы; load average за 1 минуту.",
       "fieldConfig": {
         "defaults": {
@@ -446,12 +446,12 @@
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 27 },
       "id": 19,
       "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "process_cpu_usage", "legendFormat": "процесс", "refId": "A" }, { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "system_cpu_usage", "legendFormat": "система", "refId": "B" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "process_cpu_usage", "legendFormat": "процесс", "refId": "A" }, { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "system_cpu_usage", "legendFormat": "система", "refId": "B" } ],
       "title": "CPU",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mimir" },
       "description": "Пул соединений (jdbc.connections): active/idle против максимума. Алерт DatabasePoolSaturation: насыщение пула (Boot экспортирует active/idle/max/min).",
       "fieldConfig": {
         "defaults": {
@@ -466,12 +466,12 @@
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 35 },
       "id": 20,
       "options": { "legend": { "calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "jdbc_connections_active", "legendFormat": "active", "refId": "A" }, { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "jdbc_connections_idle", "legendFormat": "idle", "refId": "B" }, { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "jdbc_connections_max", "legendFormat": "max", "refId": "C" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "jdbc_connections_active", "legendFormat": "active", "refId": "A" }, { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "jdbc_connections_idle", "legendFormat": "idle", "refId": "B" }, { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "jdbc_connections_max", "legendFormat": "max", "refId": "C" } ],
       "title": "Пул соединений БД",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mimir" },
       "description": "hibernate.query.executions: скорость выполнения HQL/JPQL-запросов (шаг 5). Резкий рост — возможный N+1 или лишние запросы.",
       "fieldConfig": {
         "defaults": {
@@ -492,12 +492,12 @@
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "textMode": "auto"
       },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "sum(rate(hibernate_query_executions_total[5m]))", "legendFormat": "запросов/с", "refId": "A" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "sum(rate(hibernate_query_executions_total[5m]))", "legendFormat": "запросов/с", "refId": "A" } ],
       "title": "Hibernate queries/s",
       "type": "stat"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mimir" },
       "description": "Пул планировщика (taskScheduler): активные потоки и очередь фоновых задач (@Scheduled повторы оповещений, gauge tickets.open).",
       "fieldConfig": {
         "defaults": {
@@ -512,12 +512,12 @@
       "gridPos": { "h": 8, "w": 6, "x": 12, "y": 35 },
       "id": 22,
       "options": { "legend": { "calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "executor_active_threads{name=\"taskScheduler\"}", "legendFormat": "active", "refId": "A" }, { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "executor_queued_tasks{name=\"taskScheduler\"}", "legendFormat": "queue", "refId": "B" }, { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "executor_pool_max_threads{name=\"taskScheduler\"}", "legendFormat": "max", "refId": "C" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "executor_active_threads{name=\"taskScheduler\"}", "legendFormat": "active", "refId": "A" }, { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "executor_queued_tasks{name=\"taskScheduler\"}", "legendFormat": "queue", "refId": "B" }, { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "executor_pool_max_threads{name=\"taskScheduler\"}", "legendFormat": "max", "refId": "C" } ],
       "title": "Планировщик (taskScheduler)",
       "type": "timeseries"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "datasource": { "type": "prometheus", "uid": "mimir" },
       "description": "Аптайм процесса приложения.",
       "fieldConfig": {
         "defaults": {
@@ -538,7 +538,7 @@
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
         "textMode": "auto"
       },
-      "targets": [ { "datasource": { "type": "prometheus", "uid": "prometheus" }, "editorMode": "code", "expr": "process_uptime_seconds", "legendFormat": "uptime", "refId": "A" } ],
+      "targets": [ { "datasource": { "type": "prometheus", "uid": "mimir" }, "editorMode": "code", "expr": "process_uptime_seconds", "legendFormat": "uptime", "refId": "A" } ],
       "title": "Аптайм",
       "type": "stat"
     }

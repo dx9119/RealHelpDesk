@@ -1,15 +1,15 @@
-# Provisioning datasources Grafana: Prometheus, Tempo, Loki
-# подключаются автоматически — руками в UI ничего добавлять не нужно.
+# Provisioning datasources Grafana: Mimir (метрики, Prometheus-совместимый API),
+# Tempo, Loki подключаются автоматически — руками в UI ничего добавлять не нужно.
 # Связи: Tempo → Loki (tracesToLogs по traceId), Loki → Tempo (derived-поле TraceID),
-# Tempo → Prometheus (serviceMap для карты зависимостей).
+# Tempo → Mimir (serviceMap для карты зависимостей).
 apiVersion: 1
 
 datasources:
-  - name: Prometheus
+  - name: Mimir
     type: prometheus
-    uid: prometheus
+    uid: mimir
     access: proxy
-    url: http://prometheus:9090
+    url: http://mimir:8090/prometheus
     isDefault: true
     jsonData:
       timeInterval: 15s
@@ -46,4 +46,4 @@ datasources:
         filterMatchAny: false
         tags: ["traceId"]
       tracesToMetrics:
-        datasourceUid: prometheus
+        datasourceUid: mimir

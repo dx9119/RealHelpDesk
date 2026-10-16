@@ -14,7 +14,6 @@ GIT_SHA ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
 # из override никогда не собирается.
 COMPOSE_DEV ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml
 COMPOSE_PROD ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.prod.yaml
-COMPOSE_SHARDING ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml -f infrastructure/docker-compose.sharding.yaml
 COMPOSE_LOAD ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml -f infrastructure/docker-compose.load.yaml
 COMPOSE_OBSERVABILITY ?= docker compose -f infrastructure/docker-compose.yaml -f infrastructure/docker-compose.override.yaml -f infrastructure/docker-compose.observability.yaml
 
@@ -22,10 +21,10 @@ COMPOSE_OBSERVABILITY ?= docker compose -f infrastructure/docker-compose.yaml -f
 
 .PHONY: help build clean compile package test verify format check run \
         dev-run dev-test \
-        env docker-build up up-prod up-sharding up-load down down-sharding down-volumes logs ps restart shell check-image \
+        env docker-build up up-prod up-load down down-volumes logs ps restart shell check-image \
         obs-up obs-down obs-open obs-reload obs-alerts \
         load load-smoke \
-        migrate migrate-shard-0 migrate-shard-1 migrate-shard \
+        migrate \
         openapi openapi-types \
         e2e-portal-access e2e-ratelimit e2e-jwt e2e-notifications e2e-portal-transfer e2e-all
 
@@ -82,31 +81,16 @@ up: env ## Поднять локальный стек (сборка образа
 up-prod: env ## Поднять рабочий стек (без override; заполните stack.prod.env)
 	$(COMPOSE_PROD) up --build -d
 
-up-sharding: env ## Поднять локальный стек + шардирование (proxy + 2 шарда)
-	$(COMPOSE_SHARDING) up --build -d
-
 down: ## Остановить локальный стек
 	$(COMPOSE_DEV) down
-
-down-sharding: ## Остановить стек с шардированием (тома целы)
-	$(COMPOSE_SHARDING) down
 
 down-volumes: ## Остановить стек и удалить тома (данные БД/MinIO)
 	$(COMPOSE_DEV) down -v
 
-## --- Наблюдаемость (подробности: docs/observability/README.md) ---
+## --- Наблюдаемость (подробности: docs/observability/overview.md) ---
 
-obs-up: env ## Поднять стек + наблюдаемость (Grafana: http://localhost:3001, Prometheus: :9090)
-	@set -a && . infrastructure/.env && set +a && \
-	METRICS_USER=$$(sed -n 's/^METRICS_USER=//p' scripts/docker/stack.env) && \
-	test -n "$$METRICS_USER" -a -n "$$METRICS_PASSWORD" || \
-	  (echo "METRICS_USER (scripts/docker/stack.env) / METRICS_PASSWORD (infrastructure/.env) не заданы" && exit 1) && \
-	mkdir -p infrastructure/observability/prometheus/secrets && \
-	printf '%s' "$$METRICS_USER" > infrastructure/observability/prometheus/secrets/metrics_user && \
-	printf '%s' "$$METRICS_PASSWORD" > infrastructure/observability/prometheus/secrets/metrics_password && \
-	chmod 644 infrastructure/observability/prometheus/secrets/metrics_user \
-	          infrastructure/observability/prometheus/secrets/metrics_password
-	$(COMPOSE_OBSERVABILITY) up --build -d
+obs-up: env ## Поднять стек + наблюдаемость (Grafana: http://localhost:3001, Mimir: :9090)
+	$(COMPOSE_OBSERVABILITY) up --build -d --remove-orphans
 
 obs-down: ## Остановить стек с наблюдаемостью (томы целы)
 	$(COMPOSE_OBSERVABILITY) down
@@ -114,11 +98,11 @@ obs-down: ## Остановить стек с наблюдаемостью (то
 obs-open: ## Открыть Grafana в браузере (нужен obs-up; порт GRAFANA_PORT, дефолт 3001)
 	@xdg-open http://localhost:3001 >/dev/null 2>&1 || open http://localhost:3001 >/dev/null 2>&1 || echo "Grafana: http://localhost:3001"
 
-obs-reload: ## Горячая перезагрузка правил Prometheus (нужен obs-up; alerts.yml)
-	curl -sf -X POST localhost:9090/-/reload && echo "Правила перезагружены"
+obs-reload: ## Перечитать правила алертов Mimir (нужен obs-up; mimir/rules/anonymous/realhelpdesk.yml)
+	$(COMPOSE_OBSERVABILITY) restart mimir && echo "Mimir перезапущен — правила перечитаны"
 
-obs-alerts: ## Текущие состояния алертов Prometheus (нужен obs-up)
-	curl -s localhost:9090/api/v1/alerts | grep -oE '"alertname":"[^"]+"|"state":"[^"]+"' | paste - - || echo "Prometheus недоступен"
+obs-alerts: ## Текущие состояния алертов Mimir (нужен obs-up)
+	curl -s localhost:9090/prometheus/api/v1/alerts | grep -oE '"alertname":"[^"]+"|"state":"[^"]+"' | paste - - || echo "Mimir недоступен"
 
 logs: ## Логи приложения (follow)
 	$(COMPOSE_DEV) logs -f app
@@ -156,22 +140,6 @@ migrate: env ## Миграции Liquibase на основную БД (localhost
 	  -Dliquibase.url=jdbc:postgresql://127.0.0.1:5432/desk \
 	  -Dliquibase.username=user \
 	  -Dliquibase.password="$$DB_PASSWORD"
-
-migrate-shard-0: env ## Миграции Liquibase на первый шард (localhost:5433)
-	@set -a && . infrastructure/.env && set +a && \
-	$(MVN) -q liquibase:update \
-	  -Dliquibase.url=jdbc:postgresql://127.0.0.1:5433/desk \
-	  -Dliquibase.username=user \
-	  -Dliquibase.password="$$DB_PASSWORD"
-
-migrate-shard-1: env ## Миграции Liquibase на второй шард (localhost:5434)
-	@set -a && . infrastructure/.env && set +a && \
-	$(MVN) -q liquibase:update \
-	  -Dliquibase.url=jdbc:postgresql://127.0.0.1:5434/desk \
-	  -Dliquibase.username=user \
-	  -Dliquibase.password="$$DB_PASSWORD"
-
-migrate-shard: migrate-shard-0 migrate-shard-1 ## Миграции Liquibase на оба шарда
 
 ## --- OpenAPI (нужен поднятый стек: make up) ---
 

@@ -18,9 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.micrometer.core.instrument.MeterRegistry;
 
 /**
- * База данных и миграции: метрики пула Hikari, метрики Hibernate (статистика включается профилем) и готовность БД в readiness. Шардовые
- * пулы в приложении нет — шардинг инфраструктурный (ShardingSphere-прокси), их HealthIndicator и счётчик db.shard.routing на уровне JVM не
- * применимы.
+ * База данных и миграции: метрики пула Hikari, метрики Hibernate (статистика включается профилем) и готовность БД в readiness.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = "spring.profiles.active=test")
 @DisplayName("База данных: метрики Hikari/Hibernate и readiness")

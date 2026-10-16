@@ -1,12 +1,13 @@
-# Оверлей наблюдаемости: Prometheus, Grafana, Tempo, OTel Collector, Loki, Alloy.
+# Оверлей наблюдаемости: Mimir, Grafana, Tempo, OTel Collector, Loki, Alloy.
 # Подключается после базы + override (make obs-up):
 #   docker-compose.yaml + docker-compose.override.yaml + docker-compose.observability.yaml
 # Для нагрузочного прогона вместе с метриками — добавьте fourth файл
 # docker-compose.load.yaml (TRUST_PROXY_HEADERS для k6).
 #
 # Топология: приложение шлёт трейсы OTLP → otel-collector → tempo; логи (stdout json-file
-# приложения) тянет alloy → loki; prometheus скрейпит управляющий порт app:8081;
-# grafana прокидывает datasources через provisioning (см. observability/grafana/).
+# приложения) тянет alloy → loki; метрики alloy скрейпит с app:8081 и шлёт
+# remote_write в mimir; grafana прокидывает datasources через provisioning
+# (см. observability/grafana/).
 
 services:
   # Приложение в этом стеке шлёт трейсы в collector (OTLP/HTTP — дефолтный
@@ -15,29 +16,24 @@ services:
     environment:
       OTLP_TRACING_ENDPOINT: http://otel-collector:4318/v1/traces
 
-  prometheus:
+  mimir:
+    # Mimir (monolithic): хранение метрик, Prometheus-совместимый API, ruler.
     # Версия закреплена: обновление — осознанная правка с ревью, не latest.
-    image: prom/prometheus:v3.15.0
-    mem_limit: 256m
+    image: grafana/mimir:2.16.0
+    mem_limit: 512m
     ports:
-      # Только loopback: наружу (и в сеть контейнеров) Prometheus не светится.
-      - "127.0.0.1:9090:9090"
+      # Только loopback: query API /prometheus и ruler (хостовой порт 9090,
+      # как у прежнего Prometheus — make obs-alerts и curl не меняются по адресу).
+      - "127.0.0.1:9090:8090"
     volumes:
-      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      # Правила алертов; проверка — promtool check rules.
-      - ./observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
-      # Креды скрейпа (username_file/password_file): Prometheus не умеет
-      # env-подстановку в конфиге, пароль поэтому не через environment, а файлом.
-      # Каталог генерирует make obs-up из infrastructure/.env;
-      # без него Prometheus упадёт с «password_file ... does not exist».
-      - ./observability/prometheus/secrets:/etc/prometheus/secrets:ro
-      - prometheus_data:/prometheus
-    command:
-      - --config.file=/etc/prometheus/prometheus.yml
-      - --storage.tsdb.path=/prometheus
-      # lifecycle-режим: перечитать конфиг по POST /-/reload без рестарта
-      # (потребуется для alert-правил)
-      - --web.enable-lifecycle
+      - ./observability/mimir/mimir.yaml:/etc/mimir/mimir.yaml:ro
+      # Правила алертов (Prometheus-формат); проверка — promtool check rules.
+      # Раскладка local store: <dir>/<tenant>/<файл>, tenant=anonymous.
+      - ./observability/mimir/rules:/etc/mimir/rules:ro
+      # Fallback-конфиг встроенного Alertmanager (storage пуст — без него 412).
+      - ./observability/mimir/alertmanager-fallback.yml:/etc/mimir/alertmanager-fallback.yml:ro
+      - mimir_data:/data
+    command: ["-config.file=/etc/mimir/mimir.yaml"]
     depends_on:
       app:
         condition: service_healthy
@@ -112,11 +108,17 @@ services:
         max-file: "5"
 
   alloy:
-    # Сбор логов приложения (docker json-file, фильтр compose-метки service=app) → Loki.
+    # Сбор логов приложения (docker json-file, фильтр compose-метки service=app) → Loki
+    # и скрейп метрик (app:8081/actuator/prometheus, HTTP Basic) → remote_write в Mimir.
     # root нужен для доступа к /var/run/docker.sock — локальный dev-стенд, сеть loopback.
     image: grafana/alloy:v1.12.2
     user: "0:0"
     mem_limit: 128m
+    # Креды скрейпа: sys.env() в config.alloy читает их для basic_auth.
+    env_file:
+      - ../scripts/docker/stack.env
+    environment:
+      METRICS_PASSWORD: "${METRICS_PASSWORD:?METRICS_PASSWORD is required - copy infrastructure/.env.example to infrastructure/.env}"
     volumes:
       - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -124,6 +126,7 @@ services:
     command: ["run", "--storage.path=/var/lib/alloy", "/etc/alloy/config.alloy"]
     depends_on:
       - loki
+      - mimir
     restart: unless-stopped
     networks:
       - backend
@@ -152,7 +155,7 @@ services:
       - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
     depends_on:
-      - prometheus
+      - mimir
       - tempo
       - loki
     restart: unless-stopped
@@ -165,7 +168,7 @@ services:
         max-file: "5"
 
 volumes:
-  prometheus_data:
+  mimir_data:
   tempo_data:
   loki_data:
   grafana_data:

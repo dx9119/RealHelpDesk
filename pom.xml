@@ -273,9 +273,9 @@
                 </configuration>
             </plugin>
 
-            <!-- Liquibase CLI для шардов: init-скрипты Postgres
-                 выполняются только на пустом томе, поэтому шарды нужно мигрировать тем же
-                 changelog, что и основную БД: make migrate-shard. Версию задаёт Boot parent. -->
+            <!-- Liquibase CLI для ручных/чистых миграций без контейнера
+                 (make migrate); приложение применяет тот же changelog при
+                 старте. Версию задаёт Boot parent. -->
             <plugin>
                 <groupId>org.liquibase</groupId>
                 <artifactId>liquibase-maven-plugin</artifactId>
