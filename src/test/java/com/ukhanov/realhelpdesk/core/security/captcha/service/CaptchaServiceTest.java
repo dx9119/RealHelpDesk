@@ -110,8 +110,9 @@ class CaptchaServiceTest {
     @DisplayName("solve с неверным nonce — POW_FAILED и фиксируется как провал")
     void solve_wrongNonce_powFailed() throws CaptchaException {
         ChallengeResponse challenge = service.challenge(ACTION);
+        String wrongNonce = wrongNonce(challenge);
 
-        assertThatThrownBy(() -> service.solve(challenge.challengeId(), "not-a-solution")).isInstanceOf(CaptchaException.class)
+        assertThatThrownBy(() -> service.solve(challenge.challengeId(), wrongNonce)).isInstanceOf(CaptchaException.class)
                 .extracting(e -> ((CaptchaException) e).getReason()).isEqualTo(CaptchaReason.POW_FAILED);
 
         verify(authMetrics).record(AuthMetrics.TYPE_CAPTCHA, AuthMetrics.RESULT_FAILURE);
@@ -238,6 +239,17 @@ class CaptchaServiceTest {
         service.verifyRegistration(token, "");
 
         verify(captchaMetrics).verification(true, CaptchaReason.OK);
+    }
+
+    /** Детерминированное не-решение: на малой сложности случайная строка могла бы «пройти». */
+    private String wrongNonce(ChallengeResponse challenge) {
+        for (long i = 0; i < 100_000; i++) {
+            String nonce = Long.toString(i);
+            if (!PowHash.meets(challenge.params().salt(), nonce, challenge.params().difficulty())) {
+                return nonce;
+            }
+        }
+        throw new IllegalStateException("не-решение не найдено");
     }
 
     private String solve(ChallengeResponse challenge) {
