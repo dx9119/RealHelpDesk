@@ -7,7 +7,7 @@
 
 | Правило | Как именно |
 |---|---|
-| Ошибки | `application/problem+json`: `{ type, title, status, detail, instance, timestamp }`; ошибки валидации добавляют `errors: { поле: сообщение }`. `429` несёт `Retry-After` |
+| Ошибки | `application/problem+json`: `{ type, title, status, detail, instance, timestamp }`; ошибки валидации добавляют `errors: { поле: сообщение }`; провал капчи добавляет машинный `code` (см. «Служебные»). `429` несёт `Retry-After` |
 | Пагинация | Единый стиль `?page=&size=&sortBy=&order=` на всех списках. **`page` считается с нуля** (0 — первая страница), `size` ≤ 100, `sortBy` — поле из allow-list эндпоинта, `order` — `asc`/`desc` |
 | Пагинированный ответ | `PageResponse`: `{ content, page, size, totalElements, totalPages, last }` |
 | Коллекции без пагинации | Обёртка `ItemsResponse`: `{ items: [...], total }` (массивы верхнего уровня не используются) |
@@ -25,21 +25,32 @@ Cookie-аутентификация: токены в `HttpOnly; Secure` cookie (
 | Метод и путь | Назначение |
 |---|---|
 | `GET /health` | Проверка живости (`{ status, timestamp }`) |
-| `GET /captcha?capId=` | Капча `image/jpeg`; `capId` — идентификатор посетителя (≤ 10 символов). Для обработки `429`/`400` забирать через `fetch` + `URL.createObjectURL` |
+| `POST /captcha/challenge` | Тело `{ action: "register" \| "email-code" }` → `{ challengeId, type: "pow", params: { salt, difficulty }, expiresAt }`. `challengeId` — подписанный challenge (JWT), соль/сложность дублируются для клиента. Лимит 30/60 c |
+| `POST /captcha/solve` | Тело `{ challengeId, nonce }` → `{ captchaToken }`; `nonce` решает PoW: ведущие нулевые биты `SHA-256("salt:nonce")` ≥ `difficulty`. Лимит 30/60 c |
+| `GET /captcha/widget.js` | Клиентский виджет: `await window.RealHelpCaptcha.getToken(action)` → `captchaToken` (Proof-of-Work в Web Worker) |
+
+Провал капчи — `400` problem+json с полем `code`: `missing_token` (токен не
+передан), `invalid` (подпись/формат), `expired` (истёк challenge или токен),
+`replayed` (уже использован), `wrong_type` (предъявлен не тот тип токена),
+`wrong_action` (токен другого действия), `too_fast` (форма отправлена раньше
+`CAPTCHA_MIN_FILL_SECONDS`), `pow_failed` (PoW не решён), `honeypot`
+(заполнено невидимое поле `website`).
 
 ## Аутентификация (`/auth`)
 
 | Метод и путь | Тело / параметры | Назначение |
 |---|---|---|
-| `POST /register` | `RegisterRequest` + опц. `?capId=` | Регистрация → `201` + `Location: /users/profile`, cookies |
+| `POST /register` | `RegisterRequest` | Регистрация → `201` + `Location: /users/profile`, cookies |
 | `POST /login` | `{ email, password }` | Вход → `200`, cookies |
 | `POST /tokens/access` | refresh-cookie | Новый access-токен и ротация refresh |
 | `GET /tokens/refresh` | — | Статус refresh-токена (`{ tokenStatus, createdAt }`) |
 | `GET /session` | — | Текущая сессия: `{ authenticated, user: UserInfoResponse }` (id пользователя сразу, без отдельного `GET /users/profile`) |
 | `DELETE /session` | — | Логаут, отзыв токенов → `204` |
 
-`RegisterRequest`: `firstName`, `lastName`, `email`, `password`, опц. `capCode`
-(при включённой капче), `externalId`, `userPlatformSource`.
+`RegisterRequest`: `firstName`, `lastName`, `email`, `password`, опц.
+`captchaToken` (токен `POST /captcha/solve`; при включённой капче обязателен),
+honeypot-поле `website` (должно быть пустым/отсутствовать), `externalId`,
+`userPlatformSource`.
 
 ## Пользователи (`/users`)
 
@@ -58,7 +69,7 @@ Cookie-аутентификация: токены в `HttpOnly; Secure` cookie (
 | `POST /confirmations/{token}` | — | Подтверждение email по коду → `204` |
 | `GET /info` | — | Текущий уровень email-оповещений (`{ muteLevel }`) |
 | `DELETE /notifications/{event}` | — | Отписка от события (`NotificationEvent`) → `204` |
-| `POST /codes?capId=` | опц. `capId`, `capCode` | Отправка кода подтверждения email |
+| `POST /codes` | заголовок опц. `X-Captcha-Token` (токен действия `email-code`) | Отправка кода подтверждения email |
 
 ## Порталы (`/portals`)
 

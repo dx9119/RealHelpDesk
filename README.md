@@ -182,6 +182,34 @@ Cookie уходят в том числе кросс-сайтово (`SameSite=No
 отклоняет CORS (allow-list `CORS_ALLOWED_ORIGINS`). Для односайтового фронта
 дополнительно достаточно `JWT_COOKIE_SAMESITE=Lax`.
 
+### Капча (Proof-of-Work)
+
+Локально выключена (`CAPTCHA_ENABLED=false` — дефолт шаблона), в рабочем
+контуре включена обязательно (prod-preflight валит старт без неё). Вместо
+картинки с текстом (устойчивой к OCR/LLM) — невидимый для человека
+Proof-of-Work:
+
+1. `POST /api/v1/captcha/challenge { action }` отдаёт подписанное задание
+   (соль + сложность `CAPTCHA_POW_DIFFICULTY`, по умолчанию 18 — доли
+   секунды на телефоне);
+2. клиент подбирает `nonce`: ведущие нулевые биты `SHA-256("salt:nonce")`
+   ≥ сложности — виджет `GET /captcha/widget.js` делает это в Web Worker,
+   `await window.RealHelpCaptcha.getToken(action)` возвращает `captchaToken`;
+3. `POST /api/v1/captcha/solve` обменивает решение на подписанный токен —
+   он и предъявляется на регистрацию (поле `captchaToken`) или в заголовке
+   `X-Captcha-Token` на `POST /email/codes`.
+
+Защита от автоматики: подписи HMAC (`CAPTCHA_HMAC_SECRET` — секрет в
+`infrastructure/.env`, минимум 32 символа), одноразовость challenge и токена,
+минимальное время заполнения формы (`CAPTCHA_MIN_FILL_SECONDS`, 0 локально /
+3 в рабочем контуре) и honeypot-поле `website` (его заполнение = `honeypot`
+в ответе). При отказе в проблеме-JSON поле `code` — `pow_failed`,
+`replayed`, `too_fast`, `honeypot` и т.д. (полный список — `docs/api.md`).
+Метрики: `captcha.challenge.issued` и `captcha.verification{reason}`.
+Сроки: `CAPTCHA_CHALLENGE_TTL_SECONDS` / `CAPTCHA_TOKEN_TTL_SECONDS`
+(по умолчанию 300 c). Эмодзи-уровень эскалации и внешние провайдеры — по
+плану в [`docs/capcha.md`](docs/capcha.md).
+
 ## API
 
 Описание всех эндпоинтов — [`docs/api.md`](docs/api.md). Машинная спека собирается из
@@ -202,7 +230,8 @@ TypeScript-типы для фронта).
 
 | Ключ | Эндпоинт | Лимит |
 |---|---|---|
-| `captcha` | `GET /captcha` | 30 / 60 c |
+| `captcha-challenge` | `POST /captcha/challenge` | 30 / 60 c |
+| `captcha-solve` | `POST /captcha/solve` | 30 / 60 c |
 | `auth-register` | `POST /auth/register` | 10 / 5 мин |
 | `auth-login` | `POST /auth/login` | 10 / 5 мин |
 | `auth-access-token` | `POST /auth/tokens/access` | 30 / 5 мин |
