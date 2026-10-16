@@ -22,7 +22,7 @@ trap 'rm -rf "$TMP"' EXIT
 JAR_A="$TMP/owner.jar"
 JAR_B="$TMP/guest.jar"
 BODY="$TMP/body.txt"
-PSQL="docker exec realhelpdesk_postgres psql -U user -d desk -tA -c"
+PSQL="docker compose -f infrastructure/docker-compose.yaml --profile infra exec -T postgres psql -U user -d desk -tA -c"
 RUN=$(date +%s)
 OWNER_EMAIL="owner-$RUN@test.local"
 GUEST_EMAIL="guest-$RUN@test.local"
