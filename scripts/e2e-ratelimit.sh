@@ -3,14 +3,15 @@
 #
 # Проверяет троттлинг по IP + эндпоинту (ответ 429 + Retry-After).
 # Лимиты действуют одинаково при включенной и выключенной капче:
-#   GET  /captcha                      30 / 60 сек
+#   POST /captcha/challenge             30 / 60 сек
+#   POST /captcha/solve                 30 / 60 сек
 #   POST /auth/register                10 / 5 мин
 #   POST /auth/login                   10 / 5 мин
 #   POST /users/password-resets         3 / 10 мин
 #
 # Счетчики живут в памяти приложения: если лимит уже исчерпан прошлым
 # запуском, скрипт об этом скажет — перезапустите приложение
-# (make restart) и повторите. Пока окно /captcha не истекло
+# (make restart) и повторите. Пока окно /captcha/challenge не истекло
 # (60 сек), проверка капчи не сойдется. Капча должна быть выключена
 # (по умолчанию).
 set -u
@@ -42,16 +43,17 @@ check_ge() {
 
 echo "═══ Рейт-лимиты ═══"
 
-step "GET /captcha: 31 запрос подряд (лимит 30/60с)"
-first=$(curl -sk -H 'X-Requested-With: XMLHttpRequest' -o /dev/null -w "%{http_code}" "$BASE/captcha?capId=rl-probe")
+step "POST /captcha/challenge: 31 запрос подряд (лимит 30/60с)"
+challenge_body='{"action":"register"}'
+first=$(curl -sk -H 'X-Requested-With: XMLHttpRequest' -H 'Content-Type: application/json' -d "$challenge_body" -o /dev/null -w "%{http_code}" -X POST "$BASE/captcha/challenge")
 if [ "$first" != "200" ]; then
-  echo "  FAIL окно /captcha уже исчерпано (http=$first)"
+  echo "  FAIL окно /captcha/challenge уже исчерпано (http=$first)"
   echo "  подсказка: make restart && bash scripts/e2e-ratelimit.sh"
   exit 1
 fi
 ok=1; r429=0
 for i in $(seq 1 30); do
-  c=$(curl -sk -H 'X-Requested-With: XMLHttpRequest' -o /dev/null -w "%{http_code}" "$BASE/captcha?capId=rl$i")
+  c=$(curl -sk -H 'X-Requested-With: XMLHttpRequest' -H 'Content-Type: application/json' -d "$challenge_body" -o /dev/null -w "%{http_code}" -X POST "$BASE/captcha/challenge")
   [ "$c" = "200" ] && ok=$((ok + 1))
   [ "$c" = "429" ] && r429=$((r429 + 1))
 done
@@ -59,7 +61,7 @@ check "$((ok + r429))" "31" "все 31 запрос обработаны"
 check_ge "$r429" "1" "после лимита пришел 429"
 
 step "Ответ 429 несёт Retry-After и JSON"
-status=$(curl -sk -H 'X-Requested-With: XMLHttpRequest' -D "$HEADERS" -o "$BODY" -w "%{http_code}" "$BASE/captcha?capId=rl-after")
+status=$(curl -sk -H 'X-Requested-With: XMLHttpRequest' -H 'Content-Type: application/json' -d "$challenge_body" -D "$HEADERS" -o "$BODY" -w "%{http_code}" -X POST "$BASE/captcha/challenge")
 check "$status" "429" "статус"
 check "$(grep -ci '^retry-after:' "$HEADERS")" "1" "заголовок Retry-After присутствует"
 grep -qi 'Слишком много запросов' "$BODY"

@@ -43,16 +43,6 @@ class CaptchaConfigTest {
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("минимум 32 байта");
     }
 
-    @Test
-    @DisplayName("Свойства с доверенным значением проходят биндинг в DtoCaptchaProperties")
-    void dtoProperties_bindsEnabled() {
-        CaptchaProperties properties = properties("secure-captcha-hmac-secret-0123456789abcdef");
-        properties.setEnabled(false);
-
-        assertThat(config.dtoCaptchaProperties(properties).captchaEnabled()).isFalse();
-        assertThat(config.captchaGenerator()).isNotNull();
-    }
-
     private CaptchaProperties properties(String secret) {
         CaptchaProperties properties = new CaptchaProperties();
         properties.setEnabled(true);

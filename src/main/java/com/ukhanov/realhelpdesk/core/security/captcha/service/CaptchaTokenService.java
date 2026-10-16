@@ -158,6 +158,11 @@ public class CaptchaTokenService {
         }
     }
 
+    /** Известно ли действие капчи (для валидации пользовательского ввода до выпуска). */
+    public static boolean knownAction(String action) {
+        return ACTIONS.contains(action);
+    }
+
     private void requireAction(String action) {
         if (!ACTIONS.contains(action)) {
             throw new IllegalArgumentException("Неизвестное действие капчи: " + action);

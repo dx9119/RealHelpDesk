@@ -1,21 +1,27 @@
 package com.ukhanov.realhelpdesk.core.security.captcha.controller;
 
-import java.io.IOException;
+import jakarta.validation.Valid;
 
-import jakarta.validation.constraints.Size;
-
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ukhanov.realhelpdesk.core.security.captcha.dto.ChallengeRequest;
+import com.ukhanov.realhelpdesk.core.security.captcha.dto.ChallengeResponse;
+import com.ukhanov.realhelpdesk.core.security.captcha.dto.SolveRequest;
+import com.ukhanov.realhelpdesk.core.security.captcha.dto.SolveResponse;
+import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaException;
 import com.ukhanov.realhelpdesk.core.security.captcha.service.CaptchaService;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.annotation.RateLimit;
 
 import lombok.RequiredArgsConstructor;
 
+/**
+ * Публичные эндпоинты капчи: выдать challenge (соль и сложность) и принять решение (nonce) в обмен на подписанный captcha-токен. Оба белые
+ * в {@code WhiteUrlConfig} — вызываются анонимным клиентом до регистрации.
+ */
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/v1/captcha")
@@ -23,13 +29,15 @@ public class CaptchaController {
 
     private final CaptchaService captchaService;
 
-    @GetMapping
-    @RateLimit(key = "captcha")
-    public ResponseEntity<byte[]> getCaptcha(@RequestParam @Size(max = 10) String capId) throws IOException {
-
-        byte[] imageBytes = captchaService.getImageBytes(capId);
-
-        return ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG).body(imageBytes);
+    @PostMapping("/challenge")
+    @RateLimit(key = "captcha-challenge")
+    public ResponseEntity<ChallengeResponse> challenge(@Valid @RequestBody ChallengeRequest request) throws CaptchaException {
+        return ResponseEntity.ok(captchaService.challenge(request.action()));
     }
 
+    @PostMapping("/solve")
+    @RateLimit(key = "captcha-solve")
+    public ResponseEntity<SolveResponse> solve(@Valid @RequestBody SolveRequest request) throws CaptchaException {
+        return ResponseEntity.ok(captchaService.solve(request.challengeId(), request.nonce()));
+    }
 }

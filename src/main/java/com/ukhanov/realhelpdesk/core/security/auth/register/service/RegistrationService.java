@@ -72,10 +72,10 @@ public class RegistrationService {
         return newUser;
     }
 
-    public TokensResponse processRegistration(RegisterRequest registerRequest, String capId)
+    public TokensResponse processRegistration(RegisterRequest registerRequest)
             throws RegistrationException, MessagingException, EmailAccessDeniedException, CaptchaException, UnsupportedEncodingException {
 
-        captchaService.captVerificationResult(capId, registerRequest.capCode());
+        captchaService.verifyRegistration(registerRequest.captchaToken(), registerRequest.website());
         UserModel user = addUser(registerRequest);
 
         return getTokenService.getNewTokens(user);

@@ -12,6 +12,7 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.data.core.PropertyReferenceException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -38,6 +39,7 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.ukhanov.realhelpdesk.core.log.LogSanitizer;
+import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaException;
 
 import io.jsonwebtoken.JwtException;
 import lombok.extern.slf4j.Slf4j;
@@ -46,6 +48,19 @@ import lombok.extern.slf4j.Slf4j;
 @ControllerAdvice
 @Order(Ordered.LOWEST_PRECEDENCE)
 public class GlobalExceptionHandler {
+
+    /**
+     * Провал капчи: machine-readable {@code code} (missing_token/pow_failed/…) в problem+json — по нему клиент различает «решить PoW ещё
+     * раз», «подождать» и «токен чужого действия», а алерты — по тегу reason метрики captcha.verification.
+     */
+    @ExceptionHandler(CaptchaException.class)
+    public ResponseEntity<ProblemDetail> handleCaptchaException(CaptchaException ex, HttpServletRequest request) {
+        logger.warn("Капча не пройдена ({}): {}", ex.getReason().code(), ex.getMessage());
+        markObserved(ex, request);
+        ProblemDetail problem = ProblemResponses.of(ex.getStatus(), ex.getMessage(), request);
+        problem.setProperty("code", ex.getReason().code());
+        return ResponseEntity.status(ex.getStatus()).contentType(MediaType.APPLICATION_PROBLEM_JSON).body(problem);
+    }
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ProblemDetail> handleApiException(ApiException ex, HttpServletRequest request) {

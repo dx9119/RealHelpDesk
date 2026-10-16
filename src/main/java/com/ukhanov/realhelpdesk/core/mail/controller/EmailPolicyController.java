@@ -9,8 +9,8 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ukhanov.realhelpdesk.core.mail.dto.EmailInfoResponse;
@@ -20,6 +20,7 @@ import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailPolicyService;
 import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaException;
 import com.ukhanov.realhelpdesk.core.security.captcha.service.CaptchaService;
+import com.ukhanov.realhelpdesk.core.security.captcha.service.CaptchaTokenService;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.annotation.RateLimit;
 
 import lombok.RequiredArgsConstructor;
@@ -53,10 +54,9 @@ public class EmailPolicyController {
 
     @PostMapping("/codes")
     @RateLimit(key = "email-code")
-    public ResponseEntity<Void> sendConfirmCode(@RequestParam(value = "capId", required = false) String capId,
-            @RequestParam(value = "capCode", required = false) String capCode)
+    public ResponseEntity<Void> sendConfirmCode(@RequestHeader(value = "X-Captcha-Token", required = false) String captchaToken)
             throws MessagingException, CaptchaException, UnsupportedEncodingException {
-        captchaService.captVerificationResult(capId, capCode);
+        captchaService.verify(captchaToken, CaptchaTokenService.ACTION_EMAIL_CODE);
         emailDeliveryService.sendConfirmCode();
         return ResponseEntity.accepted().build();
     }

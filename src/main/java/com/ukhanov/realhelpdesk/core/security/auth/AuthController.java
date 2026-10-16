@@ -16,7 +16,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ukhanov.realhelpdesk.core.config.JwtProperties;
@@ -65,11 +64,10 @@ public class AuthController {
 
     @PostMapping("/register")
     @RateLimit(key = "auth-register")
-    public ResponseEntity<Void> registration(@Valid @RequestBody RegisterRequest registerRequest,
-            @RequestParam(required = false) String capId)
+    public ResponseEntity<Void> registration(@Valid @RequestBody RegisterRequest registerRequest)
             throws RegistrationException, MessagingException, EmailAccessDeniedException, CaptchaException, UnsupportedEncodingException {
 
-        TokensResponse tokens = registrationService.processRegistration(registerRequest, capId);
+        TokensResponse tokens = registrationService.processRegistration(registerRequest);
 
         return ResponseEntity.created(PROFILE_URI)
                 .header(HttpHeaders.SET_COOKIE, accessCookie(tokens.accessToken(), ACCESS_TOKEN_TTL).toString(),

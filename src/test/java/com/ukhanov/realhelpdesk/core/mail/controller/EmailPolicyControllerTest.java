@@ -21,10 +21,11 @@ import com.ukhanov.realhelpdesk.core.mail.model.NotificationEvent;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailDeliveryService;
 import com.ukhanov.realhelpdesk.core.mail.service.EmailPolicyService;
 import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaException;
+import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaReason;
 import com.ukhanov.realhelpdesk.core.security.captcha.service.CaptchaService;
+import com.ukhanov.realhelpdesk.core.security.captcha.service.CaptchaTokenService;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -129,21 +130,22 @@ class EmailPolicyControllerTest {
     // ────────────────────────────────────────────────
 
     @Test
-    @DisplayName("POST /email/codes → 202, капча проверена, письмо отправлено")
+    @DisplayName("POST /email/codes c X-Captcha-Token → 202, токен проверен, письмо отправлено")
     void sendConfirmCode_returnsAccepted() throws Exception {
-        mockMvc.perform(post("/api/v1/email/codes").param("capId", "cap-1").param("capCode", "1234")).andExpect(status().isAccepted());
+        mockMvc.perform(post("/api/v1/email/codes").header("X-Captcha-Token", "jwt-token")).andExpect(status().isAccepted());
 
-        verify(captchaService).captVerificationResult("cap-1", "1234");
+        verify(captchaService).verify("jwt-token", CaptchaTokenService.ACTION_EMAIL_CODE);
         verify(emailDeliveryService).sendConfirmCode();
     }
 
     @Test
-    @DisplayName("Капча не пройдена → 400 и письмо не отправляется")
+    @DisplayName("Капча не пройдена → 400 с code, письмо не отправляется")
     void sendConfirmCode_captchaFailed_returnsBadRequest() throws Exception {
-        doThrow(new CaptchaException("Провал прохождения капчи")).when(captchaService).captVerificationResult(anyString(), anyString());
+        doThrow(new CaptchaException("Провал прохождения капчи", CaptchaReason.POW_FAILED)).when(captchaService).verify(any(),
+                eq(CaptchaTokenService.ACTION_EMAIL_CODE));
 
-        mockMvc.perform(post("/api/v1/email/codes").param("capId", "cap-1").param("capCode", "0000")).andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value("Провал прохождения капчи"));
+        mockMvc.perform(post("/api/v1/email/codes").header("X-Captcha-Token", "bad")).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Провал прохождения капчи")).andExpect(jsonPath("$.code").value("pow_failed"));
 
         verify(emailDeliveryService, never()).sendConfirmCode();
     }
@@ -153,9 +155,8 @@ class EmailPolicyControllerTest {
     void sendConfirmCode_mailServerDown_returnsServiceUnavailable() throws Exception {
         doThrow(new MailSendException("Connection refused")).when(emailDeliveryService).sendConfirmCode();
 
-        mockMvc.perform(post("/api/v1/email/codes").param("capId", "cap-1").param("capCode", "1234"))
-                .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.status").value(503))
-                .andExpect(jsonPath("$.detail").value("Ошибка отправки email"));
+        mockMvc.perform(post("/api/v1/email/codes").header("X-Captcha-Token", "jwt-token")).andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.status").value(503)).andExpect(jsonPath("$.detail").value("Ошибка отправки email"));
     }
 
     @Test
@@ -163,8 +164,8 @@ class EmailPolicyControllerTest {
     void sendConfirmCode_messagingFailure_returnsServiceUnavailable() throws Exception {
         doThrow(new MessagingException("SMTP banner mismatch")).when(emailDeliveryService).sendConfirmCode();
 
-        mockMvc.perform(post("/api/v1/email/codes").param("capId", "cap-1").param("capCode", "1234"))
-                .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.detail").value("Ошибка отправки email"));
+        mockMvc.perform(post("/api/v1/email/codes").header("X-Captcha-Token", "jwt-token")).andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.detail").value("Ошибка отправки email"));
     }
 
     @Test
@@ -173,17 +174,16 @@ class EmailPolicyControllerTest {
         doThrow(new EmailAccessDeniedException("Исчерпан лимит", HttpStatus.TOO_MANY_REQUESTS)).when(emailDeliveryService)
                 .sendConfirmCode();
 
-        mockMvc.perform(post("/api/v1/email/codes").param("capId", "cap-1").param("capCode", "1234"))
-                .andExpect(status().isTooManyRequests()).andExpect(jsonPath("$.status").value(429))
-                .andExpect(jsonPath("$.detail").value("Исчерпан лимит"));
+        mockMvc.perform(post("/api/v1/email/codes").header("X-Captcha-Token", "jwt-token")).andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.status").value(429)).andExpect(jsonPath("$.detail").value("Исчерпан лимит"));
     }
 
     @Test
-    @DisplayName("Без параметров капчи сервис кода вызывается, проверку выполняет капча")
-    void sendConfirmCode_withoutCaptchaParams_stillCallsService() throws Exception {
+    @DisplayName("Без заголовка капчи сервис кода вызывается, проверку выполняет капча")
+    void sendConfirmCode_withoutCaptchaHeader_stillCallsService() throws Exception {
         mockMvc.perform(post("/api/v1/email/codes")).andExpect(status().isAccepted());
 
-        verify(captchaService).captVerificationResult(null, null);
+        verify(captchaService).verify(null, CaptchaTokenService.ACTION_EMAIL_CODE);
         verify(emailDeliveryService).sendConfirmCode();
     }
 

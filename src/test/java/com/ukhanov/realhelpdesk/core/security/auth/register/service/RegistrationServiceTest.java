@@ -19,6 +19,7 @@ import com.ukhanov.realhelpdesk.core.security.auth.register.dto.RegisterRequest;
 import com.ukhanov.realhelpdesk.core.security.auth.register.exception.RegistrationException;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.GetTokenService;
 import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaException;
+import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaReason;
 import com.ukhanov.realhelpdesk.core.security.captcha.service.CaptchaService;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.core.security.user.service.UserDomainService;
@@ -106,7 +107,7 @@ class RegistrationServiceTest {
     void addUser_shortPassword_throwsWithoutEmails() {
         when(userDomainService.isUserExistsByEmail(EMAIL)).thenReturn(false);
 
-        assertThatThrownBy(() -> service.addUser(new RegisterRequest("Имя", "Фамилия", null, EMAIL, "short", null, null)))
+        assertThatThrownBy(() -> service.addUser(new RegisterRequest("Имя", "Фамилия", null, null, EMAIL, "short", null, null)))
                 .isInstanceOf(RegistrationException.class).hasMessageContaining("Минимальная длина пароля");
 
         verifyNoInteractions(emailDeliveryService, passwordEncoder, getTokenService);
@@ -121,14 +122,29 @@ class RegistrationServiceTest {
     @Test
     @DisplayName("Непройденная капча: пользователь не создаётся, письма не уходят")
     void processRegistration_captchaFailed_noUserCreated() throws Exception {
-        doThrow(new CaptchaException("Провал прохождения капчи")).when(captchaService).captVerificationResult(anyString(), any());
+        doThrow(new CaptchaException("Провал прохождения капчи", CaptchaReason.POW_FAILED)).when(captchaService).verifyRegistration(any(),
+                any());
 
-        assertThatThrownBy(() -> service.processRegistration(request(), "cap-1")).isInstanceOf(CaptchaException.class);
+        assertThatThrownBy(() -> service.processRegistration(request())).isInstanceOf(CaptchaException.class);
 
+        verify(captchaService).verifyRegistration(null, null);
+        verifyNoInteractions(userDomainService, emailDeliveryService, getTokenService);
+    }
+
+    @Test
+    @DisplayName("Honeypot-поле из запроса уходит в проверку капчи")
+    void processRegistration_passesHoneypotToCaptcha() throws Exception {
+        doThrow(new CaptchaException("Провал прохождения капчи", CaptchaReason.HONEYPOT)).when(captchaService).verifyRegistration(any(),
+                eq("bot-filled"));
+
+        RegisterRequest withHoneypot = new RegisterRequest("Имя", "Фамилия", "token-123", "bot-filled", EMAIL, PASSWORD, null, null);
+        assertThatThrownBy(() -> service.processRegistration(withHoneypot)).isInstanceOf(CaptchaException.class);
+
+        verify(captchaService).verifyRegistration("token-123", "bot-filled");
         verifyNoInteractions(userDomainService, emailDeliveryService, getTokenService);
     }
 
     private RegisterRequest request() {
-        return new RegisterRequest("Имя", "Фамилия", null, EMAIL, PASSWORD, null, null);
+        return new RegisterRequest("Имя", "Фамилия", null, null, EMAIL, PASSWORD, null, null);
     }
 }
