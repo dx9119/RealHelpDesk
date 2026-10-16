@@ -1,5 +1,5 @@
 /**
- * RealHelpCaptcha — клиентский виджет Proof-of-Work капчи.
+ * RealHelpCaptcha — клиентский виджет капчи (PoW и эмодзи-уровень).
  *
  * Использование (форма регистрации/запроса кода):
  *
@@ -7,11 +7,14 @@
  *   // token → поле captchaToken в теле /api/v1/auth/register
  *   // или заголовок X-Captcha-Token для POST /api/v1/email/codes
  *
- * Как работает: 1) POST /api/v1/captcha/challenge получает подписанное задание
- * (salt + difficulty); 2) nonce добирается хэшированием строки "salt:nonce"
- * (SHA-256, ведущие нулевые биты >= difficulty) — сначала в Web Worker, чтобы
- * не нагружать UI, при отказе воркера — на основном потоке; 3) POST
+ * Как работает: 1) POST /api/v1/captcha/challenge получает подписанное задание;
+ * 2) уровень выбирает сервер — pow (salt + difficulty; nonce добирается
+ * SHA-256 в Web Worker, при отказе воркера — на основном потоке) или emoji
+ * (сетка 3×3 глифов, человек отмечает ячейки в оверлее); 3) POST
  * /api/v1/captcha/solve обменивает решение на подписанный captcha-токен.
+ * Отмена проверки человеком — Promise отклоняется с error.code='cancelled';
+ * «Другое задание» запрашивает новый challenge. Подписи задания не хранятся
+ * на сервере — ответ сверяется по HMAC в challenge.
  *
  * Все POSTы несут заголовок X-Requested-With — так требует CSRF-фильтр.
  */
@@ -224,21 +227,165 @@
   }
 
   /**
-   * Полный цикл: challenge → PoW → solve. Возвращает подписанный captcha-токен
-   * (строка) для бизнес-операции.
+   * Оверлей эмодзи-задания: сетка 3×3, выбор ячеек, «Подтвердить» /
+   * «Другое задание» / «Отмена». Возвращает Promise с выбранными индексами
+   * ({answer}), запросом нового задания ({retry}) или отказом (cancel).
+   */
+  function showEmojiOverlay(challenge) {
+    return new Promise(function (resolve, reject) {
+      var params = challenge.params || {};
+      var cells = params.cells || [];
+      var selected = {};
+
+      var backdrop = document.createElement('div');
+      backdrop.setAttribute('role', 'dialog');
+      backdrop.setAttribute('aria-modal', 'true');
+      backdrop.setAttribute('aria-label', 'Проверка, что вы человек');
+      backdrop.style.cssText =
+        'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);' +
+        'display:flex;align-items:center;justify-content:center;font-family:sans-serif';
+
+      var box = document.createElement('div');
+      box.style.cssText =
+        'background:#fff;color:#111;border-radius:8px;padding:20px;max-width:320px;' +
+        'box-shadow:0 8px 32px rgba(0,0,0,.35);text-align:center';
+
+      var prompt = document.createElement('p');
+      prompt.textContent = params.prompt || 'Отметьте нужные клетки';
+      prompt.style.cssText = 'margin:0 0 12px;font-size:15px;line-height:1.4';
+      box.appendChild(prompt);
+
+      var grid = document.createElement('div');
+      grid.style.cssText =
+        'display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px';
+      cells.forEach(function (glyph, index) {
+        var button = document.createElement('button');
+        button.type = 'button';
+        // Без подсказок для скринридеров: только порядковый номер варианта
+        button.setAttribute('aria-label', 'Вариант ' + (index + 1));
+        button.setAttribute('aria-pressed', 'false');
+        button.textContent = glyph;
+        button.style.cssText =
+          'font-size:28px;line-height:1;padding:12px 0;border:2px solid #ccc;' +
+          'border-radius:8px;background:#fafafa;cursor:pointer';
+        button.addEventListener('click', function () {
+          if (selected[index]) {
+            delete selected[index];
+            button.setAttribute('aria-pressed', 'false');
+            button.style.borderColor = '#ccc';
+            button.style.background = '#fafafa';
+          } else {
+            selected[index] = true;
+            button.setAttribute('aria-pressed', 'true');
+            button.style.borderColor = '#2563eb';
+            button.style.background = '#dbeafe';
+          }
+          confirm.disabled = Object.keys(selected).length === 0;
+        });
+        grid.appendChild(button);
+      });
+      box.appendChild(grid);
+
+      var actions = document.createElement('div');
+      actions.style.cssText = 'display:flex;gap:8px;justify-content:center;flex-wrap:wrap';
+
+      var confirm = document.createElement('button');
+      confirm.type = 'button';
+      confirm.textContent = 'Подтвердить';
+      confirm.disabled = true;
+      confirm.style.cssText =
+        'padding:8px 14px;border:0;border-radius:6px;background:#2563eb;color:#fff;' +
+        'font-size:14px;cursor:pointer';
+      confirm.addEventListener('click', function () {
+        close();
+        resolve({
+          answer: Object.keys(selected)
+            .map(function (key) {
+              return parseInt(key, 10);
+            })
+            .sort(function (a, b) {
+              return a - b;
+            })
+        });
+      });
+
+      var other = document.createElement('button');
+      other.type = 'button';
+      other.textContent = 'Другое задание';
+      other.style.cssText =
+        'padding:8px 14px;border:1px solid #ccc;border-radius:6px;background:#fff;' +
+        'color:#111;font-size:14px;cursor:pointer';
+      other.addEventListener('click', function () {
+        close();
+        resolve({ retry: true });
+      });
+
+      var cancel = document.createElement('button');
+      cancel.type = 'button';
+      cancel.textContent = 'Отмена';
+      cancel.style.cssText =
+        'padding:8px 14px;border:1px solid #ccc;border-radius:6px;background:#fff;' +
+        'color:#111;font-size:14px;cursor:pointer';
+      cancel.addEventListener('click', function () {
+        close();
+        var error = new Error('Проверка капчи отменена');
+        error.code = 'cancelled';
+        reject(error);
+      });
+
+      actions.appendChild(confirm);
+      actions.appendChild(other);
+      actions.appendChild(cancel);
+      box.appendChild(actions);
+      backdrop.appendChild(box);
+      document.body.appendChild(backdrop);
+      confirm.focus();
+
+      function close() {
+        if (backdrop.parentNode) {
+          backdrop.parentNode.removeChild(backdrop);
+        }
+      }
+    });
+  }
+
+  /** Полный цикл эмодзи-уровня: оверлей → solve; «другое задание» — новый challenge. */
+  function solveEmoji(action, challenge) {
+    return showEmojiOverlay(challenge).then(function (result) {
+      if (result.retry) {
+        return requestToken(action);
+      }
+      return postJson(SOLVE_URL, { challengeId: challenge.challengeId, answer: result.answer });
+    });
+  }
+
+  /** Один проход: challenge → решение по уровню (pow или emoji) → solve. */
+  function requestToken(action) {
+    return postJson(CHALLENGE_URL, { action: action }).then(function (challenge) {
+      if (!challenge || !challenge.params) {
+        throw new Error('Неожиданный ответ /captcha/challenge');
+      }
+      if (challenge.type === 'pow') {
+        return solveWithWorker(challenge.params.salt, challenge.params.difficulty).then(function (nonce) {
+          return postJson(SOLVE_URL, { challengeId: challenge.challengeId, nonce: nonce });
+        });
+      }
+      if (challenge.type === 'emoji') {
+        return solveEmoji(action, challenge);
+      }
+      throw new Error('Неожиданный тип challenge: ' + challenge.type);
+    });
+  }
+
+  /**
+   * Полный цикл: challenge → решение (PoW или эмодзи) → solve. Возвращает
+   * подписанный captcha-токен (строка) для бизнес-операции.
    *
    * @param {string} action 'register' | 'email-code'
    * @returns {Promise<string>}
    */
   function getToken(action) {
-    return postJson(CHALLENGE_URL, { action: action }).then(function (challenge) {
-      if (!challenge || challenge.type !== 'pow' || !challenge.params) {
-        throw new Error('Неожиданный ответ /captcha/challenge');
-      }
-      return solveWithWorker(challenge.params.salt, challenge.params.difficulty).then(function (nonce) {
-        return postJson(SOLVE_URL, { challengeId: challenge.challengeId, nonce: nonce });
-      });
-    }).then(function (solved) {
+    return requestToken(action).then(function (solved) {
       if (!solved || !solved.captchaToken) {
         throw new Error('Неожиданный ответ /captcha/solve');
       }
