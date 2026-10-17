@@ -31,45 +31,47 @@ REST API системы управления заявками предостав
 
 ## Архитектура
 
-Полная структура пакетов (`src/main/java/com/ukhanov/realhelpdesk`):
+Структура пакетов (`src/main/java/com/ukhanov/realhelpdesk`):
 
 ```
 com.ukhanov.realhelpdesk
-├── core                          — общее для всех областей
-│   ├── annotation                — @NoHtml: запрет HTML-разметки в строках
-│   ├── config                    — Security/CORS/JWT, ClientIp, actuator, ProdPreflightValidator
-│   ├── controller                — GET /api/v1/health
-│   ├── exception                 — ApiException и GlobalExceptionHandler → RFC 7807 problem+json
-│   ├── filter                    — JwtAuthFilter, CsrfProtectionFilter, LoggingFilter (MDC clientIp)
-│   ├── http                      — ClientIpResolver, ETag, Range
-│   ├── log                       — LogSanitizer
-│   ├── mail                      — письма: config, controller, dto, exception, health, model, repository, service
-│   ├── observability             — метрики и трассировка (Micrometer, OpenTelemetry)
-│   ├── pagination                — единый контракт page/size/sortBy/order → PageResponse
+├── core — общая инфраструктурная часть, не зависящая от предметной области
+│   ├── annotation
+│   ├── config
+│   ├── controller
+│   ├── exception
+│   ├── filter
+│   ├── http
+│   ├── log
+│   ├── mail
+│   ├── observability
+│   ├── pagination
 │   ├── security
-│   │   ├── accesscontrol         — AccessValidationService, TicketAccessValidationService
-│   │   ├── auth                  — register/login/logout/refresh/tokens: JWT в http-only cookies
-│   │   ├── captcha               — Proof-of-Work + эмодзи-эскалация, риск-движок по IP и подсети
-│   │   ├── handler               — 401/403 в problem+json
-│   │   ├── limiter               — квоты пользователя
-│   │   ├── ratelimit             — аннотация @RateLimit и счётчики по IP
-│   │   └── user                  — CurrentUserProvider, UserModel, роли и статусы
-│   └── storage                   — MinIO: бакет, отдача с HTTP Range, health
-├── domain                        — JPA-сущности, репозитории и доменные правила
-│   ├── portal                    — портал: владелец, allowedUserIds, публичность (model, repository, service)
-│   ├── ticket                    — заявки: статусы, приоритеты, политика TicketAccessStatus (model, repository, service)
-│   ├── message                   — сообщения заявок (model, repository, service)
-│   ├── attachment                — метаданные вложений (model, repository, service)
-│   └── notification              — строки in-app оповещений и настройки пользователя (model, repository)
-└── feature                       — REST-слой по областям; в каждом модуле:
-    │                             controller, dto, exception, mapper, service
-    ├── portalmanager             — порталы, настройки, история, передача владения
-    ├── ticketmanager             — заявки: создание, поиск, статусы, приоритеты
-    ├── messagemanager            — чтение и отправка сообщений
-    ├── attachmentmanager         — загрузка и отдача вложений
-    ├── notificationmanager       — оповещения: SSE, long polling, настройки и повторы
-    └── usermanager               — профиль и пароли пользователей
+│   │   ├── accesscontrol
+│   │   ├── auth
+│   │   ├── captcha
+│   │   ├── handler
+│   │   ├── limiter
+│   │   ├── ratelimit
+│   │   └── user
+│   └── storage
+├── domain — доменная модель: сущности, репозитории и доменные правила
+│   ├── portal
+│   ├── ticket
+│   ├── message
+│   ├── attachment
+│   └── notification
+└── feature — функциональные модули: REST-слой по областям применения
+    ├── portalmanager
+    ├── ticketmanager
+    ├── messagemanager
+    ├── attachmentmanager
+    ├── notificationmanager
+    └── usermanager
 ```
+
+Описания даются только корневым разделам: состав вложенных пакетов виден
+из исходного кода.
 
 Ошибки HTTP-слоя централизованно преобразуются в RFC 7807-подобные ответы
 `GlobalExceptionHandler`. Правила доступа к порталам и заявкам — в разделе
@@ -569,7 +571,7 @@ E2E-сценарии идут по живому стеку (`make up`) — вс�
 
 Скрипты создают тестовых пользователей и тратят рейт-лимиты — при повторных
 прогонах может потребоваться `make restart`. `e2e-token-cleanup` дополнительно
-занижает сроки токенов в `infrastructure/.env` до секунд, пересоздаёт контейнер
+занимает сроки токенов в `infrastructure/.env` до секунд, пересоздаёт контейнер
 `app` и по завершении возвращает конфиг и контейнер (в том числе по `Ctrl+C`).
 
 ### Нагрузочное тестирование (k6)
