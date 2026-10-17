@@ -28,7 +28,7 @@ PROFILES_ALL ?= --profile infra --profile dev --profile app --profile monitoring
         load load-smoke \
         migrate \
         openapi openapi-types \
-        e2e-portal-access e2e-ratelimit e2e-jwt e2e-notifications e2e-portal-transfer e2e-all
+        e2e-portal-access e2e-ratelimit e2e-jwt e2e-notifications e2e-portal-transfer e2e-token-cleanup e2e-all
 
 help: ## Показать список команд
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -173,9 +173,13 @@ e2e-notifications: ## E2E: in-app оповещения (long polling)
 e2e-portal-transfer: ## E2E: передача владения порталом
 	bash $(E2E_DIR)/e2e-portal-transfer.sh
 
+e2e-token-cleanup: ## E2E: очистка отозванных и протухших refresh-токенов (пересоздаёт app)
+	bash $(E2E_DIR)/e2e-token-cleanup.sh
+
 e2e-all: ## E2E: все сценарии подряд (тратит рейт-лимиты!)
 	bash $(E2E_DIR)/e2e-portal-access.sh
 	bash $(E2E_DIR)/e2e-ratelimit.sh
 	bash $(E2E_DIR)/e2e-jwt-flow.sh
 	bash $(E2E_DIR)/e2e-notifications.sh
 	bash $(E2E_DIR)/e2e-portal-transfer.sh
+	bash $(E2E_DIR)/e2e-token-cleanup.sh

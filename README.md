@@ -564,10 +564,13 @@ E2E-сценарии идут по живому стеку (`make up`) — вс�
 | `make e2e-jwt` | JWT-поток аутентификации | `scripts/e2e-jwt-flow.sh` |
 | `make e2e-notifications` | In-app оповещения (long polling) | `scripts/e2e-notifications.sh` |
 | `make e2e-portal-transfer` | Передача владения порталом | `scripts/e2e-portal-transfer.sh` |
+| `make e2e-token-cleanup` | Очистка отозванных и протухших refresh-токенов | `scripts/e2e-token-cleanup.sh` |
 | `make e2e-all` | Все сценарии подряд | `scripts/e2e-*.sh` |
 
 Скрипты создают тестовых пользователей и тратят рейт-лимиты — при повторных
-прогонах может потребоваться `make restart`.
+прогонах может потребоваться `make restart`. `e2e-token-cleanup` дополнительно
+занижает сроки токенов в `infrastructure/.env` до секунд, пересоздаёт контейнер
+`app` и по завершении возвращает конфиг и контейнер (в том числе по `Ctrl+C`).
 
 ### Нагрузочное тестирование (k6)
 
