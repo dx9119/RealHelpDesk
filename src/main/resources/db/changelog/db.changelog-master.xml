@@ -21,5 +21,6 @@
     <include file="changes/001-baseline-schema.xml" relativeToChangelogFile="true"/>
     <include file="changes/002-attachment-model.xml" relativeToChangelogFile="true"/>
     <include file="changes/003-portal-transfer-history.xml" relativeToChangelogFile="true"/>
+    <include file="changes/004-jwt-tokens-created-at-index.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

@@ -33,19 +33,24 @@ import com.ukhanov.realhelpdesk.core.security.captcha.utils.PowHash;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Сквозной поток эскалации на эмодзи-уровень по реальному HTTP: провалы PoW доводят риск IP до порога (captcha.risk-failure-threshold=2 —
- * отдельный контекст приложения), следующий challenge приходит как эмодзи-задание, неверный ответ отклоняется (wrong_answer), правильный
- * ответ (подбирается локально по HMAC с тестовым секретом) решает captcha-токен и завершается регистрацией 201. Контекст свой — не мешает
- * PoW-потоку CaptchaFlowIT с завышенным порогом.
+ * Сквозной поток эскалации на эмодзи-уровень по реальному HTTP: провалы с разных IP одной подсети доводят риск до
+ * {@code captcha.risk-subnet-offender-threshold=2} (отдельный контекст приложения), следующий challenge приходит как эмодзи-задание,
+ * неверный ответ отклоняется (wrong_answer), правильный ответ (подбирается локально по HMAC с тестовым секретом) решает captcha-токен и
+ * завершается регистрацией 201. Клиентский IP берётся из {@code X-Forwarded-For} (доверие заголовкам включено в контексте), поэтому подсеть
+ * задаётся тестом. Контекст свой — не мешает PoW-потоку CaptchaFlowIT с завышенным порогом.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {"spring.profiles.active=test",
-        "email.notify=admin@example.com", "email.from=noreply@example.com", "email.domain=example.com", "captcha.risk-failure-threshold=2"})
+        "email.notify=admin@example.com", "email.from=noreply@example.com", "email.domain=example.com",
+        "client-ip.trust-proxy-headers=true", "captcha.risk-subnet-offender-threshold=2"})
 @DisplayName("Эмодзи-капча: эскалация по риску, wrong_answer и полный поток (HTTP)")
 class CaptchaEmojiFlowIT {
 
     private static final HttpClient CLIENT = HttpClient.newHttpClient();
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final String ACTION_REGISTER = "register";
+    /** Два разных IP одной подсети /24: второй провал доводит подсеть до порога распределённости. */
+    private static final String CLIENT_IP = "203.0.113.10";
+    private static final String SECOND_CLIENT_IP = "203.0.113.11";
     /** Тестовый HMAC-секрет из application-test.properties — позволяет подобрать ответ локально, без перебора по HTTP. */
     private static final String TEST_SECRET = "test-only-captcha-hmac-secret-0123456789abcdef";
 
@@ -117,13 +122,14 @@ class CaptchaEmojiFlowIT {
     }
 
     /**
-     * Два провала подряд доводят риск IP до порога 2. Уровень первого challenge зависит от состояния общего контекста (предыдущий тест мог
-     * оставить IP рискованным) — провал засчитывается и pow_failed, и wrong_answer: любой отказ двигает риск-счётчик. Для pow берётся
-     * детерминированное не-решение (nonce "0" на малой сложности мог бы случайно решить задание).
+     * Два провала с разных IP одной подсети доводят подсеть до порога распределённости. Уровень первого challenge зависит от состояния
+     * общего контекста (предыдущий тест мог оставить подсеть рискованной) — провал засчитывается и pow_failed, и wrong_answer: любой отказ
+     * двигает риск-счётчик. Для pow берётся детерминированное не-решение (nonce "0" на малой сложности мог бы случайно решить задание).
      */
     private void escalateRiskToEmoji() throws Exception {
-        for (int i = 0; i < 2; i++) {
-            HttpResponse<String> challenge = post("/api/v1/captcha/challenge", "{\"action\":\"" + ACTION_REGISTER + "\"}");
+        String[] offenders = {CLIENT_IP, SECOND_CLIENT_IP};
+        for (String offender : offenders) {
+            HttpResponse<String> challenge = post("/api/v1/captcha/challenge", "{\"action\":\"" + ACTION_REGISTER + "\"}", offender);
             assertThat(challenge.statusCode()).isEqualTo(200);
             JsonNode body = JSON.readTree(challenge.body());
             String jwt = body.get("challengeId").asText();
@@ -136,7 +142,7 @@ class CaptchaEmojiFlowIT {
                 String nonce = nonceThatDoesNotSolve(body.get("params").get("salt").asText(), body.get("params").get("difficulty").asInt());
                 solveBody = "{\"challengeId\":\"" + jwt + "\",\"nonce\":\"" + nonce + "\"}";
             }
-            HttpResponse<String> failed = post("/api/v1/captcha/solve", solveBody);
+            HttpResponse<String> failed = post("/api/v1/captcha/solve", solveBody, offender);
             assertThat(failed.statusCode()).as("детерминированное не-решение отклоняется").isEqualTo(400);
             assertThat(code(failed)).as("провал капчи на любом уровне двигает риск").isIn("pow_failed", "wrong_answer");
         }
@@ -228,8 +234,13 @@ class CaptchaEmojiFlowIT {
     }
 
     private HttpResponse<String> post(String path, String json) throws Exception {
+        return post(path, json, CLIENT_IP);
+    }
+
+    private HttpResponse<String> post(String path, String json, String clientIp) throws Exception {
         HttpRequest request = HttpRequest.newBuilder(URI.create(url(path))).header("Content-Type", "application/json")
-                .header("X-Requested-With", "XMLHttpRequest").POST(HttpRequest.BodyPublishers.ofString(json)).build();
+                .header("X-Requested-With", "XMLHttpRequest").header("X-Forwarded-For", clientIp)
+                .POST(HttpRequest.BodyPublishers.ofString(json)).build();
         return CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
     }
 

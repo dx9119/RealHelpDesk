@@ -25,7 +25,7 @@ Cookie-аутентификация: токены в `HttpOnly; Secure` cookie (
 | Метод и путь | Назначение |
 |---|---|
 | `GET /health` | Проверка живости (`{ status, timestamp }`) |
-| `POST /captcha/challenge` | Тело `{ action: "register" \| "email-code" }` → `{ challengeId, type: "pow" \| "emoji", params, expiresAt }`. `challengeId` — подписанный challenge (JWT). Уровень выбирает сервер: `pow` — `params: { salt, difficulty }`; `emoji` (эскалация рискованных IP, `CAPTCHA_EMOJI_ENABLED=true`) — `params: { prompt, cells[9] }`. Лимит 30/60 c |
+| `POST /captcha/challenge` | Тело `{ action: "register" \| "email-code" }` → `{ challengeId, type: "pow" \| "emoji", params, expiresAt }`. `challengeId` — подписанный challenge (JWT). Уровень выбирает сервер: `pow` — `params: { salt, difficulty }`; `emoji` (эскалация при провалах разных IP одной подсети, `CAPTCHA_EMOJI_ENABLED=true`) — `params: { prompt, cells[9] }`. Провалы одного IP повышают `difficulty`, но остаются в `pow`. Лимит 30/60 c |
 | `POST /captcha/solve` | Тело `{ challengeId, nonce }` для pow (ведущие нулевые биты `SHA-256("salt:nonce")` ≥ `difficulty`) или `{ challengeId, answer: [индексы ячеек] }` для emoji → `{ captchaToken }`. Лимит 30/60 c |
 | `GET /captcha/widget.js` | Клиентский виджет: `await window.RealHelpCaptcha.getToken(action)` → `captchaToken` (PoW в Web Worker; эмодзи-оверлей при эскалации, отмена — reject `code='cancelled'`) |
 
@@ -93,6 +93,16 @@ honeypot-поле `website` (должно быть пустым/отсутств
 `PortalResponse` (`id, name, description, createdAt`),
 `PortalInfoResponse` (`id, namePortal, description, version`),
 `PortalSettingsResponse` (`users: [{id, firstName, lastName, middleName, email}], public`).
+
+Дополнительно:
+
+- `GET /` отдаёт только порталы владельца; `/accessible`, `/ids`, `/info` —
+  все доступные, включая публичные.
+- Создать портал (`POST /`) может любой вошедший пользователь, но только с
+  **подтверждённым email** — иначе `403` «Подтвердите ваш адрес электронной
+  почты».
+- Удаление только массовое (`POST /bulk-delete`): каждый портал удаляет свой
+  владелец, чужие пропускаются; ответ — сколько удалено и какие id.
 
 ## Передача владения и история (`/portals/{id}/...`)
 

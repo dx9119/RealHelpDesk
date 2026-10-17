@@ -36,7 +36,9 @@ class CaptchaServiceTest {
 
     private static final String ACTION = CaptchaTokenService.ACTION_REGISTER;
     private static final String IP = "1.2.3.4";
+    private static final String IP_SAME_SUBNET = "1.2.3.5";
     private static final int DIFFICULTY = 4;
+    private static final int DIFFICULTY_BONUS = 3;
     private static final int RISK_THRESHOLD = 2;
 
     private SecretKey key;
@@ -60,6 +62,10 @@ class CaptchaServiceTest {
         properties.setEmojiEnabled(true);
         properties.setRiskFailureThreshold(RISK_THRESHOLD);
         properties.setRiskFailureWindowSeconds(600);
+        properties.setRiskElevatedDifficultyBonus(DIFFICULTY_BONUS);
+        properties.setRiskSubnetOffenderThreshold(2);
+        properties.setRiskSubnetPrefixV4(24);
+        properties.setRiskSubnetPrefixV6(64);
         tokenService = new CaptchaTokenService(key, properties);
         authMetrics = Mockito.mock(AuthMetrics.class);
         captchaMetrics = Mockito.mock(CaptchaMetrics.class);
@@ -111,10 +117,10 @@ class CaptchaServiceTest {
     // ────────────────────────────────────────────────
 
     @Test
-    @DisplayName("Эскалация: после порога провалов challenge возвращает эмодзи-задание (9 глифов)")
-    void challenge_riskyIp_escalatesToEmoji() throws Exception {
+    @DisplayName("Эскалация: провалы разных IP одной подсети дают эмодзи-задание (9 глифов)")
+    void challenge_distributedSubnet_escalatesToEmoji() throws Exception {
         riskService.recordFailure(IP);
-        riskService.recordFailure(IP);
+        riskService.recordFailure(IP_SAME_SUBNET);
 
         ChallengeResponse response = service.challenge(ACTION, IP);
 
@@ -131,11 +137,38 @@ class CaptchaServiceTest {
     }
 
     @Test
-    @DisplayName("Эскалация выключена флагом — рискованный IP всё равно получает PoW")
+    @DisplayName("Мягкий риск не поднимает сложность выше максимума PoW (кламп 26)")
+    void challenge_softRisk_clampsDifficultyToMax() throws CaptchaException {
+        properties.setPowDifficulty(CaptchaTokenService.MAX_POW_DIFFICULTY - 2);
+        properties.setRiskElevatedDifficultyBonus(5);
+        riskService.recordFailure(IP);
+        riskService.recordFailure(IP);
+
+        ChallengeResponse response = service.challenge(ACTION, IP);
+
+        assertThat(response.params().difficulty()).isEqualTo(CaptchaTokenService.MAX_POW_DIFFICULTY);
+    }
+
+    @Test
+    @DisplayName("Мягкий риск одного IP (NAT) усложняет PoW, но эмодзи не выдаёт")
+    void challenge_singleIpSoftRisk_elevatesPowDifficulty() throws Exception {
+        riskService.recordFailure(IP);
+        riskService.recordFailure(IP);
+
+        ChallengeResponse response = service.challenge(ACTION, IP);
+
+        assertThat(response.type()).isEqualTo(ChallengeResponse.TYPE_POW);
+        assertThat(response.params().difficulty()).isEqualTo(DIFFICULTY + DIFFICULTY_BONUS);
+        CaptchaTokenService.ChallengeClaims claims = tokenService.parseChallenge(response.challengeId());
+        assertThat(claims.difficulty()).isEqualTo(DIFFICULTY + DIFFICULTY_BONUS);
+    }
+
+    @Test
+    @DisplayName("Эскалация выключена флагом — распределённая подсеть всё равно получает PoW")
     void challenge_emojiDisabled_staysPow() throws CaptchaException {
         properties.setEmojiEnabled(false);
         riskService.recordFailure(IP);
-        riskService.recordFailure(IP);
+        riskService.recordFailure(IP_SAME_SUBNET);
 
         ChallengeResponse response = service.challenge(ACTION, IP);
 
@@ -150,6 +183,7 @@ class CaptchaServiceTest {
         ChallengeResponse response = service.challenge(ACTION, IP);
 
         assertThat(response.type()).isEqualTo(ChallengeResponse.TYPE_POW);
+        assertThat(response.params().difficulty()).isEqualTo(DIFFICULTY);
     }
 
     // ────────────────────────────────────────────────
@@ -181,12 +215,12 @@ class CaptchaServiceTest {
 
         verify(authMetrics).record(AuthMetrics.TYPE_CAPTCHA, AuthMetrics.RESULT_FAILURE);
         verify(captchaMetrics).verification(false, CaptchaReason.POW_FAILED, CaptchaMetrics.TYPE_POW);
-        assertThat(riskService.isRisky(IP)).as("один провал — ещё ниже порога").isFalse();
+        assertThat(riskService.riskLevel(IP)).as("один провал — ещё ниже порога").isEqualTo(CaptchaRiskService.Risk.NONE);
 
-        // второй провал (cid не сжигается при отказе — тот же challenge решается повторно) доводит риск до порога 2
+        // второй провал (cid не сжигается при отказе — тот же challenge решается повторно) доводит мягкий риск до порога 2
         assertThatThrownBy(() -> service.solve(challenge.challengeId(), wrongNonce, null, IP)).isInstanceOf(CaptchaException.class)
                 .extracting(e -> ((CaptchaException) e).getReason()).isEqualTo(CaptchaReason.POW_FAILED);
-        assertThat(riskService.isRisky(IP)).as("два провала — порог достигнут").isTrue();
+        assertThat(riskService.riskLevel(IP)).as("два провала — мягкий риск достигнут").isEqualTo(CaptchaRiskService.Risk.ELEVATED);
     }
 
     // ────────────────────────────────────────────────
@@ -278,13 +312,13 @@ class CaptchaServiceTest {
         String token = tokenService.issueCaptchaToken(ACTION, Instant.now(), CaptchaTokenService.LEVEL_POW);
         riskService.recordFailure(IP);
         riskService.recordFailure(IP);
-        assertThat(riskService.isRisky(IP)).isTrue();
+        assertThat(riskService.riskLevel(IP)).isEqualTo(CaptchaRiskService.Risk.ELEVATED);
 
         service.verify(token, ACTION, IP);
 
         verify(authMetrics).record(AuthMetrics.TYPE_CAPTCHA, AuthMetrics.RESULT_SUCCESS);
         verify(captchaMetrics).verification(true, CaptchaReason.OK, CaptchaMetrics.TYPE_POW);
-        assertThat(riskService.isRisky(IP)).as("успех сбрасывает счётчик риска").isFalse();
+        assertThat(riskService.riskLevel(IP)).as("успех сбрасывает счётчик риска").isEqualTo(CaptchaRiskService.Risk.NONE);
     }
 
     @Test
@@ -362,10 +396,10 @@ class CaptchaServiceTest {
         verify(captchaMetrics).verification(true, CaptchaReason.OK, CaptchaMetrics.TYPE_POW);
     }
 
-    /** Рискованный IP получает эмодзи-challenge из замоканной фабрики (известный набор глифов и ответ). */
+    /** Эмодзи-challenge из замоканной фабрики (известный набор глифов и ответ) — по распределённой подсети. */
     private ChallengeResponse escalatedEmojiChallenge() throws CaptchaException {
         riskService.recordFailure(IP);
-        riskService.recordFailure(IP);
+        riskService.recordFailure(IP_SAME_SUBNET);
         return service.challenge(ACTION, IP);
     }
 

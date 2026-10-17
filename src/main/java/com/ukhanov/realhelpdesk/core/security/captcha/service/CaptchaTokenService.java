@@ -61,6 +61,9 @@ public class CaptchaTokenService {
     /** Уровень challenge и источник токена: выбор глифов из эмодзи-задания (эскалация по риску). */
     public static final String LEVEL_EMOJI = "emoji";
 
+    /** Верхняя граница сложности PoW: число ведущих нулевых бит SHA-256. */
+    public static final int MAX_POW_DIFFICULTY = 26;
+
     private static final Set<String> ACTIONS = Set.of(ACTION_REGISTER, ACTION_EMAIL_CODE);
     private static final Set<String> LEVELS = Set.of(LEVEL_POW, LEVEL_EMOJI);
 
@@ -94,8 +97,9 @@ public class CaptchaTokenService {
         Integer challengeTtl = properties.getChallengeTtlSeconds();
         Integer tokenTtl = properties.getTokenTtlSeconds();
         Integer minFill = properties.getMinFillSeconds();
-        if (difficulty == null || difficulty < 1 || difficulty > 26) {
-            throw new IllegalStateException("captcha.pow-difficulty должен быть в диапазоне 1..26, получено " + difficulty);
+        if (difficulty == null || difficulty < 1 || difficulty > MAX_POW_DIFFICULTY) {
+            throw new IllegalStateException(
+                    "captcha.pow-difficulty должен быть в диапазоне 1.." + MAX_POW_DIFFICULTY + ", получено " + difficulty);
         }
         if (challengeTtl == null || challengeTtl < 10 || challengeTtl > 86_400) {
             throw new IllegalStateException("captcha.challenge-ttl-seconds должен быть в диапазоне 10..86400, получено " + challengeTtl);
@@ -117,12 +121,20 @@ public class CaptchaTokenService {
 
     /** Подписанный PoW-challenge на действие: сложность берётся из конфигурации (клиент её не выбирает). */
     public String issueChallenge(String action, String challengeId, String salt) {
+        return issueChallenge(action, challengeId, salt, properties.getPowDifficulty());
+    }
+
+    /**
+     * Подписанный PoW-challenge с явной сложностью: используется для усложнения задания при мягком риске IP (см.
+     * {@code CaptchaRiskService}). Клиент выбирать сложность не может — значение задаёт сервер.
+     */
+    public String issueChallenge(String action, String challengeId, String salt, int difficulty) {
         requireAction(action);
+        requirePowDifficulty(difficulty);
         Instant now = Instant.now();
         return Jwts.builder().claim(CLAIM_TYPE, TYPE_CHALLENGE).claim(CLAIM_ACTION, action).claim(CLAIM_CHALLENGE_ID, challengeId)
-                .claim(CLAIM_LEVEL, LEVEL_POW).claim(CLAIM_SALT, salt).claim(CLAIM_DIFFICULTY, properties.getPowDifficulty())
-                .issuedAt(Date.from(now)).expiration(Date.from(now.plusSeconds(properties.getChallengeTtlSeconds())))
-                .signWith(captchaSecretKey).compact();
+                .claim(CLAIM_LEVEL, LEVEL_POW).claim(CLAIM_SALT, salt).claim(CLAIM_DIFFICULTY, difficulty).issuedAt(Date.from(now))
+                .expiration(Date.from(now.plusSeconds(properties.getChallengeTtlSeconds()))).signWith(captchaSecretKey).compact();
     }
 
     /**
@@ -249,6 +261,13 @@ public class CaptchaTokenService {
     private void requireAction(String action) {
         if (!ACTIONS.contains(action)) {
             throw new IllegalArgumentException("Неизвестное действие капчи: " + action);
+        }
+    }
+
+    private void requirePowDifficulty(int difficulty) {
+        if (difficulty < 1 || difficulty > MAX_POW_DIFFICULTY) {
+            throw new IllegalArgumentException(
+                    "Сложность PoW должна быть в диапазоне 1.." + MAX_POW_DIFFICULTY + ", получено " + difficulty);
         }
     }
 

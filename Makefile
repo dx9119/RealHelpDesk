@@ -23,7 +23,7 @@ PROFILES_ALL ?= --profile infra --profile dev --profile app --profile monitoring
 
 .PHONY: help build clean compile package test verify format check run \
         dev-run dev-test \
-        env docker-build up up-prod up-load down down-volumes logs ps restart shell check-image \
+        env apply-config docker-build up up-prod up-load down down-volumes logs ps restart shell check-image \
         obs-up obs-down obs-open obs-reload obs-alerts \
         load load-smoke \
         migrate \
@@ -71,13 +71,12 @@ dev-test: ## Dev-среда: mvn verify + e2e-сценарии (нужен по�
 
 ## --- Docker ---
 
-env: ## Создать infrastructure/.env из шаблона; существующему дописать недостающие ключи
-	@test -f infrastructure/.env || (cp infrastructure/.env.example infrastructure/.env && echo "Создан infrastructure/.env — заполните секреты")
-	@missing=$$(grep -E '^[A-Z_]+=' infrastructure/.env.example | cut -d= -f1 | while read k; do grep -qE "^$$k=" infrastructure/.env || echo $$k; done); \
-	if [ -n "$$missing" ]; then \
-	  echo "Дописываю в infrastructure/.env недостающие ключи: $$(echo $$missing | tr '\n' ' ')"; \
-	  for k in $$missing; do grep -E "^$$k=" infrastructure/.env.example >> infrastructure/.env; done; \
-	fi
+env: ## Синхронизировать infrastructure/.env с шаблоном (создать, дописать/обновить ключи)
+	bash scripts/docker/sync-env.sh
+
+apply-config: ## Быстро применить конфиги/лимиты к запущенному стеку: sync .env + пересоздать app без сборки
+	bash scripts/docker/sync-env.sh
+	$(COMPOSE) $(PROFILES_ALL) up -d --force-recreate --no-deps app
 
 docker-build: ## Собрать docker-образ приложения (с меткой GIT_SHA)
 	$(COMPOSE) $(PROFILES_DEV) build --build-arg GIT_SHA=$(GIT_SHA)

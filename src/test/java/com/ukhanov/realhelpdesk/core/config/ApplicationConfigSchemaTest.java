@@ -78,9 +78,8 @@ class ApplicationConfigSchemaTest {
             "management.metrics.enable.spring.data.repository", "management.server.port", "management.server.address",
             "management.server.ssl.enabled", "observability.prometheus.auth.enabled", "observability.prometheus.auth.username",
             "observability.prometheus.auth.password",
-            // Почта: таймауты SMTP и health-группа вне readiness
-            "spring.mail.properties.mail.smtp.connectiontimeout", "spring.mail.properties.mail.smtp.timeout",
-            "spring.mail.properties.mail.smtp.writetimeout", "management.endpoint.health.group.smtp.include");
+            // Почта: health-группа вне readiness (таймауты SMTP — env-управляемые ключи схемы)
+            "management.endpoint.health.group.smtp.include");
 
     /**
      * Конфигурация среды: файлы схемы и места со значениями. В них не должно появиться деструктивного режима ddl-auto — иначе рестарт

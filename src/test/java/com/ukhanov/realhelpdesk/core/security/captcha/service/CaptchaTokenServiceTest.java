@@ -53,6 +53,24 @@ class CaptchaTokenServiceTest {
     }
 
     @Test
+    @DisplayName("challenge с явной сложностью: значение из аргумента попадает в подпись (эскалация PoW)")
+    void challenge_explicitDifficulty_roundTrip() throws CaptchaException {
+        String token = service.issueChallenge(CaptchaTokenService.ACTION_REGISTER, "cid123", "salt456", 21);
+
+        assertThat(service.parseChallenge(token).difficulty()).isEqualTo(21);
+    }
+
+    @Test
+    @DisplayName("challenge с недопустимой сложностью (0 или выше максимума) — IllegalArgumentException")
+    void challenge_invalidDifficulty_throws() {
+        assertThatThrownBy(() -> service.issueChallenge(CaptchaTokenService.ACTION_REGISTER, "cid", "salt", 0))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Сложность PoW");
+        assertThatThrownBy(() -> service.issueChallenge(CaptchaTokenService.ACTION_REGISTER, "cid", "salt",
+                CaptchaTokenService.MAX_POW_DIFFICULTY + 1)).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Сложность PoW");
+    }
+
+    @Test
     @DisplayName("emoji-challenge: выпускается и разбирается с теми же id, заданием, глифами и HMAC ответа")
     void emojiChallenge_roundTrip() throws CaptchaException {
         Instant before = Instant.now().minusSeconds(5);

@@ -49,7 +49,7 @@ com.ukhanov.realhelpdesk
 │   ├── security
 │   │   ├── accesscontrol         — AccessValidationService, TicketAccessValidationService
 │   │   ├── auth                  — register/login/logout/refresh/tokens: JWT в http-only cookies
-│   │   ├── captcha               — Proof-of-Work + эмодзи-эскалация, риск-движок по IP
+│   │   ├── captcha               — Proof-of-Work + эмодзи-эскалация, риск-движок по IP и подсети
 │   │   ├── handler               — 401/403 в problem+json
 │   │   ├── limiter               — квоты пользователя
 │   │   ├── ratelimit             — аннотация @RateLimit и счётчики по IP
@@ -87,8 +87,9 @@ com.ukhanov.realhelpdesk
    cp infrastructure/.env.example infrastructure/.env
    ```
 
-   Или сразу `make env`: создаст файл из шаблона, а существующему допишет
-   недостающие ключи.
+   Или сразу `make env`: синхронизирует `.env` с шаблоном — создаст файл,
+   допишет недостающие ключи и обновит изменившиеся дефолты, не трогая ваши
+   значения и секреты.
 
 2. **Заполнить секреты** в `infrastructure/.env` — это пустые строки шаблона,
    без них стек не поднимется:
@@ -133,9 +134,12 @@ com.ukhanov.realhelpdesk
    - `make format` / `make check` — форматирование и проверки стиля;
    - `make e2e-*` — e2e-сценарии на поднятом стеке
      (например, `make e2e-notifications`), `make e2e-all` — все сразу;
+   - `make apply-config` — применить изменённые конфиги и лимиты к
+     запущенному стеку (синхронизирует `.env` и пересоздаёт `app` без
+     пересборки), `make restart` — просто перезапуск приложения;
    - `make logs` — логи приложения, `make ps` — статус контейнеров,
-     `make restart` — перезапуск приложения, `make down` — остановить стек
-     (тома с данными сохраняются, `make down-volumes` — удалить).
+     `make down` — остановить стек (тома с данными сохраняются,
+     `make down-volumes` — удалить).
 
 ## Конфигурация
 
@@ -152,7 +156,7 @@ com.ukhanov.realhelpdesk
 | Файл | Что это | Когда трогать |
 |---|---|---|
 | `infrastructure/.env.example` | Шаблон из git: все несекретные переменные с рабочими дефолтами для локальной разработки (рейт-лимиты, капча, сроки JWT, почта, MinIO, домены) и пустые строки секретов-напоминаний. Закомментированная секция «Рабочий контур» — значения для продакшена | Менять дефолт для всех разработчиков, добавлять новую несекретную переменную |
-| `infrastructure/.env` | Ваш рабочий файл, в git не попадает. `make env` создаёт его из шаблона, существующему дописывает недостающие ключи. Его читают и compose (интерполяция `${VAR}`), и приложение (`env_file`) | Локальные значения и секреты: `JWT_SECRET`, `DB_PASSWORD`, `KEY_STORE_PASS`, `CAPTCHA_HMAC_SECRET`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `METRICS_PASSWORD`, `MAIL_PASSWORD` |
+| `infrastructure/.env` | Ваш рабочий файл, в git не попадает. `make env` синхронизирует его с шаблоном: создаёт при отсутствии, дописывает недостающие ключи и обновляет ещё не тронутые вами дефолты (сверка по снимку `infrastructure/.env.defaults`). Его читают и compose (интерполяция `${VAR}`), и приложение (`env_file`) | Локальные значения и секреты: `JWT_SECRET`, `DB_PASSWORD`, `KEY_STORE_PASS`, `CAPTCHA_HMAC_SECRET`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `METRICS_PASSWORD`, `MAIL_PASSWORD` |
 | `services.app.environment` в `infrastructure/docker-compose.yaml` | Мост compose → приложение: секреты подставляются как `${VAR:?}` — пустой или отсутствующий секрет валит запуск; сюда же вынесены динамические ключи с дефолтами (`OTLP_TRACING_ENDPOINT`, `TRUST_PROXY_HEADERS`, `CLIENT_IP_FORWARDED_INDEX`) | Добавлять новую секретную переменную |
 
 **Как поменять настройку:**
@@ -162,7 +166,9 @@ com.ukhanov.realhelpdesk
 2. Задайте значение: в `infrastructure/.env` — для себя локально;
    в `infrastructure/.env.example` — постоянный общий дефолт;
    в `services.app.environment` compose — новый секрет.
-3. Примените: `make restart`.
+3. Примените: `make apply-config` — синхронизирует `.env` с шаблоном
+   (новые и изменившиеся ключи) и пересоздаёт контейнер `app` без пересборки
+   образа. Если `.env` уже заполнен вручную — хватит `make restart`.
 
 Каждая переменная схемы объявлена ровно в одном месте —
 `.env.example` (несекретные) или `services.app.environment` compose
@@ -231,9 +237,7 @@ GreenMail, smtp4dev — только dev-среда и e2e-сценарии на
 | `MAIL_FROM` | Отправитель писем (`email.from`), например `noreply@example.com` |
 | `MAIL_NOTIFY` | Адрес, куда падают уведомления о заявках (`email.notify`) |
 | `APP_PROJECT_NAME` | Название проекта в письмах |
-
-Таймауты соединения зашиты в схеме приложения (connect 3 с, ответ сервера и
-запись 10 с) — зависший SMTP не держит ни отправку, ни health-проверку.
+| `MAIL_SMTP_CONNECTION_TIMEOUT` / `MAIL_SMTP_READ_TIMEOUT` / `MAIL_SMTP_WRITE_TIMEOUT` | Таймауты SMTP в мс: установка соединения, чтение ответа сервера, запись. Зависший SMTP не держит ни отправку, ни health-проверку |
 
 Контроль в рабочем контуре: `ProdPreflightValidator` не даст стартовать с
 пустым `MAIL_HOST` или наведённым на локальный SMTP (`localhost`,
@@ -269,37 +273,56 @@ JWT передаётся в http-only cookie (`accessToken`), refresh-токен
 Настройки cookie: `jwt.cookie.same-site` (`JWT_COOKIE_SAMESITE`) и
 `jwt.cookie.domain` (`JWT_COOKIE_DOMAIN`).
 
+Refresh-токены лежат в БД хешами SHA-256. Ротация при обновлении отзывает
+предыдущий refresh; отозванные и протухшие строки удаляет фоновая задача по
+`jwt.token-cleanup-cron` (`JWT_TOKEN_CLEANUP_CRON`), храня отозванные
+`jwt.revoked-token-retention-days` (`JWT_REVOKED_TOKEN_RETENTION_DAYS`). Удаление
+идёт батчами с адаптивным размером и паузой (`JWT_TOKEN_CLEANUP_BATCH_MIN_SIZE`,
+`_BATCH_MAX_SIZE`, `_TARGET_BATCH_MS`, `_BATCH_PAUSE_MS`): сначала оценивается
+объём, затем строки удаляются порциями в отдельных коротких транзакциях — без
+пиковой нагрузки на БД.
+
 ### Защита от CSRF
 
-Cookie уходят в том числе кросс-сайтово (`SameSite=None` по умолчанию), поэтому
-изменяющие запросы обязаны нести заголовок `X-Requested-With` (любое непустое
-значение) — иначе `403` в формате problem+json. Проверку делает `CsrfProtectionFilter`;
-браузер не добавит кастомный заголовок без preflight, а preflight чужого origin
-отклоняет CORS (allow-list `CORS_ALLOWED_ORIGINS`). Для односайтового фронта
-дополнительно достаточно `JWT_COOKIE_SAMESITE=Lax`.
+Проверку выполняет `CsrfProtectionFilter`:
+
+- cookie уходят в том числе кросс-сайтово (`SameSite=None` по умолчанию),
+  поэтому изменяющие запросы обязаны нести заголовок `X-Requested-With`
+  (любое непустое значение) — иначе `403` в формате problem+json;
+- браузер не добавит кастомный заголовок без preflight, а preflight чужого
+  origin отклоняет CORS (allow-list `CORS_ALLOWED_ORIGINS`);
+- для односайтового фронта дополнительно достаточно `JWT_COOKIE_SAMESITE=Lax`.
 
 ### Капча (Proof-of-Work + эмодзи-эскалация)
 
 Локально выключена (`CAPTCHA_ENABLED=false` — дефолт шаблона), в рабочем
-контуре включена обязательно (prod-preflight валит старт без неё). Вместо
-картинки с текстом (устойчивой к OCR/LLM) — двухуровневая схема:
+контуре включена обязательно (prod-preflight валит старт без неё). Двухуровневая
+схема вместо текстовой картинки (её обходят OCR/LLM):
 
 1. `POST /api/v1/captcha/challenge { action }` отдаёт подписанное задание:
-   базовый уровень — PoW (соль + сложность `CAPTCHA_POW_DIFFICULTY`, по
-   умолчанию 18 — доли секунды на телефоне);
-2. клиент подбирает `nonce`: ведущие нулевые биты `SHA-256("salt:nonce")`
-   ≥ сложности — виджет `GET /captcha/widget.js` делает это в Web Worker,
-   `await window.RealHelpCaptcha.getToken(action)` возвращает `captchaToken`;
+   базовая сложность PoW — `CAPTCHA_POW_DIFFICULTY` ведущих нулевых бит;
+2. клиент ищет `nonce`, при котором `SHA-256("salt:nonce")` имеет не меньше
+   нулевых бит, чем сложность, — виджет `GET /captcha/widget.js` делает это в
+   Web Worker, `await window.RealHelpCaptcha.getToken(action)` возвращает
+   `captchaToken`;
 3. `POST /api/v1/captcha/solve` обменивает решение на подписанный токен —
    он и предъявляется на регистрацию (поле `captchaToken`) или в заголовке
    `X-Captcha-Token` на `POST /email/codes`.
 
-**Эскалация по риску** (локальный риск-движок, без внешних провайдеров):
-провалы капчи считаются по IP за окно (`CAPTCHA_RISK_FAILURE_THRESHOLD=5`
-за `CAPTCHA_RISK_FAILURE_WINDOW_SECONDS=600`); набравший порог получает
-вместо PoW эмодзи-задание — сетка 3×3 глифов и выбор ячеек в оверлее
-виджета (`prompt`/`cells` в challenge, ответ — HMAC в подписи, kill-switch
-`CAPTCHA_EMOJI_ENABLED=false`). Успех сбрасывает счётчик IP.
+**Эскалация по риску** (локальный риск-движок, без внешних провайдеров)
+разделяет сигналы, чтобы один NAT-адрес не блокировал всех своих клиентов
+из-за провалов одного:
+
+- провалы одного IP за окно (`CAPTCHA_RISK_FAILURE_THRESHOLD=5` за
+  `CAPTCHA_RISK_FAILURE_WINDOW_SECONDS=600`) — мягкий риск: к сложности PoW
+  добавляется `CAPTCHA_RISK_ELEVATED_DIFFICULTY_BONUS=3` бита (но не выше
+  26 бит);
+- провалы `CAPTCHA_RISK_SUBNET_OFFENDER_THRESHOLD=3` разных IP одной подсети
+  (`CAPTCHA_RISK_SUBNET_PREFIX_V4=24`, `CAPTCHA_RISK_SUBNET_PREFIX_V6=64`) —
+  признак распределённой атаки: вместо PoW выдаётся эмодзи-задание — сетка
+  3×3 глифов и выбор ячеек в оверлее виджета (`prompt`/`cells` в challenge,
+  ответ — HMAC в подписи). Выключается `CAPTCHA_EMOJI_ENABLED=false`; успех
+  сбрасывает счётчики IP.
 
 Защита от автоматики: подписи HMAC (`CAPTCHA_HMAC_SECRET` — секрет в
 `infrastructure/.env`, минимум 32 символа), одноразовость challenge и токена,
@@ -311,7 +334,7 @@ Cookie уходят в том числе кросс-сайтово (`SameSite=No
 `captcha.verification{type,result,reason}` (`type` — доля эскалации).
 Сроки: `CAPTCHA_CHALLENGE_TTL_SECONDS` / `CAPTCHA_TOKEN_TTL_SECONDS`
 (по умолчанию 300 c). Внешние провайдеры (Turnstile/SmartCaptcha/hCaptcha)
-из реализации исключены оконательно — см. [`docs/capcha.md`](docs/capcha.md).
+из реализации исключены окончательно — см. [`docs/capcha.md`](docs/capcha.md).
 
 ## Правила доступа к порталам и заявкам
 
@@ -325,35 +348,27 @@ Cookie уходят в том числе кросс-сайтово (`SameSite=No
 
 ### Уровни доступа к порталу
 
-| Уровень | Кто это | Как получает |
+| Уровень | Кто входит | Как назначается |
 |---|---|---|
-| Владелец | один пользователь портала | создал портал или подтвердил передачу владения |
-| Доверенный | пользователи списка `allowedUserIds` | добавлен владельцем: `PUT /{portalId}/settings/users` |
-| Публичный | любой вошедший пользователь | владелец открыл портал: `PUT /{portalId}/settings/visibility` (`isPublic=true`) |
+| Владелец | ровно один пользователь портала | создал портал или принял передачу владения |
+| Доверенный | пользователи из списка `allowedUserIds` | владелец добавляет и удаляет их в настройках портала |
+| Публичный | любой вошедший пользователь | владелец открывает портал (`isPublic=true`) |
 
 Публичный уровень даёт только права на чтение и создание заявок — прав
 управления порталом он не даёт.
 
 ### Порталы: операции по уровням
 
+Матрица уровней; точные маршруты, тела и коды — в
+[`docs/api.md`](docs/api.md#порталы-portals).
+
 | Операция | Владелец | Доверенный | Публичный |
 |---|:-:|:-:|:-:|
-| Просмотр портала `GET /{portalId}`; списки доступных `/accessible`, `/ids`, `/info` | ✓ | ✓ | ✓ |
-| Создание и просмотр заявок, чтение и отправка сообщений, вложения (по политике заявки — ниже) | ✓ | ✓ | ✓ |
-| Редактирование `PUT`/`PATCH /{portalId}`, история `GET /{portalId}/history`, настройки `GET /{portalId}/settings` | ✓ | ✓ | — |
-| Видимость `GET`/`PUT /{portalId}/settings/visibility`, участники `PUT /{portalId}/settings/users` | ✓ | — | — |
-| Удаление `POST /portals/bulk-delete`, передача владения | ✓ | — | — |
-
-Дополнительно:
-
-- `GET /portals` отдаёт только свои порталы (где пользователь — владелец);
-  `/accessible`, `/ids`, `/info` — все доступные, включая публичные.
-- Новый портал создаёт любой вошедший пользователь (`POST /portals`), но
-  только с **подтверждённым email** — иначе `403` «Подтвердите ваш адрес
-  электронной почты».
-- Удаление только массовое (`POST /portals/bulk-delete`): каждый портал
-  удаляется своим владельцем, чужие пропускаются; в ответе — сколько
-  удалено и какие id.
+| Просмотр портала и списков доступных порталов | ✓ | ✓ | ✓ |
+| Заявки: создание и чтение, сообщения, вложения (по политике заявки) | ✓ | ✓ | ✓ |
+| Редактирование портала, история, чтение настроек | ✓ | ✓ | — |
+| Видимость портала и управление участниками | ✓ | — | — |
+| Удаление портала, передача владения | ✓ | — | — |
 
 ### Заявки: две политики доступа
 

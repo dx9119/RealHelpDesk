@@ -25,9 +25,20 @@ import lombok.extern.slf4j.Slf4j;
  * бизнес-операциях.
  *
  * <p>
- * Уровень задания выбирается по IP-риску из {@link CaptchaRiskService}: набравшие порог провалов получают эмодзи-задание вместо PoW.
+ * Два уровня задания:
+ * </p>
+ * <ul>
+ * <li><b>PoW</b> — базовый уровень: сервер подписывает соль и сложность, клиент подбирает {@code nonce}. Для IP с мягким риском
+ * ({@link CaptchaRiskService.Risk#ELEVATED}) к сложности добавляется {@code captcha.risk-elevated-difficulty-bonus} бит, но эмодзи не
+ * выдаётся — NAT-сеть с одним внешним адресом не наказывается за провалы отдельных клиентов.</li>
+ * <li><b>Эмодзи</b> — эскалация при {@link CaptchaRiskService.Risk#EMOJI} (распределённая атака: много разных IP одной подсети) и
+ * включённом {@code captcha.emoji-enabled}: интерактивная сетка глифов, ответ сверяется по HMAC в подписи challenge.</li>
+ * </ul>
+ *
+ * <p>
  * Проверка токена (fail-open при выключенной капче) и honeypot живут здесь, чтобы контроллеры знали про капчу только как про
- * {@code verify(...)}. Причины отказа капчурируются в {@link CaptchaException#getReason()} и уходят в метрики.
+ * {@code verify(...)}. Причины отказа фиксируются в {@link CaptchaException#getReason()} и уходят в метрики. Сам подписанный challenge —
+ * stateless JWT: сервер не хранит выданные задания, только израсходованные ({@link UsedTokenStore}).
  * </p>
  */
 @Slf4j
@@ -44,8 +55,8 @@ public class CaptchaService {
     private final EmojiTaskFactory emojiTaskFactory;
 
     /**
-     * Новое задание: для рискованных IP (и включённой эскалации) — эмодзи-задание, иначе PoW с солью и текущей сложностью. Сам подписанный
-     * JWT возвращается в поле {@code challengeId} — solve принимает его без серверного состояния.
+     * Новое задание: для IP с эмодзи-риском (и включённой эскалации) — эмодзи-задание, иначе PoW с солью и сложностью (повышенной при
+     * мягком риске). Сам подписанный JWT возвращается в поле {@code challengeId} — solve принимает его без серверного состояния.
      */
     public ChallengeResponse challenge(String action, String clientIp) throws CaptchaException {
         if (!CaptchaTokenService.knownAction(action)) {
@@ -53,7 +64,8 @@ public class CaptchaService {
         }
         Instant issuedAt = Instant.now();
         Instant expiresAt = issuedAt.plusSeconds(properties.getChallengeTtlSeconds());
-        if (Boolean.TRUE.equals(properties.getEmojiEnabled()) && riskService.isRisky(clientIp)) {
+        CaptchaRiskService.Risk risk = riskService.riskLevel(clientIp);
+        if (Boolean.TRUE.equals(properties.getEmojiEnabled()) && risk == CaptchaRiskService.Risk.EMOJI) {
             EmojiTask task = emojiTaskFactory.create();
             String challengeId = tokenService.randomId();
             String answerHash = tokenService.answerHash(challengeId, task.answer());
@@ -65,11 +77,21 @@ public class CaptchaService {
         }
         String challengeId = tokenService.randomId();
         String salt = tokenService.randomId();
-        String signedChallenge = tokenService.issueChallenge(action, challengeId, salt);
+        int difficulty = powDifficulty(risk);
+        String signedChallenge = tokenService.issueChallenge(action, challengeId, salt, difficulty);
         captchaMetrics.challengeIssued(CaptchaMetrics.TYPE_POW);
-        logger.debug("Выдан challenge, action={}, challengeId={}", action, challengeId);
-        return new ChallengeResponse(signedChallenge, ChallengeResponse.TYPE_POW,
-                ChallengeResponse.Params.pow(salt, properties.getPowDifficulty()), expiresAt);
+        logger.debug("Выдан challenge, action={}, challengeId={}, difficulty={}", action, challengeId, difficulty);
+        return new ChallengeResponse(signedChallenge, ChallengeResponse.TYPE_POW, ChallengeResponse.Params.pow(salt, difficulty),
+                expiresAt);
+    }
+
+    /** Сложность PoW: базовая, при мягком риске — плюс биты, но не выше {@link CaptchaTokenService#MAX_POW_DIFFICULTY}. */
+    private int powDifficulty(CaptchaRiskService.Risk risk) {
+        int base = properties.getPowDifficulty();
+        if (risk != CaptchaRiskService.Risk.ELEVATED) {
+            return base;
+        }
+        return Math.min(base + properties.getRiskElevatedDifficultyBonus(), CaptchaTokenService.MAX_POW_DIFFICULTY);
     }
 
     /**

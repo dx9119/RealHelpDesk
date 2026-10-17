@@ -39,6 +39,27 @@ public class JwtProperties {
     private Integer refreshTokenExpiration;
 
     /**
+     * Сколько дней хранить отозванные строки {@code jwt_tokens} до удаления фоновой задачей. Отзыв токена меняет только статус, поэтому
+     * строки копятся; активные строки удаляются отдельно по истечении срока жизни токена, этот срок их не касается.
+     */
+    private Integer revokedTokenRetentionDays;
+
+    /** Cron-расписание задачи ротации refresh-токенов (6 полей, с секундами). */
+    private String tokenCleanupCron;
+
+    /** Стартовый и минимальный размер батча удаления при ротации refresh-токенов. */
+    private Integer tokenCleanupBatchMinSize;
+
+    /** Верхняя граница адаптивного размера батча удаления при ротации refresh-токенов. */
+    private Integer tokenCleanupBatchMaxSize;
+
+    /** Целевое время одного батча (мс): быстрее — размер растёт, дольше — уменьшается. */
+    private Integer tokenCleanupTargetBatchMs;
+
+    /** Пауза между батчами удаления (мс): разносит нагрузку на БД, убирая пики. */
+    private Integer tokenCleanupBatchPauseMs;
+
+    /**
      * Настройки auth-cookie. Ключи вложены ({@code jwt.cookie.same-site}), поэтому и класс вложен: плоское поле {@code cookieSameSite} из
      * двухэлементного ключа не биндится — см. JwtPropertiesTest.
      */
