@@ -30,9 +30,9 @@ class HttpServerRequestObservationConventionTest {
     @DisplayName("Роль из атрибута запроса попадает в тег без префикса ROLE_")
     void roleFromRequestAttribute() {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/tickets");
-        request.setAttribute(HttpServerRequestObservationConvention.ROLE_ATTRIBUTE, "ROLE_ADMIN");
+        request.setAttribute(HttpServerRequestObservationConvention.ROLE_ATTRIBUTE, "ROLE_OPERATOR");
 
-        assertThat(roleOf(request)).isEqualTo("ADMIN");
+        assertThat(roleOf(request)).isEqualTo("OPERATOR");
     }
 
     @Test

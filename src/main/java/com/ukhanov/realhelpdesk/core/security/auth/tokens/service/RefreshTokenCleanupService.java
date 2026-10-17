@@ -90,18 +90,8 @@ public class RefreshTokenCleanupService {
         MDC.put(LoggingFilter.REQUEST_ID, SCHEDULER_REQUEST_ID);
         MDC.put(LoggingFilter.URI_REQUEST, SCHEDULER_URI);
         try {
-            Instant now = Instant.now();
-            Instant inactiveCutoff = now.minus(jwtProperties.getRevokedTokenRetentionDays(), ChronoUnit.DAYS);
-            Instant activeCutoff = now.minus(jwtProperties.getRefreshTokenExpiration(), ChronoUnit.MINUTES);
-
-            long estimatedInactive = jwtRefreshTokenRepository.countByStatusNotAndCreatedAtBefore(TokenStatus.ACTIVE, inactiveCutoff);
-            long estimatedActive = jwtRefreshTokenRepository.countByStatusAndCreatedAtBefore(TokenStatus.ACTIVE, activeCutoff);
-            logger.info("Ротация refresh-токенов: оценка объёма — отозванных {}, протухших {}, стартовый батч {} ({}..{})",
-                    estimatedInactive, estimatedActive, jwtProperties.getTokenCleanupBatchMinSize(),
-                    jwtProperties.getTokenCleanupBatchMinSize(), jwtProperties.getTokenCleanupBatchMaxSize());
-
-            BatchResult inactive = purge(true, inactiveCutoff);
-            BatchResult active = purge(false, activeCutoff);
+            CleanupResult inactive = cleanRevokedTokens();
+            CleanupResult active = cleanExpiredActiveTokens();
 
             int deleted = inactive.deleted() + active.deleted();
             if (deleted > 0) {
@@ -116,7 +106,29 @@ public class RefreshTokenCleanupService {
         }
     }
 
-    private BatchResult purge(boolean inactive, Instant cutoff) {
+    /**
+     * Принудительная очистка отозванных строк (статус не {@code ACTIVE}) старше {@code jwt.revoked-token-retention-days}. Тот же механизм,
+     * что и у ночного расписания: оценка объёма, затем батчи с адаптивным размером и паузами. Возвращает число удалённых строк и батчей —
+     * вызывается операторским API и переиспользуется в {@link #deleteExpiredTokens()}.
+     */
+    public CleanupResult cleanRevokedTokens() {
+        Instant cutoff = Instant.now().minus(jwtProperties.getRevokedTokenRetentionDays(), ChronoUnit.DAYS);
+        long estimated = jwtRefreshTokenRepository.countByStatusNotAndCreatedAtBefore(TokenStatus.ACTIVE, cutoff);
+        logger.info("Ротация refresh-токенов: отозванные старше {} дн. — оценка {}, стартовый батч {}",
+                jwtProperties.getRevokedTokenRetentionDays(), estimated, jwtProperties.getTokenCleanupBatchMinSize());
+        return purge(true, cutoff);
+    }
+
+    /** Протухшие активные строки старше срока жизни refresh-токена: токен уже недействителен по {@code exp}. */
+    private CleanupResult cleanExpiredActiveTokens() {
+        Instant cutoff = Instant.now().minus(jwtProperties.getRefreshTokenExpiration(), ChronoUnit.MINUTES);
+        long estimated = jwtRefreshTokenRepository.countByStatusAndCreatedAtBefore(TokenStatus.ACTIVE, cutoff);
+        logger.info("Ротация refresh-токенов: протухшие активные старше {} мин. — оценка {}, стартовый батч {}",
+                jwtProperties.getRefreshTokenExpiration(), estimated, jwtProperties.getTokenCleanupBatchMinSize());
+        return purge(false, cutoff);
+    }
+
+    private CleanupResult purge(boolean inactive, Instant cutoff) {
         int minBatch = jwtProperties.getTokenCleanupBatchMinSize();
         int maxBatch = jwtProperties.getTokenCleanupBatchMaxSize();
         int batchSize = minBatch;
@@ -144,7 +156,7 @@ public class RefreshTokenCleanupService {
                 break;
             }
         }
-        return new BatchResult(total, batches);
+        return new CleanupResult(total, batches);
     }
 
     /** Адаптивный размер батча: медленный батч уменьшается, быстрый (вдвое быстрее цели) растёт, границы — min..max. */
@@ -173,7 +185,7 @@ public class RefreshTokenCleanupService {
         }
     }
 
-    /** Итог удаления одной группы: сколько удалено и за сколько батчей. */
-    private record BatchResult(int deleted, int batches) {
+    /** Итог удаления одной группы: сколько строк удалено и за сколько батчей. */
+    public record CleanupResult(int deleted, int batches) {
     }
 }

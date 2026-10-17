@@ -14,7 +14,7 @@ import io.micrometer.common.KeyValue;
 import io.micrometer.common.KeyValues;
 
 /**
- * Добавляет к http.server.requests низкокардинальный тег {@code role} — роль аутентифицированного пользователя (ADMIN/USER/NONE) либо
+ * Добавляет к http.server.requests низкокардинальный тег {@code role} — роль аутентифицированного пользователя (OPERATOR/USER/NONE) либо
  * ANONYMOUS.
  *
  * <p>
@@ -76,7 +76,7 @@ public class HttpServerRequestObservationConvention extends DefaultServerRequest
         return ANONYMOUS;
     }
 
-    /** Имя роли для тега метрики и MDC: без префикса Spring Security {@code ROLE_} — тот же набор ADMIN/USER/NONE. */
+    /** Имя роли для тега метрики и MDC: без префикса Spring Security {@code ROLE_} — тот же набор OPERATOR/USER/NONE. */
     public static String roleName(String role) {
         return role.startsWith(ROLE_PREFIX) ? role.substring(ROLE_PREFIX.length()) : role;
     }

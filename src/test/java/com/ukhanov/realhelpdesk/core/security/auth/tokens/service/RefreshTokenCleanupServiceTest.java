@@ -7,6 +7,7 @@ import org.mockito.ArgumentCaptor;
 import com.ukhanov.realhelpdesk.core.config.JwtProperties;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.TokenStatus;
 import com.ukhanov.realhelpdesk.core.security.auth.tokens.repository.JwtRefreshTokenRepository;
+import com.ukhanov.realhelpdesk.core.security.auth.tokens.service.RefreshTokenCleanupService.CleanupResult;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -52,6 +53,22 @@ class RefreshTokenCleanupServiceTest {
         ArgumentCaptor<Integer> batches = ArgumentCaptor.forClass(Integer.class);
         verify(executor, org.mockito.Mockito.times(2)).deleteInactiveBatch(any(), batches.capture());
         assertThat(batches.getAllValues()).as("быстрый полный батч удваивает размер следующего").containsExactly(100, 200);
+    }
+
+    @Test
+    @DisplayName("Принудительная очистка чистит только отозванные и возвращает счётчики")
+    void cleanRevokedTokens_onlyRevokedGroup() {
+        when(repository.countByStatusNotAndCreatedAtBefore(eq(TokenStatus.ACTIVE), any())).thenReturn(5L);
+        when(executor.deleteInactiveBatch(any(), anyInt())).thenReturn(2);
+        RefreshTokenCleanupService service = new RefreshTokenCleanupService(repository, executor, properties());
+
+        CleanupResult result = service.cleanRevokedTokens();
+
+        assertThat(result.deleted()).isEqualTo(2);
+        assertThat(result.batches()).isEqualTo(1);
+        verify(executor).deleteInactiveBatch(any(), eq(100));
+        verify(executor, org.mockito.Mockito.never()).deleteActiveBatch(any(), anyInt());
+        verify(repository, org.mockito.Mockito.never()).countByStatusAndCreatedAtBefore(any(), any());
     }
 
     @Test

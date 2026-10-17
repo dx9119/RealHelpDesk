@@ -34,7 +34,7 @@ CREATE TABLE users (
     version INTEGER NOT NULL,
     CONSTRAINT users_pkey PRIMARY KEY (id),
     CONSTRAINT users_email_key UNIQUE (email),
-    CONSTRAINT users_user_role_check CHECK (user_role IN ('ROLE_NONE', 'ROLE_ADMIN', 'ROLE_USER')),
+    CONSTRAINT users_user_role_check CHECK (user_role IN ('ROLE_NONE', 'ROLE_OPERATOR', 'ROLE_USER')),
     CONSTRAINT users_user_status_check CHECK (user_status IN ('ACTIVE', 'BLOCKED', 'DISABLED')),
     CONSTRAINT users_user_platform_source_check CHECK (user_platform_source IN ('LOCAL', 'TELEGRAM'))
 );
