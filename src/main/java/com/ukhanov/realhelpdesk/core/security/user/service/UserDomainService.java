@@ -3,6 +3,7 @@ package com.ukhanov.realhelpdesk.core.security.user.service;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import jakarta.transaction.Transactional;
@@ -45,6 +46,15 @@ public class UserDomainService {
 
     public UserModel getUserByEmail(String email) {
         return resolveUserByIdentifier(email, true);
+    }
+
+    /**
+     * Поиск по email без исключения: нужен там, где отсутствие пользователя — штатный сценарий, а не ошибка. Вход через Keycloak решает по
+     * результату, создавать ли учётную запись; {@link #getUserByEmail} в этом же месте бросал бы исключение как способ управления потоком.
+     */
+    public Optional<UserModel> findUserByEmail(String email) {
+        Objects.requireNonNull(email, "Email не может быть null");
+        return userRepository.findByEmailIgnoreCase(email);
     }
 
     public UserModel getUserById(Long userId) {

@@ -39,7 +39,7 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.ukhanov.realhelpdesk.core.log.LogSanitizer;
-import com.ukhanov.realhelpdesk.core.security.captcha.exception.CaptchaException;
+import com.ukhanov.realhelpdesk.core.security.localjwt.captcha.exception.CaptchaException;
 
 import io.jsonwebtoken.JwtException;
 import lombok.extern.slf4j.Slf4j;

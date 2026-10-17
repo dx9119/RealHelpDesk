@@ -17,8 +17,15 @@
 | CORS | Клиент шлёт `credentials: 'include'`; из ответа доступны `Location`, `Content-Disposition`, `Content-Range`, `Accept-Ranges`, `ETag`, `Retry-After` и маркеры 401 (`X-Access-Token-Expired`, `X-Auth-Token-Missing`, `X-Malformed-Token`, `X-Invalid-Token`, `X-Verify-Token-Failed`) |
 | Коды | `200` + ресурс — изменение ресурса; `201` + `Location` — создание; `204` — команда/флаг; `400` — валидация; `401` — нет/истёк токен; `403` — нет прав или нет CSRF-заголовка; `404` — нет ресурса; `409` — конфликт (`@Version`, повторная передача портала); `412` — устаревший `If-Match`; `416` — некорректный `Range`; `429` — лимит |
 
-Cookie-аутентификация: токены в `HttpOnly; Secure` cookie (`accessToken`, refresh ограничен путём
+Cookie-аутентификация (внутренний JWT-контур, профиль без `keycloak`): токены в
+`HttpOnly; Secure` cookie (`accessToken`, refresh ограничен путём
 `/api/v1/auth`). Клиент не хранит токены сам, но обязан слать `credentials: 'include'`.
+
+Контур Keycloak (профиль `keycloak`, включён по умолчанию): токен выпускает
+Keycloak, приложение ожидает `Authorization: Bearer <access_token>` и проверяет
+подпись по JWK. Эндпоинты `/auth/*` в этом профиле не создаются, cookie не
+используются, `credentials: 'include'` не нужен — сравнение контуров в README,
+раздел «Профили».
 
 ## Служебные
 
@@ -38,6 +45,9 @@ Cookie-аутентификация: токены в `HttpOnly; Secure` cookie (
 `website`).
 
 ## Аутентификация (`/auth`)
+
+Раздел актуален для внутреннего JWT-контура (профиль без `keycloak`); в
+профиле `keycloak` этих эндпоинтов нет — токен выпускает Keycloak.
 
 | Метод и путь | Тело / параметры | Назначение |
 |---|---|---|

@@ -3,7 +3,7 @@
 #
 # Профили (запуск — только через make, набор профилей передаётся явно):
 #   infra      — postgres, minio: внутренняя сеть data (internal), портов на хост нет
-#   dev        — smtp4dev и db-gateway (хостовые 127.0.0.1:5432/9000/9001)
+#   dev        — smtp4dev, db-gateway и keycloak (хостовые 127.0.0.1:5432/9000/9001/8180)
 #   app        — приложение
 #   monitoring — mimir, grafana, tempo, loki, otel-collector, alloy
 #   load       — k6
@@ -12,6 +12,13 @@
 # make up-prod     → infra + app                (рабочий контур: без dev/monitoring)
 # make obs-up      → infra + dev + app + monitoring
 # make down        → все профили (останавливает что угодно)
+#
+# Профиль приложения (SPRING_PROFILES_ACTIVE в infrastructure/.env) — debug/prod,
+# по умолчанию + keycloak: токены выпускает сервис keycloak, приложение только
+# проверяет подпись по JWK. Без keycloak работает внутренний JWT-контур
+# приложения (cookie, /api/v1/auth/*) — им пользуются сценарии scripts/e2e-*.sh.
+# Сервис keycloak живёт в профиле dev, поэтому make up-prod поднимает приложение
+# без него: в рабочем контуре Keycloak разворачивается отдельно (см. README).
 #
 # Сети:
 #   data    — internal: true: postgres, minio + app + db-gateway; наружу не ходит,
@@ -94,6 +101,10 @@ services:
       OTLP_TRACING_ENDPOINT: "${OTLP_TRACING_ENDPOINT:-http://localhost:4317}"
       TRUST_PROXY_HEADERS: "${TRUST_PROXY_HEADERS:-false}"
       CLIENT_IP_FORWARDED_INDEX: "${CLIENT_IP_FORWARDED_INDEX:-0}"
+      # KC_JWK_SET_URI/KC_ISSUER_URI (профиль приложения keycloak) сюда не
+      # попадают: они несекретные и объявлены в infrastructure/.env.example,
+      # а контейнер получает их через env_file — иначе одно значение задавалось
+      # бы в двух местах (это запрещает ApplicationConfigSchemaTest).
     depends_on:
       postgres:
         condition: service_healthy
@@ -218,6 +229,110 @@ services:
     restart: unless-stopped
     networks:
       - backend
+    logging: *default-logging
+
+  # ==========================================================================
+  # Профиль dev: Keycloak (внешний выпуск токенов)
+  # ==========================================================================
+  # Приложение по умолчанию стартует с профилем keycloak
+  # (SPRING_PROFILES_ACTIVE=debug,keycloak в infrastructure/.env): токены
+  # выпускает и подписывает Keycloak, приложение только проверяет подпись по
+  # JWK и читает email/realm-роли из токена. Переключение на внутреннюю
+  # JWT-логику — убрать keycloak из SPRING_PROFILES_ACTIVE (см. README).
+  #
+  # Realm realhelpdesk импортируется из ./keycloak/realhelpdesk-realm.json при
+  # первом старте (--import-realm): роли ROLE_USER/ROLE_OPERATOR/ROLE_NONE,
+  # публичный клиент realhelpdesk-api (Authorization Code + PKCE, direct access
+  # grant для отладки и e2e) и два тестовых пользователя (user@example.com,
+  # operator@example.com).
+  keycloak-db-init:
+    profiles: [dev]
+    # Отдельная БД под Keycloak: его схема живёт в том же PostgreSQL, но в
+    # своей базе — миграции Liquibase приложения её не касаются.
+    # init-скрипты docker-entrypoint-initdb.d здесь не годятся: они выполняются
+    # только при первой инициализации тома, а том postgres_data к этому моменту
+    # уже существует, поэтому база создаётся идемпотентно отдельным сервисом.
+    image: postgres:18
+    mem_limit: 64m
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Пароль для psql/createdb; имена базы и пользователя подставляются
+      # интерполяцией прямо в команду ниже — экранировать $ в command не нужно.
+      PGPASSWORD: "${DB_PASSWORD:?DB_PASSWORD is required - copy infrastructure/.env.example to infrastructure/.env}"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if psql -h postgres -U "${POSTGRES_USER:-user}" -d "${POSTGRES_DB:-desk}" -tAc "SELECT 1 FROM pg_database WHERE datname='${KEYCLOAK_DB:-keycloak}'" | grep -q 1; then
+          echo "База ${KEYCLOAK_DB:-keycloak} уже существует"
+        else
+          createdb -h postgres -U "${POSTGRES_USER:-user}" "${KEYCLOAK_DB:-keycloak}" && echo "Создана база ${KEYCLOAK_DB:-keycloak}"
+        fi
+    restart: "no"
+    networks:
+      - data
+    logging: *default-logging
+
+  keycloak:
+    profiles: [dev]
+    # Версия закреплена: обновление — осознанная правка с ревью, не latest.
+    # start-dev: HTTP без TLS и кэш в памяти — локальный стенд; в рабочем
+    # контуре Keycloak разворачивается отдельно (см. README).
+    image: quay.io/keycloak/keycloak:26.6
+    mem_limit: 768m
+    ports:
+      # Только loopback: браузер ходит за токеном на 127.0.0.1:8180, наружу
+      # Keycloak не публикуется. 8180, а не 8080: 8080 занят другими стендами.
+      - "127.0.0.1:${KEYCLOAK_PORT:-8180}:8080"
+    environment:
+      # Начальный администратор создаётся только при пустой БД (bootstrap).
+      # Пароль необязателен (как GRAFANA_ADMIN_PASSWORD): сервис живёт только в
+      # профиле dev и слушает loopback, а пустое значение поднимает стенд с
+      # дефолтным admin — заполните, если стенд доступен не только вам.
+      KC_BOOTSTRAP_ADMIN_USERNAME: "${KEYCLOAK_ADMIN:-admin}"
+      KC_BOOTSTRAP_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:-admin}"
+      # Хранилище realm'а: тот же PostgreSQL, отдельная база (keycloak-db-init).
+      KC_DB: postgres
+      KC_DB_URL_HOST: postgres
+      KC_DB_URL_PORT: "5432"
+      KC_DB_URL_DATABASE: "${KEYCLOAK_DB:-keycloak}"
+      KC_DB_USERNAME: "${POSTGRES_USER:-user}"
+      KC_DB_PASSWORD: "${DB_PASSWORD:?DB_PASSWORD is required - copy infrastructure/.env.example to infrastructure/.env}"
+      # KC_HOSTNAME — адрес, который попадает в issuer (iss) токена и в ссылки
+      # страницы входа: его видит браузер, поэтому loopback с портом на хосте.
+      # Приложение при этом проверяет подпись по KC_JWK_SET_URI — адресу
+      # Keycloak во внутренней сети (см. infrastructure/.env), иначе issuer в
+      # токене не совпадёт с тем, что доступно из контейнера приложения.
+      KC_HOSTNAME: "${KC_HOSTNAME:-http://localhost:8180}"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+      # Health и метрики на управляющем порту 9000 (используется healthcheck).
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+    volumes:
+      # Каталог импорта целиком (read-only): --import-realm читает все
+      # *-realm.json, поэтому новый realm добавляется файлом, без правки compose.
+      - ./keycloak:/opt/keycloak/data/import:ro
+    command: ["start-dev", "--import-realm"]
+    depends_on:
+      keycloak-db-init:
+        condition: service_completed_successfully
+    healthcheck:
+      # TCP-проба без curl/wget в образе: bash /dev/tcp открывает сокет.
+      # Порт 9000 — управляющий (health/metrics), основной 8080 отдаёт только
+      # приложение Keycloak и «зеленеет» раньше готовности realm'а.
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/9000'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      # backend — чтобы опубликованный порт работал (на internal-сети docker
+      # его не пробрасывает), data — чтобы достучаться до postgres.
+      - backend
+      - data
     logging: *default-logging
 
   # ==========================================================================

@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ukhanov.realhelpdesk.core.http.EntityTag;
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.exception.TokenException;
+import com.ukhanov.realhelpdesk.core.security.localjwt.auth.tokens.exception.TokenException;
 import com.ukhanov.realhelpdesk.core.security.ratelimit.annotation.RateLimit;
 import com.ukhanov.realhelpdesk.feature.usermanager.dto.NewPasswdRequest;
 import com.ukhanov.realhelpdesk.feature.usermanager.dto.PatchUserInfoRequest;

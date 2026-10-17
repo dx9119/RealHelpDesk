@@ -20,7 +20,7 @@ import jakarta.persistence.Version;
 
 import org.hibernate.annotations.BatchSize;
 
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.RefreshTokenModel;
+import com.ukhanov.realhelpdesk.core.security.localjwt.auth.tokens.model.RefreshTokenModel;
 
 import lombok.AccessLevel;
 import lombok.Getter;

@@ -24,7 +24,7 @@ REST API системы управления заявками предостав
 | Язык / сборка | Java 21, Maven                                                         |
 | Фреймворк | Spring Boot 4, Spring Security, Spring Data JPA, Spring Validation     |
 | БД / миграции | PostgreSQL 18, Liquibase (`ddl-auto=validate`)                         |
-| Аутентификация | JWT (jjwt) в http-only cookies, refresh-токен хранится как SHA-256 хеш |
+| Аутентификация | Keycloak (OAuth2 Resource Server, профиль `keycloak` — по умолчанию) либо JWT (jjwt) в http-only cookies, refresh-токен хранится как SHA-256 хеш |
 | Файлы | MinIO (метаданные в БД, содержимое — в бакете)                         |
 | Почта | Spring Mail, шаблоны сообщений в `messages.properties`                 |
 | Прочее | Lombok, Hibernate Validator, Spotless, Checkstyle                     |
@@ -48,10 +48,10 @@ com.ukhanov.realhelpdesk
 │   ├── pagination
 │   ├── security
 │   │   ├── accesscontrol
-│   │   ├── auth
-│   │   ├── captcha
 │   │   ├── handler
+│   │   ├── keycloak
 │   │   ├── limiter
+│   │   ├── localjwt
 │   │   ├── ratelimit
 │   │   └── user
 │   └── storage
@@ -105,8 +105,10 @@ com.ukhanov.realhelpdesk
    | `METRICS_PASSWORD` | любой непустой пароль сервисной учётки скрейпа |
 
    `KEY_STORE_PASS` в шаблоне уже имеет локальное значение, `MAIL_PASSWORD`
-   нужен только для внешнего SMTP (раздел «Почта»). Все остальные настройки
-   уже содержат рабочие дефолты для локальной разработки.
+   нужен только для внешнего SMTP (раздел «Почта»), а
+   `KEYCLOAK_ADMIN_PASSWORD` — только если стенд Keycloak доступен не только
+   вам (по умолчанию `admin`). Все остальные настройки уже содержат рабочие
+   дефолты для локальной разработки.
 
 3. **Поднять стек** — на выбор:
 
@@ -122,11 +124,27 @@ com.ukhanov.realhelpdesk
      (машинная спека — `GET /v3/api-docs`);
    - dev-сервисы (в рабочем контуре их нет): smtp4dev — тестовый почтовый
      ящик на `http://localhost:3000` (письма с кодами, зачем — раздел
-     «Почта»), PostgreSQL `127.0.0.1:5432` и MinIO `127.0.0.1:9000` — порты
-     публикует `db-gateway` профилем `dev`, сама БД наружу не проброшена.
+     «Почта»), Keycloak — `http://localhost:8180` (тестовые пользователи и
+     клиент — раздел «Профили»), PostgreSQL `127.0.0.1:5432` и MinIO
+     `127.0.0.1:9000` — порты публикует `db-gateway` профилем `dev`, сама
+     БД наружу не проброшена.
 
-5. **Попробовать API** через Swagger: зарегистрируйте пользователя и
-   подтвердите email — письмо с кодом придёт в smtp4dev. Пока email не
+5. **Попробовать API.** По умолчанию стек работает с Keycloak, поэтому
+   получите токен в Keycloak и передайте его заголовком:
+
+   ```bash
+   TOKEN=$(curl -s -X POST \
+     http://localhost:8180/realms/realhelpdesk/protocol/openid-connect/token \
+     -d grant_type=password -d client_id=realhelpdesk-api \
+     -d username=user@example.com -d password=user-pass | jq -r .access_token)
+   curl -sk -H "Authorization: Bearer $TOKEN" https://localhost:8443/api/v1/users/profile
+   ```
+
+   Swagger UI (`https://localhost:8443/swagger-ui.html`) умеет то же самое:
+   впишите токен в кнопку Authorize. Внутренний JWT-контур (после
+   `make profile-local`) работает иначе: зарегистрируйте пользователя
+   (`POST /api/v1/auth/register`) и подтвердите email — письмо с кодом придёт
+   в smtp4dev; cookies Swagger UI браузер держит сам. Пока email не
    подтверждён, создание портала отвечает `403`.
 
 6. **Работать с кодом:**
@@ -196,9 +214,15 @@ com.ukhanov.realhelpdesk
 
 ### Профили
 
-Профиль задаётся `SPRING_PROFILES_ACTIVE`: по умолчанию в шаблоне
-`infrastructure/.env.example` — `debug` (локальная разработка), рабочий
-контур — `prod` (секция «Рабочий контур» в `infrastructure/.env`).
+Профиль задаётся `SPRING_PROFILES_ACTIVE` в `infrastructure/.env` — это
+единственное место, где он живёт (`env_file` контейнера перекрывает
+переменные окружения хоста). В шаблоне `infrastructure/.env.example` по
+умолчанию `debug,keycloak`: токены выпускает и подписывает Keycloak
+(сервис `keycloak` профиля `dev`), приложение только проверяет подпись по
+JWK и читает из токена email и realm-роли. Рабочий контур — `prod`
+(при внешнем Keycloak — `prod,keycloak`), секция «Рабочий контур» в
+`infrastructure/.env`.
+
 Профили меняют уровни логирования; `prod` дополнительно закрепляет инварианты
 (SQL-трассировка выключена, миграции включены, тексты исключений скрыты),
 а `ProdPreflightValidator` останавливает старт рабочего контура с
@@ -209,6 +233,54 @@ com.ukhanov.realhelpdesk
 |---|---|---|
 | `debug` | `application-debug.properties` | Локальная отладка: DEBUG по приложению, SQL-логи Hibernate без значений параметров |
 | `prod` (рабочий контур) | `application-prod.properties` | Рабочий контур: INFO/WARN, пошаговая трассировка и SQL выключены, инварианты рабочего контура |
+| `keycloak` | `application-keycloak.properties` | Внешний выпуск токенов: OAuth2 Resource Server, адрес JWK и issuer, синхронизация ролей и автосоздание пользователей |
+
+**Переключение контура аутентификации.** Профиль `keycloak` — второй, а не
+самостоятельный: он добавляет свои ключи к базовому `debug`/`prod`. Без него
+работает внутренний JWT-контур приложения (cookie `accessToken`, эндпоинты
+`/api/v1/auth/*`). Переключение — правкой `SPRING_PROFILES_ACTIVE`:
+
+```bash
+make profile-local      # SPRING_PROFILES_ACTIVE=debug          — внутренний JWT
+make profile-keycloak   # SPRING_PROFILES_ACTIVE=debug,keycloak — Keycloak
+```
+
+Обе цели меняют значение в `infrastructure/.env` и пересоздают контейнер
+`app` (скрипт `scripts/docker/set-profile.sh`). Что меняется в контурах:
+
+| | Внутренний JWT (без `keycloak`) | Keycloak (профиль `keycloak`) |
+|---|---|---|
+| Кто выпускает токен | приложение (`/api/v1/auth/register`, `/login`) | Keycloak, клиент `realhelpdesk-api` |
+| Как передаётся | http-only cookie `accessToken` | заголовок `Authorization: Bearer <access_token>` |
+| Проверка подписи | `JwtAuthFilter` + `JwtConfig` (HS256, `JWT_SECRET`) | Spring Security по JWK Keycloak (`KC_JWK_SET_URI`) |
+| Пользователь и роль | из БД по `sub` токена | из БД по email из токена; realm-роли синхронизируются в `UserRole` |
+| Регистрация/вход/логаут приложения | есть | нет — эти эндпоинты не создаются (`@Profile("!keycloak")`), а вход и пароли обслуживает Keycloak |
+| Обновление access-токена | `POST /api/v1/auth/tokens/access` по refresh-cookie | refresh-поток Keycloak (cookie-ротации в БД приложения нет) |
+
+Профиль `keycloak` включается, когда нужен внешний SSO: пользователь входит в
+Keycloak, а приложение получает уже выпущенный access-токен. Учётная запись
+сопоставляется по email; при `keycloak.auto-create-users=true` (дефолт)
+неизвестный email заводит пользователя с источником `KEYCLOAK`, при
+`keycloak.sync-roles=true` realm-роли `ROLE_USER`/`ROLE_OPERATOR` повышают роль
+в БД. Роль для проверки прав приложение всегда читает из БД — блокировка
+пользователя и понижение роли действуют сразу, не дожидаясь истечения токена.
+
+Локальный контур Keycloak поднимается сервисом `keycloak` (профиль `dev`,
+`quay.io/keycloak/keycloak:26.6`, хостовый порт `127.0.0.1:8180`). Realm
+`realhelpdesk` импортируется из `infrastructure/keycloak/realhelpdesk-realm.json`
+при первом старте (`--import-realm`): клиент `realhelpdesk-api` (Authorization
+Code + PKCE, direct access grant для отладки и e2e) и тестовые пользователи
+`user@example.com` / `user-pass` (`ROLE_USER`),
+`operator@example.com` / `operator-pass` (`ROLE_OPERATOR`). Схема Keycloak
+хранится в отдельной базе `keycloak` того же PostgreSQL — её создаёт сервис
+`keycloak-db-init`, миграции Liquibase приложения этой базы не касаются.
+Контур проверяет `make e2e-keycloak`.
+
+В рабочем контуре Keycloak разворачивается отдельно: сервис `keycloak` входит
+только в профиль `dev`, поэтому `make up-prod` поднимает приложение без него.
+Укажите в `.env` адреса внешнего Keycloak (`KC_JWK_SET_URI` — внутренний адрес
+для проверки подписи, `KC_ISSUER_URI` и `KC_HOSTNAME` — тот адрес, который
+видит браузер) и включите профиль: `SPRING_PROFILES_ACTIVE=prod,keycloak`.
 
 ### Почта
 
@@ -258,6 +330,13 @@ changeset'ы). Рестарт `app` данные не трогает, `make down
 PostgreSQL.
 
 ## Аутентификация
+
+Контур аутентификации выбирается профилем: по умолчанию (`debug,keycloak`)
+токены выпускает Keycloak, без профиля `keycloak` работает внутренний
+JWT-контур приложения — сравнение и переключение в разделе
+[«Профили»](#профили). Ниже описан внутренний контур: он обслуживает
+cookie-эндпоинты `/api/v1/auth/*`, которыми пользуются e2e-сценарии
+(`make e2e-*`, кроме `e2e-keycloak`) и нагрузочный прогон.
 
 JWT передаётся в http-only cookie (`accessToken`), refresh-токен — в cookie с
 `path=/api/v1/auth`. Каждый запрос проходит через `JwtAuthFilter`: проверяются
@@ -567,7 +646,15 @@ E2E-сценарии идут по живому стеку (`make up`) — вс�
 | `make e2e-notifications` | In-app оповещения (long polling) | `scripts/e2e-notifications.sh` |
 | `make e2e-portal-transfer` | Передача владения порталом | `scripts/e2e-portal-transfer.sh` |
 | `make e2e-token-cleanup` | Очистка отозванных и протухших refresh-токенов | `scripts/e2e-token-cleanup.sh` |
+| `make e2e-keycloak` | Вход через Keycloak (профиль `keycloak`) | `scripts/e2e-keycloak.sh` |
 | `make e2e-all` | Все сценарии подряд | `scripts/e2e-*.sh` |
+
+Сценарии `e2e-portal-access`, `e2e-ratelimit`, `e2e-jwt`, `e2e-notifications`,
+`e2e-portal-transfer` и `e2e-token-cleanup` ходят в cookie-эндпоинты
+`/api/v1/auth/*`, то есть во внутренний JWT-контур: цели `make` перед прогоном
+переключают приложение на профиль `debug` (без `keycloak`). Контур Keycloak
+проверяет `e2e-keycloak` — он переключает профиль обратно на
+`debug,keycloak` и работает с Bearer-токеном, выпущенным Keycloak.
 
 Скрипты создают тестовых пользователей и тратят рейт-лимиты — при повторных
 прогонах может потребоваться `make restart`. `e2e-token-cleanup` дополнительно

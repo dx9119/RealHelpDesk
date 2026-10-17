@@ -96,17 +96,22 @@ class ApplicationConfigSchemaTest {
     /**
      * Ключи {@code services.app.environment} и {@code infrastructure/.env.example}, которых нет в схеме приложения. {@code JAVA_} —
      * JVM-флаги, переопределяющие {@code ENV} образа (sec.md §7.8); {@code INFRA} — инфраструктурные переменные compose (БД), которые нужны
-     * контейнерам, но не приложению.
+     * контейнерам, но не приложению. {@code KC_}/{@code KEYCLOAK_} — контур Keycloak: ключи читает профильный
+     * {@code application-keycloak.properties} (он не входит в схему — базовый конфиг обязан работать без Keycloak) и сервис
+     * {@code keycloak} профиля dev; исключение по префиксу, потому что набор ключей растёт вместе с версией Keycloak.
      */
-    private static final String NON_SCHEMA_ENV_PREFIX = "JAVA_";
+    private static final Set<String> NON_SCHEMA_ENV_PREFIXES = Set.of("JAVA_", "KC_", "KEYCLOAK_");
+
     private static final Set<String> NON_SCHEMA_ENV_KEYS = Set.of("POSTGRES_USER", "POSTGRES_DB", "PORT");
 
     /**
      * Секреты в шаблоне {@code infrastructure/.env.example}: он содержит и базовые значения, и пустые строки секретов — поэтому при сверке
      * со схемой они исключаются (место секретов в контракте — {@code services.app.environment} compose-файла).
+     * {@code KEYCLOAK_ADMIN_PASSWORD} — пароль начального администратора Keycloak: значение задаёт хост, а в контейнер его передаёт
+     * {@code services.keycloak.environment} ({@code ${KEYCLOAK_ADMIN_PASSWORD:?...}}), как и остальные секреты.
      */
     private static final Set<String> ENV_EXAMPLE_SECRET_KEYS = Set.of("JWT_SECRET", "CAPTCHA_HMAC_SECRET", "DB_PASSWORD", "MAIL_PASSWORD",
-            "KEY_STORE_PASS", "MINIO_ROOT_USER", "MINIO_ROOT_PASSWORD", "METRICS_PASSWORD");
+            "KEY_STORE_PASS", "MINIO_ROOT_USER", "MINIO_ROOT_PASSWORD", "METRICS_PASSWORD", "KEYCLOAK_ADMIN_PASSWORD");
 
     @Test
     @DisplayName("application*.properties — чистая схема: только обязательные ${VAR}, без дефолтов и литералов")
@@ -208,7 +213,7 @@ class ApplicationConfigSchemaTest {
             Map<String, Object> environment = (Map<String, Object>) app.get("environment");
 
             assertThat(environment).as("services.app.environment в infrastructure/docker-compose.yaml").isNotNull();
-            return environment.keySet().stream().filter(key -> !key.startsWith(NON_SCHEMA_ENV_PREFIX))
+            return environment.keySet().stream().filter(key -> NON_SCHEMA_ENV_PREFIXES.stream().noneMatch(key::startsWith))
                     .collect(Collectors.toCollection(LinkedHashSet::new));
         }
     }
@@ -232,7 +237,8 @@ class ApplicationConfigSchemaTest {
         }
         assertThat(keys).as(ENV_EXAMPLE.toString()).isNotEmpty();
         assertThat(keys).as("шаблон .env.example содержит все секреты").containsAll(ENV_EXAMPLE_SECRET_KEYS);
-        return keys.stream().filter(key -> !key.startsWith(NON_SCHEMA_ENV_PREFIX)).filter(key -> !NON_SCHEMA_ENV_KEYS.contains(key))
-                .filter(key -> !ENV_EXAMPLE_SECRET_KEYS.contains(key)).collect(Collectors.toCollection(LinkedHashSet::new));
+        return keys.stream().filter(key -> NON_SCHEMA_ENV_PREFIXES.stream().noneMatch(key::startsWith))
+                .filter(key -> !NON_SCHEMA_ENV_KEYS.contains(key)).filter(key -> !ENV_EXAMPLE_SECRET_KEYS.contains(key))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 }

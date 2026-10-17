@@ -24,11 +24,12 @@ PROFILES_ALL ?= --profile infra --profile dev --profile app --profile monitoring
 .PHONY: help build clean compile package test verify format check run \
         dev-run dev-test \
         env apply-config docker-build up up-prod up-load down down-volumes logs ps restart shell check-image \
+        profile-local profile-keycloak \
         obs-up obs-down obs-open obs-reload obs-alerts \
         load load-smoke \
         migrate \
         openapi openapi-types \
-        e2e-portal-access e2e-ratelimit e2e-jwt e2e-notifications e2e-portal-transfer e2e-token-cleanup e2e-all
+        e2e-portal-access e2e-ratelimit e2e-jwt e2e-notifications e2e-portal-transfer e2e-token-cleanup e2e-keycloak e2e-all
 
 help: ## Показать список команд
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -119,6 +120,12 @@ ps: ## Статус контейнеров (все профили)
 restart: ## Перезапустить только приложение
 	$(COMPOSE) $(PROFILES_ALL) restart app
 
+profile-local: ## Переключить приложение на внутренний JWT-контур (профиль debug) и пересоздать app
+	bash scripts/docker/set-profile.sh debug
+
+profile-keycloak: ## Переключить приложение на контур Keycloak (профиль debug,keycloak) и пересоздать app
+	bash scripts/docker/set-profile.sh debug,keycloak
+
 shell: ## Shell внутри контейнера app
 	$(COMPOSE) $(PROFILES_ALL) exec app sh
 
@@ -126,8 +133,13 @@ check-image: docker-build ## Проверки образа: секреты, ФС
 	./scripts/docker/check-image.sh $(IMAGE)
 
 ## --- Нагрузочное тестирование (k6, scripts/load/) ---
+# Прогон сидирует пул пользователей через /api/v1/auth/register — это
+# внутренний JWT-контур, поэтому up-load переводит приложение на профиль debug.
 
 up-load: env ## Поднять стек для нагрузки (TRUST_PROXY_HEADERS=true инлайном; только локально)
+	# Внутренний JWT-контур: пул сидируется через /api/v1/auth/register.
+	# NO_RESTART=1 — app пересоздаст сам up ниже, лишний перезапуск не нужен.
+	NO_RESTART=1 bash scripts/docker/set-profile.sh debug
 	TRUST_PROXY_HEADERS=true OTLP_TRACING_ENDPOINT=http://otel-collector:4318/v1/traces \
 	$(COMPOSE) $(PROFILES_DEV) up --build -d
 
@@ -157,29 +169,36 @@ openapi-types: openapi ## Сгенерировать TypeScript-типы из с
 	npx --yes openapi-typescript openapi.json -o web/src/api/schema.d.ts
 
 ## --- E2E (нужен поднятый стек: make up) ---
+# Сценарии ходят в cookie-эндпоинты /api/v1/auth/* — это внутренний JWT-контур,
+# поэтому перед прогоном приложение переводится на профиль debug (без keycloak).
+# Контур Keycloak проверяет отдельный сценарий e2e-keycloak (профиль debug,keycloak).
 
-e2e-portal-access: ## E2E: права на портал
+e2e-portal-access: profile-local ## E2E: права на портал
 	bash $(E2E_DIR)/e2e-portal-access.sh
 
-e2e-ratelimit: ## E2E: рейт-лимиты
+e2e-ratelimit: profile-local ## E2E: рейт-лимиты
 	bash $(E2E_DIR)/e2e-ratelimit.sh
 
-e2e-jwt: ## E2E: JWT-поток аутентификации
+e2e-jwt: profile-local ## E2E: JWT-поток аутентификации
 	bash $(E2E_DIR)/e2e-jwt-flow.sh
 
-e2e-notifications: ## E2E: in-app оповещения (long polling)
+e2e-notifications: profile-local ## E2E: in-app оповещения (long polling)
 	bash $(E2E_DIR)/e2e-notifications.sh
 
-e2e-portal-transfer: ## E2E: передача владения порталом
+e2e-portal-transfer: profile-local ## E2E: передача владения порталом
 	bash $(E2E_DIR)/e2e-portal-transfer.sh
 
-e2e-token-cleanup: ## E2E: очистка отозванных и протухших refresh-токенов (пересоздаёт app)
+e2e-token-cleanup: profile-local ## E2E: очистка отозванных и протухших refresh-токенов (пересоздаёт app)
 	bash $(E2E_DIR)/e2e-token-cleanup.sh
 
-e2e-all: ## E2E: все сценарии подряд (тратит рейт-лимиты!)
+e2e-keycloak: profile-keycloak ## E2E: вход через Keycloak (нужен сервис keycloak профиля dev)
+	bash $(E2E_DIR)/e2e-keycloak.sh
+
+e2e-all: profile-local ## E2E: все сценарии подряд (тратит рейт-лимиты!)
 	bash $(E2E_DIR)/e2e-portal-access.sh
 	bash $(E2E_DIR)/e2e-ratelimit.sh
 	bash $(E2E_DIR)/e2e-jwt-flow.sh
 	bash $(E2E_DIR)/e2e-notifications.sh
 	bash $(E2E_DIR)/e2e-portal-transfer.sh
 	bash $(E2E_DIR)/e2e-token-cleanup.sh
+	$(MAKE) e2e-keycloak

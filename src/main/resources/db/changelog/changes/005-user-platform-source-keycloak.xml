@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Keycloak: источник учётной записи KEYCLOAK в CHECK-ограничении
+  users.user_platform_source. Без этого миграция схемы проходит, но Hibernate
+  в validate падает на расхождении enum-набора, а вставка пользователя из
+  Keycloak отклоняется БД.
+-->
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="005-user-platform-source-keycloak" author="ukhanov">
+        <!-- На базе, где ограничение уже пересоздано (например, вручную),
+             changeset помечается выполненным: повторный DROP + ADD не нужен. -->
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM pg_constraint
+                WHERE conname = 'users_user_platform_source_check'
+                  AND pg_get_constraintdef(oid) LIKE '%KEYCLOAK%'
+            </sqlCheck>
+        </preConditions>
+        <!-- Путь от корня classpath, не от этого файла: рядом лежат и changes/, и sql/. -->
+        <sqlFile path="db/changelog/sql/005-user-platform-source-keycloak.sql"
+                 encoding="UTF-8"
+                 splitStatements="true"
+                 endDelimiter=";"/>
+    </changeSet>
+
+</databaseChangeLog>

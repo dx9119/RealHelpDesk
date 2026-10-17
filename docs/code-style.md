@@ -114,7 +114,7 @@ import static ...;               // static — всегда в конце
 - Формат логов: в профиле `debug` — читаемый паттерн (`logback-spring.xml`; в тестах `logback-test.xml`), в остальных профилях — JSON по ECS через `StructuredLogEncoder`.
 - MDC (ключи `requestId` / `clientIp` / `uriRequest` / `role`, плюс `traceId` / `spanId` от OTel):
   - ключи брать только из констант `LoggingFilter.REQUEST_ID` / `CLIENT_IP` / `URI_REQUEST` / `ROLE`, не строками — иначе код и паттерн в `logback-spring.xml` разъедутся; `traceId`/`spanId` при включённом OTel кладёт `Slf4JEventListener`;
-  - `role` по умолчанию `ANONYMOUS` кладёт `LoggingFilter`, после аутентификации значение перезаписывает `JwtAuthFilter` (без префикса `ROLE_` — как в теге метрики), очистку в `finally` делает `LoggingFilter`;
+  - `role` по умолчанию `ANONYMOUS` кладёт `LoggingFilter`, после аутентификации значение перезаписывает контурный фильтр — `JwtAuthFilter` (внутренний JWT) или `KeycloakAuthenticationRoleFilter` (профиль `keycloak`), оба без префикса `ROLE_` — как в теге метрики; очистку в `finally` делает `LoggingFilter`;
   - новый MDC-ключ = правка читаемых паттернов в `logback-spring.xml` (debug) и `logback-test.xml` — в JSON-ветке поля берутся из MDC автоматически — плюс константа в `LoggingFilter`;
   - логи в фоновых задачах и в колбэках `DeferredResult`/`SseEmitter` обязаны либо восстановить контекст запроса-инициатора (снимок `MDC.getCopyOfContextMap()` до подмены, в `finally` — прежний контекст потока), либо явно задать технический `requestId`; поток, возвращаемый в пул, не должен уносить чужой MDC;
   - любая строка уровня `WARN` и выше, видимая в `prod`, обязана нести `requestId` — иначе инцидент не связать с запросом.

@@ -31,7 +31,8 @@ public class HttpServerRequestObservationConvention extends DefaultServerRequest
     /** Имя тега роли в метрике и в спане. */
     public static final String ROLE_TAG = "role";
 
-    private static final String ROLE_PREFIX = "ROLE_";
+    /** Префикс ролей Spring Security: authority приложения выглядит как {@code ROLE_OPERATOR}. */
+    public static final String ROLE_PREFIX = "ROLE_";
 
     private static final String ANONYMOUS = "ANONYMOUS";
 

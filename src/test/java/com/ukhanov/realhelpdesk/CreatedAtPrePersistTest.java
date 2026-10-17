@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 
-import com.ukhanov.realhelpdesk.core.security.auth.tokens.model.RefreshTokenModel;
+import com.ukhanov.realhelpdesk.core.security.localjwt.auth.tokens.model.RefreshTokenModel;
 import com.ukhanov.realhelpdesk.core.security.user.model.UserModel;
 import com.ukhanov.realhelpdesk.domain.message.model.MessageModel;
 import com.ukhanov.realhelpdesk.domain.portal.model.PortalModel;
