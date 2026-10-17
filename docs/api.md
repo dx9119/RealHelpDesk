@@ -70,7 +70,7 @@ honeypot-поле `website` (должно быть пустым/отсутств
 
 | Метод и путь | Тело | Назначение |
 |---|---|---|
-| `POST /operator/tokens/cleanup` | — | Принудительная очистка отозванных refresh-токенов старше `JWT_REVOKED_TOKEN_RETENTION_DAYS` → `200` + `{ revokedDeleted, batches }`. Тот же механизм, что у ночного расписания: оценка объёма и удаление батчами с адаптивным размером и паузами |
+| `POST /operator/tokens/cleanup` | — | Принудительная очистка отозванных refresh-токенов старше `JWT_REVOKED_TOKEN_RETENTION_SECONDS` → `200` + `{ revokedDeleted, batches }`. Тот же механизм, что у ночного расписания: оценка объёма и удаление батчами с адаптивным размером и паузами |
 
 ## Email (`/email`)
 

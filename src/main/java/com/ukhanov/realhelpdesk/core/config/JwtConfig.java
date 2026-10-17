@@ -20,15 +20,15 @@ public class JwtConfig {
     private final Key jwtKey;
     private final String issuer;
     private final Set<String> audience;
-    private final Integer accessTokenExp;
-    private final Integer refreshExpiration;
+    private final Integer accessTokenExpirationSeconds;
+    private final Integer refreshTokenExpirationSeconds;
 
     public JwtConfig(JwtProperties properties) {
         String secretForGenJwt = properties.getSecretForGenJwt();
         String issuer = properties.getIssuer();
         Set<String> audience = properties.getAudience();
-        Integer accessTokenExp = properties.getAccessTokenExpiration();
-        Integer refreshExp = properties.getRefreshTokenExpiration();
+        Integer accessExpSeconds = properties.getAccessTokenExpirationSeconds();
+        Integer refreshExpSeconds = properties.getRefreshTokenExpirationSeconds();
 
         if (secretForGenJwt == null || secretForGenJwt.isBlank()) {
             throw new IllegalArgumentException("jwt.secret-for-gen-jwt не содержит значение");
@@ -42,12 +42,12 @@ public class JwtConfig {
             throw new IllegalArgumentException("jwt.audience не содержит значение");
         }
 
-        if (accessTokenExp == null || accessTokenExp <= 0) {
-            throw new IllegalArgumentException("jwt.access-token-expiration не содержит значение");
+        if (accessExpSeconds == null || accessExpSeconds <= 0) {
+            throw new IllegalArgumentException("jwt.access-token-expiration-seconds не содержит значение");
         }
 
-        if (refreshExp == null || refreshExp <= 0) {
-            throw new IllegalArgumentException("jwt.refresh-token-expiration не содержит значение");
+        if (refreshExpSeconds == null || refreshExpSeconds <= 0) {
+            throw new IllegalArgumentException("jwt.refresh-token-expiration-seconds не содержит значение");
         }
 
         try {
@@ -59,7 +59,7 @@ public class JwtConfig {
 
         this.issuer = issuer;
         this.audience = audience;
-        this.accessTokenExp = accessTokenExp;
-        this.refreshExpiration = refreshExp;
+        this.accessTokenExpirationSeconds = accessExpSeconds;
+        this.refreshTokenExpirationSeconds = refreshExpSeconds;
     }
 }

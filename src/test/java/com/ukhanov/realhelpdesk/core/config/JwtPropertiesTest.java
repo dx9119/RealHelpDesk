@@ -21,8 +21,8 @@ class JwtPropertiesTest {
         environment.setProperty("jwt.secret-for-gen-jwt", "c2VjcmV0");
         environment.setProperty("jwt.issuer", "https://example.com");
         environment.setProperty("jwt.audience", "https://example.com,https://back.example.com");
-        environment.setProperty("jwt.access-token-expiration", "60");
-        environment.setProperty("jwt.refresh-token-expiration", "43200");
+        environment.setProperty("jwt.access-token-expiration-seconds", "3600");
+        environment.setProperty("jwt.refresh-token-expiration-seconds", "2592000");
         environment.setProperty("jwt.cookie.same-site", "Lax");
         environment.setProperty("jwt.cookie.domain", ".example.com");
 
@@ -31,8 +31,8 @@ class JwtPropertiesTest {
         assertThat(properties.getSecretForGenJwt()).isEqualTo("c2VjcmV0");
         assertThat(properties.getIssuer()).isEqualTo("https://example.com");
         assertThat(properties.getAudience()).containsExactlyInAnyOrder("https://example.com", "https://back.example.com");
-        assertThat(properties.getAccessTokenExpiration()).isEqualTo(60);
-        assertThat(properties.getRefreshTokenExpiration()).isEqualTo(43200);
+        assertThat(properties.getAccessTokenExpirationSeconds()).isEqualTo(3600);
+        assertThat(properties.getRefreshTokenExpirationSeconds()).isEqualTo(2592000);
         assertThat(properties.getCookie().getSameSite()).isEqualTo(SameSite.LAX);
         assertThat(properties.getCookie().getDomain()).isEqualTo(".example.com");
     }

@@ -276,7 +276,7 @@ JWT передаётся в http-only cookie (`accessToken`), refresh-токен
 Refresh-токены лежат в БД хешами SHA-256. Ротация при обновлении отзывает
 предыдущий refresh; отозванные и протухшие строки удаляет фоновая задача по
 `jwt.token-cleanup-cron` (`JWT_TOKEN_CLEANUP_CRON`), храня отозванные
-`jwt.revoked-token-retention-days` (`JWT_REVOKED_TOKEN_RETENTION_DAYS`). Удаление
+`jwt.revoked-token-retention-seconds` (`JWT_REVOKED_TOKEN_RETENTION_SECONDS`). Удаление
 идёт батчами с адаптивным размером и паузой (`JWT_TOKEN_CLEANUP_BATCH_MIN_SIZE`,
 `_BATCH_MAX_SIZE`, `_TARGET_BATCH_MS`, `_BATCH_PAUSE_MS`): сначала оценивается
 объём, затем строки удаляются порциями в отдельных коротких транзакциях — без

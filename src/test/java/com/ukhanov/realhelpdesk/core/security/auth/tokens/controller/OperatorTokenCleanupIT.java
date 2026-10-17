@@ -33,10 +33,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Сквозной поток операторской очистки: доступ только у {@code ROLE_OPERATOR}, удаление старых отозванных токенов с возвратом счётчиков.
- * Срок хранения отозванных занижен до суток, токены состариваются bulk-запросом.
+ * Срок хранения отозванных занижен до суток (86400 с), токены состариваются bulk-запросом.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {"spring.profiles.active=test",
-        "jwt.revoked-token-retention-days=1"})
+        "jwt.revoked-token-retention-seconds=86400"})
 @DisplayName("Операторская очистка отозванных токенов (HTTP)")
 class OperatorTokenCleanupIT {
 

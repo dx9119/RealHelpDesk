@@ -25,8 +25,8 @@ class JwtConfigTest {
         assertThat(config.getJwtKey().getEncoded()).hasSize(32);
         assertThat(config.getIssuer()).isEqualTo("https://example.com");
         assertThat(config.getAudience()).containsExactly("https://example.com");
-        assertThat(config.getAccessTokenExp()).isEqualTo(60);
-        assertThat(config.getRefreshExpiration()).isEqualTo(43200);
+        assertThat(config.getAccessTokenExpirationSeconds()).isEqualTo(3600);
+        assertThat(config.getRefreshTokenExpirationSeconds()).isEqualTo(2592000);
     }
 
     @Test
@@ -71,14 +71,14 @@ class JwtConfigTest {
     @DisplayName("Не положительный срок жизни — ошибка на старте")
     void nonPositiveExpirationFails() {
         JwtProperties noAccess = validProperties();
-        noAccess.setAccessTokenExpiration(0);
+        noAccess.setAccessTokenExpirationSeconds(0);
         assertThatThrownBy(() -> new JwtConfig(noAccess)).isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("jwt.access-token-expiration");
+                .hasMessageContaining("jwt.access-token-expiration-seconds");
 
         JwtProperties noRefresh = validProperties();
-        noRefresh.setRefreshTokenExpiration(-1);
+        noRefresh.setRefreshTokenExpirationSeconds(-1);
         assertThatThrownBy(() -> new JwtConfig(noRefresh)).isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("jwt.refresh-token-expiration");
+                .hasMessageContaining("jwt.refresh-token-expiration-seconds");
     }
 
     @Test
@@ -93,8 +93,8 @@ class JwtConfigTest {
         properties.setSecretForGenJwt(VALID_SECRET);
         properties.setIssuer("https://example.com");
         properties.setAudience(Set.of("https://example.com"));
-        properties.setAccessTokenExpiration(60);
-        properties.setRefreshTokenExpiration(43200);
+        properties.setAccessTokenExpirationSeconds(3600);
+        properties.setRefreshTokenExpirationSeconds(2592000);
         return properties;
     }
 }

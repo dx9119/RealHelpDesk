@@ -33,7 +33,7 @@ public class GenTokenService {
         Objects.requireNonNull(securityUser.getRule(), "Роль у SecurityUser не может отсутствовать!");
 
         Instant dateNow = Instant.now();
-        Instant expiry = dateNow.plusSeconds(jwtConfig.getAccessTokenExp() * 60L);
+        Instant expiry = dateNow.plusSeconds(jwtConfig.getAccessTokenExpirationSeconds());
 
         // jti гарантирует уникальность: два токена, выданные в одну секунду, иначе байт-в-байт одинаковы.
         // Значение токена в лог не идёт — след выпуска оставляем по userId и jti
@@ -53,7 +53,7 @@ public class GenTokenService {
         Objects.requireNonNull(securityUser, "SecurityUser не может быть null!");
 
         Instant now = Instant.now();
-        Instant expiry = now.plusSeconds(jwtConfig.getRefreshExpiration() * 60L);
+        Instant expiry = now.plusSeconds(jwtConfig.getRefreshTokenExpirationSeconds());
 
         // Уникальный id обязателен: в БД хеш токена хранится с unique-ограничением.
         // В лог — только userId и jti, сам токен и его хешь не пишем

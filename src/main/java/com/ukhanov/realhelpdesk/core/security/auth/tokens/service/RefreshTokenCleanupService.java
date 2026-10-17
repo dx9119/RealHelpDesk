@@ -22,9 +22,9 @@ import lombok.extern.slf4j.Slf4j;
  * Два срока:
  * </p>
  * <ul>
- * <li>отозванные строки (статус не {@code ACTIVE}) старше {@code jwt.revoked-token-retention-days};</li>
- * <li>активные строки старше срока жизни refresh-токена ({@code jwt.refresh-token-expiration}, минуты) — токен уже недействителен по
- * {@code exp}.</li>
+ * <li>отозванные строки (статус не {@code ACTIVE}) старше {@code jwt.revoked-token-retention-seconds};</li>
+ * <li>активные строки старше срока жизни refresh-токена ({@code jwt.refresh-token-expiration-seconds}, секунды) — токен уже недействителен
+ * по {@code exp}.</li>
  * </ul>
  *
  * <p>
@@ -55,13 +55,13 @@ public class RefreshTokenCleanupService {
         this.jwtRefreshTokenRepository = jwtRefreshTokenRepository;
         this.batchExecutor = batchExecutor;
         this.jwtProperties = jwtProperties;
-        Integer retentionDays = jwtProperties.getRevokedTokenRetentionDays();
-        if (retentionDays == null || retentionDays < 1) {
-            throw new IllegalStateException("jwt.revoked-token-retention-days должен быть положительным, получено " + retentionDays);
+        Integer retentionSeconds = jwtProperties.getRevokedTokenRetentionSeconds();
+        if (retentionSeconds == null || retentionSeconds < 1) {
+            throw new IllegalStateException("jwt.revoked-token-retention-seconds должен быть положительным, получено " + retentionSeconds);
         }
-        Integer refreshMinutes = jwtProperties.getRefreshTokenExpiration();
-        if (refreshMinutes == null || refreshMinutes < 1) {
-            throw new IllegalStateException("jwt.refresh-token-expiration должен быть положительным, получено " + refreshMinutes);
+        Integer refreshSeconds = jwtProperties.getRefreshTokenExpirationSeconds();
+        if (refreshSeconds == null || refreshSeconds < 1) {
+            throw new IllegalStateException("jwt.refresh-token-expiration-seconds должен быть положительным, получено " + refreshSeconds);
         }
         if (jwtProperties.getTokenCleanupCron() == null || jwtProperties.getTokenCleanupCron().isBlank()) {
             throw new IllegalStateException("jwt.token-cleanup-cron не содержит значение");
@@ -107,24 +107,24 @@ public class RefreshTokenCleanupService {
     }
 
     /**
-     * Принудительная очистка отозванных строк (статус не {@code ACTIVE}) старше {@code jwt.revoked-token-retention-days}. Тот же механизм,
-     * что и у ночного расписания: оценка объёма, затем батчи с адаптивным размером и паузами. Возвращает число удалённых строк и батчей —
-     * вызывается операторским API и переиспользуется в {@link #deleteExpiredTokens()}.
+     * Принудительная очистка отозванных строк (статус не {@code ACTIVE}) старше {@code jwt.revoked-token-retention-seconds}. Тот же
+     * механизм, что и у ночного расписания: оценка объёма, затем батчи с адаптивным размером и паузами. Возвращает число удалённых строк и
+     * батчей — вызывается операторским API и переиспользуется в {@link #deleteExpiredTokens()}.
      */
     public CleanupResult cleanRevokedTokens() {
-        Instant cutoff = Instant.now().minus(jwtProperties.getRevokedTokenRetentionDays(), ChronoUnit.DAYS);
+        Instant cutoff = Instant.now().minus(jwtProperties.getRevokedTokenRetentionSeconds(), ChronoUnit.SECONDS);
         long estimated = jwtRefreshTokenRepository.countByStatusNotAndCreatedAtBefore(TokenStatus.ACTIVE, cutoff);
-        logger.info("Ротация refresh-токенов: отозванные старше {} дн. — оценка {}, стартовый батч {}",
-                jwtProperties.getRevokedTokenRetentionDays(), estimated, jwtProperties.getTokenCleanupBatchMinSize());
+        logger.info("Ротация refresh-токенов: отозванные старше {} с — оценка {}, стартовый батч {}",
+                jwtProperties.getRevokedTokenRetentionSeconds(), estimated, jwtProperties.getTokenCleanupBatchMinSize());
         return purge(true, cutoff);
     }
 
     /** Протухшие активные строки старше срока жизни refresh-токена: токен уже недействителен по {@code exp}. */
     private CleanupResult cleanExpiredActiveTokens() {
-        Instant cutoff = Instant.now().minus(jwtProperties.getRefreshTokenExpiration(), ChronoUnit.MINUTES);
+        Instant cutoff = Instant.now().minus(jwtProperties.getRefreshTokenExpirationSeconds(), ChronoUnit.SECONDS);
         long estimated = jwtRefreshTokenRepository.countByStatusAndCreatedAtBefore(TokenStatus.ACTIVE, cutoff);
-        logger.info("Ротация refresh-токенов: протухшие активные старше {} мин. — оценка {}, стартовый батч {}",
-                jwtProperties.getRefreshTokenExpiration(), estimated, jwtProperties.getTokenCleanupBatchMinSize());
+        logger.info("Ротация refresh-токенов: протухшие активные старше {} с — оценка {}, стартовый батч {}",
+                jwtProperties.getRefreshTokenExpirationSeconds(), estimated, jwtProperties.getTokenCleanupBatchMinSize());
         return purge(false, cutoff);
     }
 

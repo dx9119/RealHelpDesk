@@ -106,7 +106,7 @@ class RefreshTokenCleanupServiceTest {
         });
         when(executor.deleteActiveBatch(any(), anyInt())).thenReturn(0);
         RefreshTokenCleanupService service = new RefreshTokenCleanupService(repository, executor,
-                properties(7, 43200, "0 30 3 * * *", 100, 5000, 200, 50));
+                properties(604800, 2592000, "0 30 3 * * *", 100, 5000, 200, 50));
 
         try {
             service.deleteExpiredTokens();
@@ -132,35 +132,36 @@ class RefreshTokenCleanupServiceTest {
     @DisplayName("Невалидные пороги/расписание/батчи — старт падает с понятной ошибкой")
     void constructor_validatesProperties() {
         assertThatThrownBy(
-                () -> new RefreshTokenCleanupService(repository, executor, properties(0, 43200, "0 30 3 * * *", 100, 5000, 200, 50)))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("revoked-token-retention-days");
-        assertThatThrownBy(() -> new RefreshTokenCleanupService(repository, executor, properties(7, 0, "0 30 3 * * *", 100, 5000, 200, 50)))
-                .isInstanceOf(IllegalStateException.class).hasMessageContaining("refresh-token-expiration");
-        assertThatThrownBy(() -> new RefreshTokenCleanupService(repository, executor, properties(7, 43200, " ", 100, 5000, 200, 50)))
+                () -> new RefreshTokenCleanupService(repository, executor, properties(0, 2592000, "0 30 3 * * *", 100, 5000, 200, 50)))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("revoked-token-retention-seconds");
+        assertThatThrownBy(
+                () -> new RefreshTokenCleanupService(repository, executor, properties(604800, 0, "0 30 3 * * *", 100, 5000, 200, 50)))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("refresh-token-expiration-seconds");
+        assertThatThrownBy(() -> new RefreshTokenCleanupService(repository, executor, properties(604800, 2592000, " ", 100, 5000, 200, 50)))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("token-cleanup-cron");
         assertThatThrownBy(
-                () -> new RefreshTokenCleanupService(repository, executor, properties(7, 43200, "0 30 3 * * *", 0, 5000, 200, 50)))
+                () -> new RefreshTokenCleanupService(repository, executor, properties(604800, 2592000, "0 30 3 * * *", 0, 5000, 200, 50)))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("batch-min-size");
         assertThatThrownBy(
-                () -> new RefreshTokenCleanupService(repository, executor, properties(7, 43200, "0 30 3 * * *", 100, 50, 200, 50)))
+                () -> new RefreshTokenCleanupService(repository, executor, properties(604800, 2592000, "0 30 3 * * *", 100, 50, 200, 50)))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("batch-max-size");
         assertThatThrownBy(
-                () -> new RefreshTokenCleanupService(repository, executor, properties(7, 43200, "0 30 3 * * *", 100, 5000, 0, 50)))
+                () -> new RefreshTokenCleanupService(repository, executor, properties(604800, 2592000, "0 30 3 * * *", 100, 5000, 0, 50)))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("target-batch-ms");
         assertThatThrownBy(
-                () -> new RefreshTokenCleanupService(repository, executor, properties(7, 43200, "0 30 3 * * *", 100, 5000, 200, -1)))
+                () -> new RefreshTokenCleanupService(repository, executor, properties(604800, 2592000, "0 30 3 * * *", 100, 5000, 200, -1)))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("batch-pause-ms");
     }
 
     private JwtProperties properties() {
-        return properties(7, 43200, "0 30 3 * * *", 100, 5000, 200, 0);
+        return properties(604800, 2592000, "0 30 3 * * *", 100, 5000, 200, 0);
     }
 
-    private JwtProperties properties(Integer retentionDays, Integer refreshMinutes, String cron, Integer batchMin, Integer batchMax,
+    private JwtProperties properties(Integer retentionSeconds, Integer refreshSeconds, String cron, Integer batchMin, Integer batchMax,
             Integer targetMs, Integer pauseMs) {
         JwtProperties properties = new JwtProperties();
-        properties.setRevokedTokenRetentionDays(retentionDays);
-        properties.setRefreshTokenExpiration(refreshMinutes);
+        properties.setRevokedTokenRetentionSeconds(retentionSeconds);
+        properties.setRefreshTokenExpirationSeconds(refreshSeconds);
         properties.setTokenCleanupCron(cron);
         properties.setTokenCleanupBatchMinSize(batchMin);
         properties.setTokenCleanupBatchMaxSize(batchMax);

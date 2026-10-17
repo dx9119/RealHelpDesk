@@ -52,8 +52,6 @@ public class AuthController {
 
     // Refresh-cookie нужен только эндпоинтам этого контроллера — не отправляем его на весь API
     private static final String REFRESH_COOKIE_PATH = "/api/v1/auth";
-    private static final Duration ACCESS_TOKEN_TTL = Duration.ofHours(1);
-    private static final Duration REFRESH_TOKEN_TTL = Duration.ofDays(30);
 
     private final RegistrationService registrationService;
     private final LoginService loginService;
@@ -72,8 +70,8 @@ public class AuthController {
         TokensResponse tokens = registrationService.processRegistration(registerRequest, clientIpResolver.resolve(httpRequest));
 
         return ResponseEntity.created(PROFILE_URI)
-                .header(HttpHeaders.SET_COOKIE, accessCookie(tokens.accessToken(), ACCESS_TOKEN_TTL).toString(),
-                        refreshCookie(tokens.refreshToken(), REFRESH_TOKEN_TTL).toString())
+                .header(HttpHeaders.SET_COOKIE, accessCookie(tokens.accessToken(), accessTokenTtl()).toString(),
+                        refreshCookie(tokens.refreshToken(), refreshTokenTtl()).toString())
                 .build();
     }
 
@@ -82,8 +80,8 @@ public class AuthController {
     public ResponseEntity<Void> login(@Valid @RequestBody LoginRequest loginRequest) throws TokenException {
         TokensResponse tokens = loginService.processLogin(loginRequest);
 
-        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, accessCookie(tokens.accessToken(), ACCESS_TOKEN_TTL).toString(),
-                refreshCookie(tokens.refreshToken(), REFRESH_TOKEN_TTL).toString()).build();
+        return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, accessCookie(tokens.accessToken(), accessTokenTtl()).toString(),
+                refreshCookie(tokens.refreshToken(), refreshTokenTtl()).toString()).build();
     }
 
     // Отдать новый токен авторизации при наличии активного refresh token
@@ -91,7 +89,7 @@ public class AuthController {
     @RateLimit(key = "auth-access-token")
     public ResponseEntity<Void> createAccessToken(HttpServletRequest request) throws TokenException, RefreshException {
 
-        ResponseCookie accessCookie = accessCookie(refreshService.updateAccess(request), ACCESS_TOKEN_TTL);
+        ResponseCookie accessCookie = accessCookie(refreshService.updateAccess(request), accessTokenTtl());
 
         return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, accessCookie.toString()).build();
     }
@@ -120,6 +118,19 @@ public class AuthController {
         return ResponseEntity.noContent()
                 .header(HttpHeaders.SET_COOKIE, accessCookie("", Duration.ZERO).toString(), refreshCookie("", Duration.ZERO).toString())
                 .build();
+    }
+
+    /**
+     * Время жизни cookie access-токена берём из конфига ({@code jwt.access-token-expiration-seconds}, секунды), а не из константы: Max-Age
+     * должен совпадать со сроком жизни самого токена, иначе cookie переживёт токен или исчезнет раньше него.
+     */
+    private Duration accessTokenTtl() {
+        return Duration.ofSeconds(jwtProperties.getAccessTokenExpirationSeconds());
+    }
+
+    /** Время жизни cookie refresh-токена — из конфига ({@code jwt.refresh-token-expiration-seconds}, секунды). */
+    private Duration refreshTokenTtl() {
+        return Duration.ofSeconds(jwtProperties.getRefreshTokenExpirationSeconds());
     }
 
     private ResponseCookie accessCookie(String value, Duration maxAge) {

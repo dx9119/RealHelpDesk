@@ -32,17 +32,17 @@ public class JwtProperties {
     /** Домены-аудитории токенов: claim {@code aud}, список через запятую. */
     private Set<String> audience = new LinkedHashSet<>();
 
-    /** Срок жизни access-токена в минутах. */
-    private Integer accessTokenExpiration;
+    /** Срок жизни access-токена в секундах. */
+    private Integer accessTokenExpirationSeconds;
 
-    /** Срок жизни refresh-токена в минутах. */
-    private Integer refreshTokenExpiration;
+    /** Срок жизни refresh-токена в секундах. */
+    private Integer refreshTokenExpirationSeconds;
 
     /**
-     * Сколько дней хранить отозванные строки {@code jwt_tokens} до удаления фоновой задачей. Отзыв токена меняет только статус, поэтому
+     * Сколько секунд хранить отозванные строки {@code jwt_tokens} до удаления фоновой задачей. Отзыв токена меняет только статус, поэтому
      * строки копятся; активные строки удаляются отдельно по истечении срока жизни токена, этот срок их не касается.
      */
-    private Integer revokedTokenRetentionDays;
+    private Integer revokedTokenRetentionSeconds;
 
     /** Cron-расписание задачи ротации refresh-токенов (6 полей, с секундами). */
     private String tokenCleanupCron;
